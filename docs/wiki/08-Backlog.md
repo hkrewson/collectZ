@@ -274,49 +274,6 @@ These are unscheduled interface cleanup tasks discovered during the `3.10.x` mob
 - Desktop surfaces remain readable and do not inherit mobile-only compaction compromises.
 - Shared primitives carry the repeated behavior where possible.
 
-### Backlog Item: Library Aggregate Count and Delete-State Consistency
-**Type:** UI/runtime consistency bug
-**Tags:** `ui`, `library`, `movies`, `games`, `collections`, `counts`, `delete`, `pagination`, `browser-regression`
-**Status:** Unscheduled. TestSprite reported the issue after a movie deletion; source review confirms count-state defects, while the recorded run confirms the target movie itself remained deleted after reload.
-
-**Goal:** Make Library heading counts deterministic and immediately consistent with successful single-item deletion while preserving the `2.4.3.2` contract that the `All Movies` and `All Games` card views include collection entries.
-
-**Why this work exists**
-- TestSprite created and deleted `QA Delete 20261120-001`; the final exact-title search returned `No items found`, proving the observed failure was not retained media data.
-- The test recorded a Movies heading count of `8` before deletion and `13` after deletion/reload instead of the expected `7`. That expectation treated the heading as a media-row-only count even though the main card view also includes movie collection cards.
-- `frontend/src/components/LibraryView.jsx` currently derives the aggregate heading count from the media pagination total plus `collectionRows.length`. The result can change when the asynchronous collection request settles and can undercount collections beyond the loaded page.
-- `frontend/src/components/app/hooks/useMediaApi.js` removes a successfully deleted item from `mediaItems` but does not adjust `mediaPagination.total`; bulk deletion already performs the missing total/page recalculation.
-- Collection loading does not use the request-sequence protection applied to media loading, so a slower stale search response can overwrite newer collection state during rapid filter changes.
-
-**Intended count contract**
-- `All Movies` and `All Games` heading counts represent all matching result cards: individual titles plus collection entries.
-- `Movie Collections` and `Game Collections` heading counts represent matching collection entries only.
-- Count readback must not temporarily present a partially settled aggregate as a stable result when media and collection requests correspond to different filter generations.
-
-**Scope**
-- Replace loaded-row counting with authoritative media and collection pagination totals for aggregate heading readback.
-- Keep media and collection request generations aligned through request sequencing, cancellation, or one authoritative combined-result contract.
-- After successful single-item deletion, update the media pagination total, total pages, current page, and `hasMore` state consistently with the existing bulk-delete behavior, or perform an equivalent authoritative refresh before presenting a settled count.
-- Verify page clamping when deleting the final item on a page.
-- Apply the same behavior to Movies and Games because both surfaces support inline collections.
-- Add focused browser coverage with existing collection fixtures so the test distinguishes media-row count from aggregate result-card count.
-- Update external TestSprite expectations to wait for both result sources to settle and assert a one-item aggregate delta rather than assuming the heading contains only media rows.
-
-**Out of scope**
-- Do not change or soften scoped backend deletion authorization.
-- Do not delete a collection merely because one linked media item is deleted.
-- Do not remove collection cards from the main Movies or Games view; that would reverse the completed `2.4.3.2` product contract.
-- Do not redesign the broader Library header or collection editor as part of this correction.
-
-**Acceptance Criteria**
-- With at least one collection present, the settled `All Movies` or `All Games` heading equals the authoritative matching title total plus the authoritative matching collection total.
-- A successful single-item deletion removes the card and decreases the settled aggregate heading count by exactly one without requiring a full browser reload.
-- Reloading preserves both the deletion and the decreased aggregate count.
-- Exact-title search for the deleted item returns no result after reload.
-- Clearing search cannot allow an older collection response to overwrite the current unfiltered count.
-- Collection-only lenses continue to report their own authoritative totals, and pagination remains correct after deleting the last title on a page.
-- A focused browser regression covers create, settled baseline, details-panel delete, immediate count delta, reload, cleared search, and exact-title absence.
-
 ### Backlog Item: Sidebar Hamburger Removal and Brand Collapse Affordance
 **Type:** UI/UX refinement
 **Tags:** `ui`, `ux`, `sidebar`, `navigation`, `accessibility`, `density`

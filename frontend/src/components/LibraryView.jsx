@@ -30,21 +30,11 @@ import {
   normalizeIsbnCandidate,
   normalizeBarcodeInput
 } from './app/AppPrimitives';
-import {
-  buildLoanMetadata,
-  buildObjectDrawerMetadataRecords
-} from './app/drawerMetadata';
+import { buildLoanMetadata, buildObjectDrawerMetadataRecords } from './app/drawerMetadata';
 import SignatureManager from './app/SignatureManager';
-import {
-  getOwnedFormatLabels,
-  getOwnedFormatOptions,
-  normalizeOwnedFormats,
-  sortOwnedFormats
-} from './app/mediaFormats';
-import {
-  compareComicIssueOrder,
-  getComicSeriesName
-} from '../lib/comicIssueOrder';
+import { getOwnedFormatLabels, getOwnedFormatOptions, normalizeOwnedFormats, sortOwnedFormats } from './app/mediaFormats';
+import { compareComicIssueOrder, getComicSeriesName } from '../lib/comicIssueOrder';
+import { getLibraryDisplayedTotal } from '../lib/libraryPagination';
 
 const ENTRY_MEDIA_TABS = [
   { value: 'audio', label: 'Audio' },
@@ -56,34 +46,88 @@ const ENTRY_MEDIA_TABS = [
 ];
 const DEFAULT_MEDIA_FORM = {
   media_type: 'movie',
-  title: '', original_title: '', release_date: '', year: '', format: 'Blu-ray', owned_formats: ['bluray'], genre: '',
-  director: '', cast: '', rating: '', user_rating: 0, runtime: '', upc: '', location: '', notes: '',
-  signed_by: '', signed_role: '', signed_on: '', signed_at: '', signed_proof_path: '',
-  overview: '', tmdb_id: '', tmdb_media_type: 'movie', tmdb_url: '', trailer_url: '', poster_path: '', backdrop_path: '',
-  season_number: '', episode_number: '', episode_title: '', network: '',
-  book_author: '', book_isbn: '', book_publisher: '', book_edition: '',
+  title: '',
+  original_title: '',
+  release_date: '',
+  year: '',
+  format: 'Blu-ray',
+  owned_formats: ['bluray'],
+  genre: '',
+  director: '',
+  cast: '',
+  rating: '',
+  user_rating: 0,
+  runtime: '',
+  upc: '',
+  location: '',
+  notes: '',
+  signed_by: '',
+  signed_role: '',
+  signed_on: '',
+  signed_at: '',
+  signed_proof_path: '',
+  overview: '',
+  tmdb_id: '',
+  tmdb_media_type: 'movie',
+  tmdb_url: '',
+  trailer_url: '',
+  poster_path: '',
+  backdrop_path: '',
+  season_number: '',
+  episode_number: '',
+  episode_title: '',
+  network: '',
+  book_author: '',
+  book_isbn: '',
+  book_publisher: '',
+  book_edition: '',
   movie_edition: '',
-  comic_series: '', comic_issue_number: '', comic_volume: '', comic_writer: '', comic_artist: '', comic_inker: '', comic_colorist: '', comic_cover_date: '', comic_provider_issue_id: '', comic_barcode_addon: '',
-  audio_artist: '', audio_album: '', audio_track_count: '',
-  game_platform: '', game_developer: '', game_region: ''
+  comic_series: '',
+  comic_issue_number: '',
+  comic_volume: '',
+  comic_writer: '',
+  comic_artist: '',
+  comic_inker: '',
+  comic_colorist: '',
+  comic_cover_date: '',
+  comic_provider_issue_id: '',
+  comic_barcode_addon: '',
+  audio_artist: '',
+  audio_album: '',
+  audio_track_count: '',
+  game_platform: '',
+  game_developer: '',
+  game_region: ''
 };
 const OVERVIEW_MAX_LENGTH = 10000;
 
 function hostnameMatches(hostname = '', expectedHostname = '') {
-  const value = String(hostname || '').trim().toLowerCase();
-  const expected = String(expectedHostname || '').trim().toLowerCase();
+  const value = String(hostname || '')
+    .trim()
+    .toLowerCase();
+  const expected = String(expectedHostname || '')
+    .trim()
+    .toLowerCase();
   return Boolean(expected) && (value === expected || value.endsWith(`.${expected}`));
 }
 
 function hostnameIncludesLabel(hostname = '', label = '') {
-  const labels = String(hostname || '').trim().toLowerCase().split('.');
-  const expected = String(label || '').trim().toLowerCase();
+  const labels = String(hostname || '')
+    .trim()
+    .toLowerCase()
+    .split('.');
+  const expected = String(label || '')
+    .trim()
+    .toLowerCase();
   return Boolean(expected) && labels.includes(expected);
 }
 
 function normalizeReviewFilter(value) {
   const raw = typeof value === 'string' ? value : value?.type;
-  const normalized = String(raw || '').trim().toLowerCase().replace(/-/g, '_');
+  const normalized = String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, '_');
   if (normalized === 'missing_covers' || normalized === 'missing_cover') return 'missing_covers';
   if (normalized === 'missing_identifiers' || normalized === 'missing_identifier') return 'missing_identifiers';
   if (normalized === 'sparse_metadata' || normalized === 'missing_metadata' || normalized === 'metadata') return 'sparse_metadata';
@@ -116,11 +160,7 @@ function OwnedFormatPicker({ mediaType, value = [], onChange }) {
 
   return (
     <div className="overflow-x-auto pb-1 no-scrollbar">
-      <div
-        role="group"
-        aria-label="Owned formats"
-        className="inline-flex min-w-full flex-nowrap gap-2 whitespace-nowrap"
-      >
+      <div role="group" aria-label="Owned formats" className="inline-flex min-w-full flex-nowrap gap-2 whitespace-nowrap">
         {options.map((option) => {
           const active = selected.has(option.value);
           return (
@@ -129,15 +169,11 @@ function OwnedFormatPicker({ mediaType, value = [], onChange }) {
               type="button"
               className={cx(
                 'inline-flex h-7 shrink-0 items-center rounded-md border px-2 text-[12px] font-medium leading-none transition-colors',
-                active
-                  ? 'border-brand bg-brand/10 text-ink'
-                  : 'border-edge bg-surface text-dim hover:border-muted hover:text-ink'
+                active ? 'border-brand bg-brand/10 text-ink' : 'border-edge bg-surface text-dim hover:border-muted hover:text-ink'
               )}
               aria-pressed={active}
               onClick={() => {
-                const next = active
-                  ? [...selected].filter((entry) => entry !== option.value)
-                  : [...selected, option.value];
+                const next = active ? [...selected].filter((entry) => entry !== option.value) : [...selected, option.value];
                 onChange(sortOwnedFormats(mediaType, next));
               }}
             >
@@ -207,11 +243,13 @@ function normalizeDateInput(value) {
     const year = Number(yearRaw);
     const parsed = new Date(Date.UTC(year, month - 1, day));
     if (
-      month >= 1 && month <= 12
-      && day >= 1 && day <= 31
-      && parsed.getUTCFullYear() === year
-      && parsed.getUTCMonth() === month - 1
-      && parsed.getUTCDate() === day
+      month >= 1 &&
+      month <= 12 &&
+      day >= 1 &&
+      day <= 31 &&
+      parsed.getUTCFullYear() === year &&
+      parsed.getUTCMonth() === month - 1 &&
+      parsed.getUTCDate() === day
     ) {
       return parsed.toISOString().slice(0, 10);
     }
@@ -223,9 +261,7 @@ function normalizeDateInput(value) {
 
 function formatApiError(error, fallback = 'Save failed') {
   const data = error?.response?.data || {};
-  const detail = Array.isArray(data.details)
-    ? data.details.find((entry) => entry?.message)
-    : null;
+  const detail = Array.isArray(data.details) ? data.details.find((entry) => entry?.message) : null;
   if (detail?.message) {
     const field = String(detail.field || '').trim();
     return field ? `${data.error || fallback}: ${field} ${detail.message}` : `${data.error || fallback}: ${detail.message}`;
@@ -367,9 +403,7 @@ function ReminderHistorySummary({ events = [], className = '' }) {
           >
             <div className="min-w-0">
               <p className="text-ink">{formatReminderEventLabel(event)}</p>
-              {event.failure_summary ? (
-                <p className="mt-1 text-xs text-dim">{event.failure_summary}</p>
-              ) : null}
+              {event.failure_summary ? <p className="mt-1 text-xs text-dim">{event.failure_summary}</p> : null}
             </div>
             <span className="shrink-0 text-xs text-ghost">{formatReminderTimestamp(event.sent_at)}</span>
           </div>
@@ -398,7 +432,9 @@ function StarRating({ value = 0, onChange, readOnly = false }) {
             }}
           >
             <span className="star-base">★</span>
-            <span className="star-fill" style={{ width: `${fill * 100}%` }}>★</span>
+            <span className="star-fill" style={{ width: `${fill * 100}%` }}>
+              ★
+            </span>
           </button>
         );
       })}
@@ -421,16 +457,9 @@ function starsToUserRating(value) {
 
 function BookCaptureStatusCard({ state }) {
   if (!state) return null;
-  const toneClasses = state.tone === 'warning'
-    ? 'border-gold/30 bg-gold/5'
-    : state.tone === 'success'
-      ? 'border-ok/30 bg-ok/5'
-      : 'border-edge bg-raised';
-  const headingClasses = state.tone === 'warning'
-    ? 'text-gold'
-    : state.tone === 'success'
-      ? 'text-ok'
-      : 'text-ink';
+  const toneClasses =
+    state.tone === 'warning' ? 'border-gold/30 bg-gold/5' : state.tone === 'success' ? 'border-ok/30 bg-ok/5' : 'border-edge bg-raised';
+  const headingClasses = state.tone === 'warning' ? 'text-gold' : state.tone === 'success' ? 'text-ok' : 'text-ink';
   return (
     <div className={cx('rounded-xl border p-3 space-y-2', toneClasses)}>
       <div className="flex items-start justify-between gap-3">
@@ -458,9 +487,7 @@ function BookCaptureStatusCard({ state }) {
 function EmptyState({ icon, title, subtitle, action }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-raised border border-edge flex items-center justify-center text-ghost">
-        {icon}
-      </div>
+      <div className="w-16 h-16 rounded-2xl bg-raised border border-edge flex items-center justify-center text-ghost">{icon}</div>
       <div>
         <p className="font-display text-2xl tracking-wider text-dim">{title}</p>
         {subtitle && <p className="text-sm text-ghost mt-1">{subtitle}</p>}
@@ -489,10 +516,22 @@ function reviewClue(item) {
     : metadataRecommendations.length
       ? `Add ${metadataRecommendations.join(', ')}.`
       : '';
-  return [reason, recommendation].filter(Boolean).join('. ').replace(/\.{2,}/g, '.');
+  return [reason, recommendation]
+    .filter(Boolean)
+    .join('. ')
+    .replace(/\.{2,}/g, '.');
 }
 
-function MediaCard({ item, onOpen, onRating, supportsHover, selected = false, onToggleSelect = null, onSelectionGesture = null, selectionEnabled = false }) {
+function MediaCard({
+  item,
+  onOpen,
+  onRating,
+  supportsHover,
+  selected = false,
+  onToggleSelect = null,
+  onSelectionGesture = null,
+  selectionEnabled = false
+}) {
   const onPointerUp = (e) => {
     if (e.pointerType !== 'touch') return;
     if (isInteractiveTarget(e.target)) return;
@@ -524,25 +563,32 @@ function MediaCard({ item, onOpen, onRating, supportsHover, selected = false, on
       onPointerUp={onPointerUp}
       selected={selected}
       leftBadges={getOwnedFormatSummary(item)}
-      rightBadge={<span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{mediaTypeLabel(item.media_type)}</span>}
-      overlayChildren={selectionEnabled ? (
-        <button
-          type="button"
-          className={cx(
-            'absolute left-2 top-9 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border bg-abyss/92 shadow-sm transition-colors',
-            selected ? 'border-muted bg-abyss text-ink' : 'border-edge/90 text-ghost hover:border-muted hover:text-ink'
-          )}
-          aria-label={`Select ${item.title}`}
-          aria-pressed={selected}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleSelect?.(item.id, e);
-          }}
-        >
-          {selected ? <Icons.Check /> : null}
-        </button>
-      ) : null}
-      subtitle={clue || `${item.year || '—'}${item.director ? ` · ${item.director}` : ''}${item.media_type === 'tv_series' && item.tv_all_seasons_completed ? ' · Completed' : ''}`}
+      rightBadge={
+        <span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{mediaTypeLabel(item.media_type)}</span>
+      }
+      overlayChildren={
+        selectionEnabled ? (
+          <button
+            type="button"
+            className={cx(
+              'absolute left-2 top-9 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border bg-abyss/92 shadow-sm transition-colors',
+              selected ? 'border-muted bg-abyss text-ink' : 'border-edge/90 text-ghost hover:border-muted hover:text-ink'
+            )}
+            aria-label={`Select ${item.title}`}
+            aria-pressed={selected}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect?.(item.id, e);
+            }}
+          >
+            {selected ? <Icons.Check /> : null}
+          </button>
+        ) : null
+      }
+      subtitle={
+        clue ||
+        `${item.year || '—'}${item.director ? ` · ${item.director}` : ''}${item.media_type === 'tv_series' && item.tv_all_seasons_completed ? ' · Completed' : ''}`
+      }
       meta={
         // This wrapper prevents rating clicks from opening the card.
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
@@ -570,13 +616,26 @@ function CollectionCard({ item, supportsHover, onOpen }) {
       onOpen={() => onOpen(item)}
       onPointerUp={onPointerUp}
       leftBadges={[item.has_digital ? 'Digital' : 'Collection']}
-      rightBadge={<span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{mediaTypeLabel(item.media_type)}</span>}
+      rightBadge={
+        <span className="badge badge-dim text-[10px] backdrop-blur-sm bg-void/60 border-ghost/20">{mediaTypeLabel(item.media_type)}</span>
+      }
       subtitle={`${item.item_count || 0} item${Number(item.item_count || 0) === 1 ? '' : 's'}${Number.isFinite(Number(item.expected_item_count)) && Number(item.expected_item_count) > 0 ? ` · expected ${item.expected_item_count}` : ''}`}
     />
   );
 }
 
-function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover, selected = false, onToggleSelect = null, onSelectionGesture = null, selectionEnabled = false }) {
+function MediaListRow({
+  item,
+  onOpen,
+  onEdit,
+  onDelete,
+  onRating,
+  supportsHover,
+  selected = false,
+  onToggleSelect = null,
+  onSelectionGesture = null,
+  selectionEnabled = false
+}) {
   const onPointerUp = (e) => {
     if (e.pointerType !== 'touch') return;
     if (isInteractiveTarget(e.target)) return;
@@ -626,7 +685,9 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
             type="button"
             className={cx(
               'inline-flex h-6 w-6 items-center justify-center rounded-md border bg-surface shadow-sm transition-colors',
-              selected ? 'border-muted bg-raised text-ink' : 'border-edge/90 text-ghost hover:border-muted hover:text-ink hover:bg-raised/70'
+              selected
+                ? 'border-muted bg-raised text-ink'
+                : 'border-edge/90 text-ghost hover:border-muted hover:text-ink hover:bg-raised/70'
             )}
             aria-label={`Select ${item.title}`}
             aria-pressed={selected}
@@ -638,16 +699,30 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
       )}
       <div className="w-10 shrink-0" style={{ aspectRatio: '2/3' }}>
         <div className="poster rounded w-full h-full">
-          {posterUrl(item.poster_path)
-            ? <img src={posterUrl(item.poster_path)} alt={item.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-            : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Film /></div>}
+          {posterUrl(item.poster_path) ? (
+            <img
+              src={posterUrl(item.poster_path)}
+              alt={item.title}
+              className="absolute inset-0 w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-ghost">
+              <Icons.Film />
+            </div>
+          )}
         </div>
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate text-ink">{item.title}</p>
-        <p className="text-sm text-ghost break-words">{[item.year, getOwnedFormatSummary(item).join(', '), mediaTypeLabel(item.media_type), item.director].filter(Boolean).join(' · ')}</p>
+        <p className="text-sm text-ghost break-words">
+          {[item.year, getOwnedFormatSummary(item).join(', '), mediaTypeLabel(item.media_type), item.director].filter(Boolean).join(' · ')}
+        </p>
         {item.media_type === 'tv_series' && item.tv_all_seasons_completed && (
-          <p className="text-xs text-ok mt-0.5 inline-flex items-center gap-1"><Icons.Check />All seasons completed</p>
+          <p className="text-xs text-ok mt-0.5 inline-flex items-center gap-1">
+            <Icons.Check />
+            All seasons completed
+          </p>
         )}
         {clue ? <p className="mt-0.5 break-words text-xs text-dim">{clue}</p> : null}
         <CollectibleTraitPills traits={item.collectible_traits} limit={3} className="mt-1" />
@@ -657,9 +732,30 @@ function MediaListRow({ item, onOpen, onEdit, onDelete, onRating, supportsHover,
       <div onClick={(e) => e.stopPropagation()} className="sm:shrink-0">
         <StarRating value={userRatingToStars(item.user_rating)} onChange={(r) => onRating(item.id, starsToUserRating(r))} />
       </div>
-      <div className={cx('flex flex-wrap gap-2 transition-opacity duration-150 sm:shrink-0', supportsHover ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100')}>
-        <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="btn-ghost btn-sm"><Icons.Edit /></button>
-        <button onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} className="btn-ghost btn-sm text-err hover:bg-err/10"><Icons.Trash /></button>
+      <div
+        className={cx(
+          'flex flex-wrap gap-2 transition-opacity duration-150 sm:shrink-0',
+          supportsHover ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100' : 'opacity-100'
+        )}
+      >
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(item);
+          }}
+          className="btn-ghost btn-sm"
+        >
+          <Icons.Edit />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(item.id);
+          }}
+          className="btn-ghost btn-sm text-err hover:bg-err/10"
+        >
+          <Icons.Trash />
+        </button>
       </div>
     </article>
   );
@@ -710,7 +806,9 @@ function MergeEvidenceSection({
                   {`Canonical: ${formatMergeSourceLabel(entry?.canonical)} · Matched: ${formatMergeSourceLabel(entry?.merged)}`}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ghost">
-                  {entry?.confidence ? <span>{String(entry.confidence).charAt(0).toUpperCase() + String(entry.confidence).slice(1)} confidence</span> : null}
+                  {entry?.confidence ? (
+                    <span>{String(entry.confidence).charAt(0).toUpperCase() + String(entry.confidence).slice(1)} confidence</span>
+                  ) : null}
                   {entry?.applied_at ? <span>{formatMergeTimestamp(entry.applied_at)}</span> : null}
                 </div>
               </>
@@ -763,7 +861,9 @@ function MergeEvidenceSection({
                 ) : null}
                 <div className="grid gap-2 text-xs text-ghost sm:grid-cols-2">
                   {entry?.applied_at ? <p>Merged at: {formatMergeTimestamp(entry.applied_at)}</p> : null}
-                  {entry?.confidence ? <p>Confidence: {String(entry.confidence).charAt(0).toUpperCase() + String(entry.confidence).slice(1)}</p> : null}
+                  {entry?.confidence ? (
+                    <p>Confidence: {String(entry.confidence).charAt(0).toUpperCase() + String(entry.confidence).slice(1)}</p>
+                  ) : null}
                   {Array.isArray(entry?.rationale) && entry.rationale.length > 0 ? (
                     <p className="sm:col-span-2">Matched on: {entry.rationale.join(' · ')}</p>
                   ) : null}
@@ -780,7 +880,18 @@ function MergeEvidenceSection({
   );
 }
 
-function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onValuationUpdated, onToast, onFindPossibleDuplicates, canWritePlex = false }) {
+function MediaDetail({
+  item,
+  onClose,
+  onEdit,
+  onDelete,
+  onRating,
+  apiCall,
+  onValuationUpdated,
+  onToast,
+  onFindPossibleDuplicates,
+  canWritePlex = false
+}) {
   const [variants, setVariants] = useState([]);
   const [variantLoading, setVariantLoading] = useState(false);
   const [mergeDetails, setMergeDetails] = useState(null);
@@ -827,7 +938,13 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const externalMediaUrl = calibreExternalUrl || kavitaLaunchUrl || providerExternalUrl || item.tmdb_url || '';
   const externalMediaLabel = (() => {
     if (calibreExternalUrl) return 'Open in Calibre';
-    if (String(typeDetails.provider_name || '').trim().toLowerCase() === 'kavita' || kavitaLaunchUrl) return kavitaLaunchLabel;
+    if (
+      String(typeDetails.provider_name || '')
+        .trim()
+        .toLowerCase() === 'kavita' ||
+      kavitaLaunchUrl
+    )
+      return kavitaLaunchLabel;
     if (item.media_type === 'game') return 'View on IGDB';
     if (item.media_type === 'movie' || item.media_type === 'tv_series') return 'View on TMDB';
     return 'Open source';
@@ -862,9 +979,12 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     return values.length > 0 ? values.join(' · ') : 'No position supplied';
   };
   const formatSeriesMembershipProvenance = (membership) => {
-    const source = String(membership.source_kind || '').trim() === 'bookorbit_native'
-      ? 'BookOrbit native metadata'
-      : String(membership.source_kind || '').trim().replace(/_/g, ' ');
+    const source =
+      String(membership.source_kind || '').trim() === 'bookorbit_native'
+        ? 'BookOrbit native metadata'
+        : String(membership.source_kind || '')
+            .trim()
+            .replace(/_/g, ' ');
     const values = [
       source || null,
       membership.expected_item_count ? `${membership.expected_item_count} expected items` : null,
@@ -874,23 +994,54 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   };
   const hiddenTypeDetailKeys = new Set(
     isBook
-      ? ['author', 'publisher', 'edition', 'isbn', 'calibre_external_url', 'provider_external_url', 'calibre_download_url', 'provider_download_url', 'kavita_cover_url', 'kavita_cover_proxy_url', 'kavita_cover_source', 'kavita_cover_status', 'kavita_series_url', 'kavita_launch_url', 'kavita_launch_label', 'kavita_launch_target']
+      ? [
+          'author',
+          'publisher',
+          'edition',
+          'isbn',
+          'calibre_external_url',
+          'provider_external_url',
+          'calibre_download_url',
+          'provider_download_url',
+          'kavita_cover_url',
+          'kavita_cover_proxy_url',
+          'kavita_cover_source',
+          'kavita_cover_status',
+          'kavita_series_url',
+          'kavita_launch_url',
+          'kavita_launch_label',
+          'kavita_launch_target'
+        ]
       : isComic
-        ? ['calibre_entry_id', 'provider_item_id', 'calibre_external_url', 'provider_external_url', 'calibre_download_url', 'provider_download_url', 'provider_name', 'kavita_cover_url', 'kavita_cover_proxy_url', 'kavita_cover_source', 'kavita_cover_status', 'kavita_series_url', 'kavita_launch_url', 'kavita_launch_label', 'kavita_launch_target', 'kavita_chapter_fanout', 'kavita_parent_provider_item_id', 'kavita_series_provider_item_id', 'kavita_chapter_provider_item_id']
+        ? [
+            'calibre_entry_id',
+            'provider_item_id',
+            'calibre_external_url',
+            'provider_external_url',
+            'calibre_download_url',
+            'provider_download_url',
+            'provider_name',
+            'kavita_cover_url',
+            'kavita_cover_proxy_url',
+            'kavita_cover_source',
+            'kavita_cover_status',
+            'kavita_series_url',
+            'kavita_launch_url',
+            'kavita_launch_label',
+            'kavita_launch_target',
+            'kavita_chapter_fanout',
+            'kavita_parent_provider_item_id',
+            'kavita_series_provider_item_id',
+            'kavita_chapter_provider_item_id'
+          ]
         : isAudio
           ? ['artist', 'album', 'track_count', 'compilation', 'track_artists']
-        : []
+          : []
   );
-  const visibleTypeDetailEntries = Object.entries(typeDetails)
-    .filter(([key, value]) => (
-      value !== null
-      && value !== undefined
-      && String(value).trim() !== ''
-      && !hiddenTypeDetailKeys.has(key)
-    ));
-  const defaultTypeDetailEntries = isBook
-    ? []
-    : visibleTypeDetailEntries;
+  const visibleTypeDetailEntries = Object.entries(typeDetails).filter(
+    ([key, value]) => value !== null && value !== undefined && String(value).trim() !== '' && !hiddenTypeDetailKeys.has(key)
+  );
+  const defaultTypeDetailEntries = isBook ? [] : visibleTypeDetailEntries;
   const inferBookSourceLabel = (href) => {
     const value = String(href || '').trim();
     if (!value) return 'Open source';
@@ -903,16 +1054,26 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     } catch {
       // fall back to provider-aware labels below
     }
-    if (String(typeDetails.provider_name || '').trim().toLowerCase() === 'googlebooks') {
+    if (
+      String(typeDetails.provider_name || '')
+        .trim()
+        .toLowerCase() === 'googlebooks'
+    ) {
       return 'View on Google Books';
     }
-    if (String(typeDetails.provider_name || '').trim().toLowerCase() === 'kavita') {
+    if (
+      String(typeDetails.provider_name || '')
+        .trim()
+        .toLowerCase() === 'kavita'
+    ) {
       return 'Open in Kavita';
     }
     return 'Open source';
   };
   const inferDownloadLabel = (href, fallback = 'Download file') => {
-    const value = String(href || '').trim().toLowerCase();
+    const value = String(href || '')
+      .trim()
+      .toLowerCase();
     if (!value) return fallback;
     if (value.includes('.epub')) return 'Download EPUB';
     if (value.includes('.pdf')) return 'Download PDF';
@@ -923,12 +1084,19 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const inferComicSourceLabel = (href) => {
     const value = String(href || '').trim();
     if (!value) return 'Open source';
-    const providerName = String(typeDetails.provider_name || '').trim().toLowerCase();
+    const providerName = String(typeDetails.provider_name || '')
+      .trim()
+      .toLowerCase();
     try {
       const parsed = new URL(value);
       const host = parsed.hostname.toLowerCase();
       const path = parsed.pathname.toLowerCase();
-      if (providerName.includes('cwa_opds') || providerName.includes('calibre') || hostnameIncludesLabel(host, 'calibre') || path.includes('/opds/')) {
+      if (
+        providerName.includes('cwa_opds') ||
+        providerName.includes('calibre') ||
+        hostnameIncludesLabel(host, 'calibre') ||
+        path.includes('/opds/')
+      ) {
         return path.includes('/download/') ? 'Download on Calibre' : 'View on Calibre';
       }
       if (providerName.includes('kavita') || hostnameIncludesLabel(host, 'kavita')) return 'Open in Kavita';
@@ -981,37 +1149,63 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       return true;
     });
   })();
-  const isKavitaLinked = String(typeDetails.provider_name || '').trim().toLowerCase() === 'kavita'
-    || Boolean(typeDetails.kavita_series_id || typeDetails.kavita_chapter_id);
-  const isPlexLinked = Boolean(item?.plex_linked)
-    || String(item?.import_source || '').trim().toLowerCase().includes('plex')
-    || String(typeDetails.provider_name || '').trim().toLowerCase().includes('plex');
-  const plexWritebackPolicy = canWritePlex && typeof canWritePlex === 'object'
-    ? {
-      ratingEnabled: Boolean(canWritePlex.ratingEnabled),
-      watchStateEnabled: Boolean(canWritePlex.watchStateEnabled)
-    }
-    : {
-      ratingEnabled: Boolean(canWritePlex),
-      watchStateEnabled: Boolean(canWritePlex)
-    };
+  const isKavitaLinked =
+    String(typeDetails.provider_name || '')
+      .trim()
+      .toLowerCase() === 'kavita' || Boolean(typeDetails.kavita_series_id || typeDetails.kavita_chapter_id);
+  const isPlexLinked =
+    Boolean(item?.plex_linked) ||
+    String(item?.import_source || '')
+      .trim()
+      .toLowerCase()
+      .includes('plex') ||
+    String(typeDetails.provider_name || '')
+      .trim()
+      .toLowerCase()
+      .includes('plex');
+  const plexWritebackPolicy =
+    canWritePlex && typeof canWritePlex === 'object'
+      ? {
+          ratingEnabled: Boolean(canWritePlex.ratingEnabled),
+          watchStateEnabled: Boolean(canWritePlex.watchStateEnabled)
+        }
+      : {
+          ratingEnabled: Boolean(canWritePlex),
+          watchStateEnabled: Boolean(canWritePlex)
+        };
   const canWritePlexRating = isPlexLinked && plexWritebackPolicy.ratingEnabled;
   const canWritePlexWatchState = isPlexLinked && plexWritebackPolicy.watchStateEnabled;
   const showPlexWritebackControls = canWritePlexRating || canWritePlexWatchState;
-  const isKavitaChapterBacked = String(typeDetails.provider_item_id || '').trim().toLowerCase().startsWith('kavita:chapter:')
-    || String(typeDetails.kavita_chapter_provider_item_id || '').trim().toLowerCase().startsWith('kavita:chapter:')
-    || String(typeDetails.kavita_chapter_fanout || '').trim().toLowerCase() === 'true';
+  const isKavitaChapterBacked =
+    String(typeDetails.provider_item_id || '')
+      .trim()
+      .toLowerCase()
+      .startsWith('kavita:chapter:') ||
+    String(typeDetails.kavita_chapter_provider_item_id || '')
+      .trim()
+      .toLowerCase()
+      .startsWith('kavita:chapter:') ||
+    String(typeDetails.kavita_chapter_fanout || '')
+      .trim()
+      .toLowerCase() === 'true';
   const formatValuation = (value) => {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return null;
     try {
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
-        currency: String(item.valuation_currency || 'USD').trim().toUpperCase() || 'USD',
+        currency:
+          String(item.valuation_currency || 'USD')
+            .trim()
+            .toUpperCase() || 'USD',
         maximumFractionDigits: 2
       }).format(numeric);
     } catch (_) {
-      return `${String(item.valuation_currency || 'USD').trim().toUpperCase() || 'USD'} ${numeric.toFixed(2)}`;
+      return `${
+        String(item.valuation_currency || 'USD')
+          .trim()
+          .toUpperCase() || 'USD'
+      } ${numeric.toFixed(2)}`;
     }
   };
   const valuationSummaryRows = [
@@ -1056,12 +1250,14 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const showLoanFocusedView = Boolean(activeLoan) && !showLoanItemDetails;
   const metadataTraits = Array.isArray(item?.collectible_traits) ? item.collectible_traits : [];
   const loanMetadata = buildLoanMetadata({ loan: activeLoan, loading: loanLoading, formatDate });
-  const drawerMetadataRecords = showLoanFocusedView ? [] : buildObjectDrawerMetadataRecords({
-    traits: metadataTraits,
-    ownerType: 'media',
-    mediaType: item?.media_type,
-    includeEdition: true
-  });
+  const drawerMetadataRecords = showLoanFocusedView
+    ? []
+    : buildObjectDrawerMetadataRecords({
+        traits: metadataTraits,
+        ownerType: 'media',
+        mediaType: item?.media_type,
+        includeEdition: true
+      });
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const handleDrawerMetadataSaved = useCallback(() => onValuationUpdated?.(item?.id), [item?.id, onValuationUpdated]);
   const drawerMetadataNodes = buildObjectDrawerMetadataEditorNodes({
@@ -1193,9 +1389,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const writePlexWatchState = async (action, options = {}) => {
     if (!item?.id || plexWritebackLoading) return;
     const seasonNumber = Number(options.seasonNumber);
-    const loadingKey = Number.isInteger(seasonNumber) && seasonNumber > 0
-      ? `${action}:season:${seasonNumber}`
-      : action;
+    const loadingKey = Number.isInteger(seasonNumber) && seasonNumber > 0 ? `${action}:season:${seasonNumber}` : action;
     setPlexWritebackLoading(loadingKey);
     try {
       const payload = {
@@ -1207,9 +1401,13 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       await onValuationUpdated?.(item.id);
       const episodeCount = Number(response?.episodeWriteback?.episodeCount || 0);
       const seasonLabel = Number.isInteger(seasonNumber) && seasonNumber > 0 ? ` season ${seasonNumber}` : '';
-      onToast?.(episodeCount > 0
-        ? `${episodeCount} Plex episode${episodeCount === 1 ? '' : 's'} updated for${seasonLabel || ' this series'}`
-        : (action === 'scrobble' ? 'Marked watched in Plex' : 'Marked unwatched in Plex'));
+      onToast?.(
+        episodeCount > 0
+          ? `${episodeCount} Plex episode${episodeCount === 1 ? '' : 's'} updated for${seasonLabel || ' this series'}`
+          : action === 'scrobble'
+            ? 'Marked watched in Plex'
+            : 'Marked unwatched in Plex'
+      );
     } catch (error) {
       onToast?.(error?.response?.data?.error || 'Failed to update Plex watched state', 'error');
     } finally {
@@ -1269,11 +1467,7 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   };
 
   const toggleKavitaSelectedField = (field) => {
-    setKavitaSelectedFields((prev) => (
-      prev.includes(field)
-        ? prev.filter((entry) => entry !== field)
-        : [...prev, field]
-    ));
+    setKavitaSelectedFields((prev) => (prev.includes(field) ? prev.filter((entry) => entry !== field) : [...prev, field]));
   };
 
   const loadKavitaProgress = async () => {
@@ -1373,23 +1567,23 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     return parsed.toLocaleString();
   };
 
-  const kavitaProgressRows = kavitaProgress ? [
-    ['Page', kavitaProgress.pageNum],
-    ['Chapter', kavitaProgress.chapterId],
-    ['Series', kavitaProgress.seriesId],
-    ['Volume', kavitaProgress.volumeId],
-    ['Scroll', kavitaProgress.bookScrollId],
-    ['Updated', formatKavitaProgressTimestamp(kavitaProgress.lastModifiedUtc)]
-  ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '') : [];
+  const kavitaProgressRows = kavitaProgress
+    ? [
+        ['Page', kavitaProgress.pageNum],
+        ['Chapter', kavitaProgress.chapterId],
+        ['Series', kavitaProgress.seriesId],
+        ['Volume', kavitaProgress.volumeId],
+        ['Scroll', kavitaProgress.bookScrollId],
+        ['Updated', formatKavitaProgressTimestamp(kavitaProgress.lastModifiedUtc)]
+      ].filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+    : [];
   const kavitaReaderTotalPages = Number(kavitaReaderInfo?.pages || 0);
-  const kavitaReaderPageUrl = item?.id && kavitaReaderInfo
-    ? `/api/media/${item.id}/kavita-reader-page?page=${encodeURIComponent(String(kavitaReaderPage))}`
-    : '';
+  const kavitaReaderPageUrl =
+    item?.id && kavitaReaderInfo ? `/api/media/${item.id}/kavita-reader-page?page=${encodeURIComponent(String(kavitaReaderPage))}` : '';
   const kavitaReaderDisplayPage = kavitaReaderPage + 1;
   const kavitaProgressPageNumber = Number(kavitaProgress?.pageNum);
-  const kavitaProgressDisplayPage = Number.isInteger(kavitaProgressPageNumber) && kavitaProgressPageNumber >= 0
-    ? kavitaProgressPageNumber + 1
-    : null;
+  const kavitaProgressDisplayPage =
+    Number.isInteger(kavitaProgressPageNumber) && kavitaProgressPageNumber >= 0 ? kavitaProgressPageNumber + 1 : null;
   const kavitaReaderTotalLabel = kavitaReaderTotalPages > 0 ? String(kavitaReaderTotalPages) : '—';
   const setBoundedKavitaReaderPage = (nextPage) => {
     const numeric = Number(nextPage);
@@ -1424,11 +1618,9 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
       const result = await apiCall('patch', `/media/${item.id}/tv-seasons/${key}`, payload);
       const updated = result?.season;
       if (updated) {
-        setVariants((prev) => prev.map((row) => (
-          Number(row.season_number) === key
-            ? { ...row, ...updated, edition: `Season ${updated.season_number}` }
-            : row
-        )));
+        setVariants((prev) =>
+          prev.map((row) => (Number(row.season_number) === key ? { ...row, ...updated, edition: `Season ${updated.season_number}` } : row))
+        );
         setSeasonDrafts((prev) => ({
           ...prev,
           [key]: {
@@ -1444,29 +1636,31 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
     }
   };
 
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const loadSeasonDetail = useCallback(async (seasonNumber, { force = false } = {}) => {
-    if (!item?.id || !Number.isInteger(Number(seasonNumber))) return;
-    const key = Number(seasonNumber);
-    setOpenSeason(key);
-    if (seasonDetails[key] && !force) return;
-    setSeasonDetailLoading((prev) => ({ ...prev, [key]: true }));
-    try {
-      const payload = await apiCall('get', `/media/${item.id}/tv-seasons/${key}`);
-      if (payload?.season) {
-        setVariants((prev) => prev.map((row) => (
-          Number(row.season_number) === key
-            ? { ...row, ...payload.season, edition: `Season ${payload.season.season_number}` }
-            : row
-        )));
+  const loadSeasonDetail = useCallback(
+    async (seasonNumber, { force = false } = {}) => {
+      if (!item?.id || !Number.isInteger(Number(seasonNumber))) return;
+      const key = Number(seasonNumber);
+      setOpenSeason(key);
+      if (seasonDetails[key] && !force) return;
+      setSeasonDetailLoading((prev) => ({ ...prev, [key]: true }));
+      try {
+        const payload = await apiCall('get', `/media/${item.id}/tv-seasons/${key}`);
+        if (payload?.season) {
+          setVariants((prev) =>
+            prev.map((row) =>
+              Number(row.season_number) === key ? { ...row, ...payload.season, edition: `Season ${payload.season.season_number}` } : row
+            )
+          );
+        }
+        setSeasonDetails((prev) => ({ ...prev, [key]: payload || null }));
+      } catch {
+        setSeasonDetails((prev) => ({ ...prev, [key]: null }));
+      } finally {
+        setSeasonDetailLoading((prev) => ({ ...prev, [key]: false }));
       }
-      setSeasonDetails((prev) => ({ ...prev, [key]: payload || null }));
-    } catch {
-      setSeasonDetails((prev) => ({ ...prev, [key]: null }));
-    } finally {
-      setSeasonDetailLoading((prev) => ({ ...prev, [key]: false }));
-    }
-  }, [apiCall, item?.id, seasonDetails]);
+    },
+    [apiCall, item.id, seasonDetails]
+  );
 
   useEffect(() => {
     if (!item?.id) {
@@ -1512,12 +1706,18 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
           const firstSeason = nextRows
             .map((row) => Number(row.season_number))
             .find((seasonNum) => Number.isInteger(seasonNum) && seasonNum > 0);
-          setOpenSeason((prev) => (Number.isInteger(prev) && nextDrafts[prev] ? prev : (firstSeason || null)));
+          setOpenSeason((prev) => (Number.isInteger(prev) && nextDrafts[prev] ? prev : firstSeason || null));
         }
       })
-      .catch(() => { if (active) setVariants([]); })
-      .finally(() => { if (active) setVariantLoading(false); });
-    return () => { active = false; };
+      .catch(() => {
+        if (active) setVariants([]);
+      })
+      .finally(() => {
+        if (active) setVariantLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [apiCall, item?.id, item?.media_type]);
 
   useEffect(() => {
@@ -1561,7 +1761,8 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   }, [item?.id, refreshLoans]);
 
   useEffect(() => {
-    if (item?.media_type !== 'tv_series' || !Number.isInteger(openSeason) || seasonDetails[openSeason] || seasonDetailLoading[openSeason]) return;
+    if (item?.media_type !== 'tv_series' || !Number.isInteger(openSeason) || seasonDetails[openSeason] || seasonDetailLoading[openSeason])
+      return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSeasonDetail(openSeason);
   }, [item?.media_type, loadSeasonDetail, openSeason, seasonDetails, seasonDetailLoading]);
@@ -1569,824 +1770,1037 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
   const tvSeasonVariants = variants
     .filter((v) => Boolean(v.edition))
     .sort((a, b) => Number(a.season_number || 0) - Number(b.season_number || 0));
-  const activeSeasonVariant = item?.media_type === 'tv_series'
-    ? tvSeasonVariants.find((row) => Number(row.season_number) === openSeason) || tvSeasonVariants[0] || null
-    : null;
+  const activeSeasonVariant =
+    item?.media_type === 'tv_series'
+      ? tvSeasonVariants.find((row) => Number(row.season_number) === openSeason) || tvSeasonVariants[0] || null
+      : null;
 
   if (!item) return null;
 
   return (
     <DetailDrawerShell onClose={onClose} panelClassName={isBook ? 'max-w-2xl' : 'max-w-xl'} testId="media-detail-drawer">
-        <DrawerBackdrop
-          imagePath={item.backdrop_path || item.poster_path}
-          className="h-48 border-b border-edge/60 bg-panel"
-          imageClassName="w-full h-full object-cover"
-          renderWhenEmpty
-          testId="media-detail-backdrop"
-        />
+      <DrawerBackdrop
+        imagePath={item.backdrop_path || item.poster_path}
+        className="h-48 border-b border-edge/60 bg-panel"
+        imageClassName="w-full h-full object-cover"
+        renderWhenEmpty
+        testId="media-detail-backdrop"
+      />
 
-        <div className="flex items-start gap-4 px-4 pt-4 pb-3 shrink-0 sm:px-6 sm:pt-6 sm:pb-4">
-          <div className="w-20 shrink-0 -mt-16 relative z-10 shadow-card">
-            <div className="poster rounded-md">
-              {posterUrl(item.poster_path)
-                ? <img src={posterUrl(item.poster_path)} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
-                : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Film /></div>}
-            </div>
-          </div>
-          <div className="flex-1 min-w-0 mt-1">
-            <div className="flex items-baseline gap-2">
-              <h2 className={titleClassName}>{item.title}</h2>
-              {!isComic ? <p className="text-sm text-ghost">#{item.id}</p> : null}
-            </div>
-            <p className="text-sm text-dim mt-1">{[item.year, item.director, item.cast].filter(Boolean).join(' · ')}</p>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {getOwnedFormatSummary(item).map((formatLabel) => <span key={formatLabel} className="badge badge-gold">{formatLabel}</span>)}
-              {item.media_type && <span className="badge badge-dim">{mediaTypeLabel(item.media_type)}</span>}
-              {item.genre?.split(',').slice(0, 2).map((g) => <span key={g} className="badge badge-dim">{g.trim()}</span>)}
-            </div>
-            {activeLoan ? (
-              <p className={cx(
-                'mt-3 text-sm',
-                activeLoan.is_overdue ? 'text-err' : 'text-gold'
-              )}>
-                {activeLoan.is_overdue ? 'Loaned out · overdue' : 'Loaned out'}
-                {' · '}
-                {activeLoan.borrower_name || 'Borrower'}
-                {' · Due '}
-                {formatDate(activeLoan.due_at)}
-              </p>
-            ) : null}
-          </div>
-          <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
-        </div>
-
-        <div className="divider" />
-
-        <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-6">
-          {!showLoanFocusedView ? <CollectibleTraitReadback traits={item.collectible_traits} /> : null}
-          {!showLoanFocusedView ? (
-            <DrawerMetadataList items={drawerMetadataItems} />
-          ) : null}
-          {!showLoanFocusedView && item.overview ? (
-            <DrawerOverview
-              text={item.overview}
-              collapsedLines={4}
-              className={cx(isBook || isComic ? 'max-w-3xl' : '')}
-              textClassName={isBook ? 'leading-7' : ''}
-            />
-          ) : null}
-
-          <DrawerMetadataEntry
-            metadata={loanMetadata}
-            actionLabel={loanFormOpen ? 'Cancel' : 'Loan out'}
-            onAction={!activeLoan ? () => setLoanFormOpen((value) => !value) : undefined}
-            actionDisabled={loanSaving}
-            actions={activeLoan ? (
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    className="btn-ghost btn-sm"
-                    onClick={() => setShowLoanItemDetails((value) => !value)}
-                  >
-                    {showLoanItemDetails ? 'Hide' : 'Details'}
-                  </button>
-                  {activeLoan.reminder_eligible ? (
-                    <button
-                      type="button"
-                      className="btn-secondary btn-sm"
-                      onClick={() => sendLoanReminder(activeLoan.id)}
-                      disabled={loanReminderSending}
-                    >
-                      <Icons.Mail />
-                      {loanReminderSending ? 'Sending…' : 'Send Reminder'}
-                    </button>
-                  ) : (
-                    <div className="inline-flex h-9 items-center gap-2 px-1 text-sm text-dim">
-                      <Icons.Mail />
-                      <span>
-                        {!activeLoan.borrower_email
-                          ? 'Add email to send reminder'
-                          : activeLoan.reminder_sent_today
-                            ? 'Reminder sent today'
-                            : loanReminderLabel(activeLoan)}
-                      </span>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    className="btn-primary btn-sm"
-                    onClick={() => markLoanReturned(activeLoan.id)}
-                    disabled={loanSaving || loanLoading}
-                  >
-                    <Icons.Check />
-                    {loanSaving ? 'Returning…' : 'Mark Returned'}
-                  </button>
-                </div>
-            ) : null}
-          >
-
-            {loanLoading ? (
-              <div className="flex items-center gap-2 text-sm text-ghost"><Spinner size={16} />Loading loans…</div>
-            ) : null}
-
-            {activeLoan ? (
-              <div className={cx(
-                'border-t pt-3',
-                activeLoan.is_overdue ? 'border-err/30' : 'border-edge/70'
-              )}>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={cx(
-                        'badge',
-                        activeLoan.is_overdue
-                          ? 'border border-err/25 bg-err/10 text-err'
-                          : 'border border-edge/70 bg-abyss text-dim'
-                      )}>
-                        {activeLoan.is_overdue ? 'Overdue' : 'Active'}
-                      </span>
-                      <p className="text-sm font-medium text-ink">{activeLoan.borrower_name || 'Borrower'}</p>
-                    </div>
-                    {activeLoan.borrower_email ? <p className="mt-1 text-sm text-dim">{activeLoan.borrower_email}</p> : null}
-                  </div>
-                  <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
-                    <div>
-                      <dt className="text-xs font-medium text-ghost">Loaned</dt>
-                      <dd className="mt-1 text-ink">{formatDate(activeLoan.loaned_at)}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-medium text-ghost">Due Back</dt>
-                      <dd className="mt-1 text-ink">{formatDate(activeLoan.due_at)}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-medium text-ghost">Format</dt>
-                      <dd className="mt-1 text-ink">{activeLoan.loan_format || '—'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-medium text-ghost">Reminder</dt>
-                      <dd className="mt-1 text-ink">{loanReminderLabel(activeLoan)}</dd>
-                      {activeLoan.reminder_last_sent_at ? (
-                        <p className="mt-1 text-xs text-dim">Last sent {formatReminderTimestamp(activeLoan.reminder_last_sent_at)}</p>
-                      ) : null}
-                    </div>
-                  </dl>
-                </div>
-                {activeLoan.notes ? <p className="mt-3 text-sm text-dim">{activeLoan.notes}</p> : null}
-                {!activeLoan.borrower_email ? (
-                  <p className="mt-3 text-sm text-dim">Add borrower email to send reminders.</p>
-                ) : null}
-                <ReminderHistorySummary events={activeLoan.reminder_events} />
+      <div className="flex items-start gap-4 px-4 pt-4 pb-3 shrink-0 sm:px-6 sm:pt-6 sm:pb-4">
+        <div className="w-20 shrink-0 -mt-16 relative z-10 shadow-card">
+          <div className="poster rounded-md">
+            {posterUrl(item.poster_path) ? (
+              <img src={posterUrl(item.poster_path)} alt={item.title} className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-ghost">
+                <Icons.Film />
               </div>
-            ) : null}
+            )}
+          </div>
+        </div>
+        <div className="flex-1 min-w-0 mt-1">
+          <div className="flex items-baseline gap-2">
+            <h2 className={titleClassName}>{item.title}</h2>
+            {!isComic ? <p className="text-sm text-ghost">#{item.id}</p> : null}
+          </div>
+          <p className="text-sm text-dim mt-1">{[item.year, item.director, item.cast].filter(Boolean).join(' · ')}</p>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {getOwnedFormatSummary(item).map((formatLabel) => (
+              <span key={formatLabel} className="badge badge-gold">
+                {formatLabel}
+              </span>
+            ))}
+            {item.media_type && <span className="badge badge-dim">{mediaTypeLabel(item.media_type)}</span>}
+            {item.genre
+              ?.split(',')
+              .slice(0, 2)
+              .map((g) => (
+                <span key={g} className="badge badge-dim">
+                  {g.trim()}
+                </span>
+              ))}
+          </div>
+          {activeLoan ? (
+            <p className={cx('mt-3 text-sm', activeLoan.is_overdue ? 'text-err' : 'text-gold')}>
+              {activeLoan.is_overdue ? 'Loaned out · overdue' : 'Loaned out'}
+              {' · '}
+              {activeLoan.borrower_name || 'Borrower'}
+              {' · Due '}
+              {formatDate(activeLoan.due_at)}
+            </p>
+          ) : null}
+        </div>
+        <button onClick={onClose} className="btn-icon btn-sm shrink-0">
+          <Icons.X />
+        </button>
+      </div>
 
-            {loanFormOpen ? (
-              <form className="space-y-3" onSubmit={submitLoan}>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium text-ghost">Borrower</span>
-                    <input
-                      className="input w-full"
-                      value={loanForm.borrower_name}
-                      onChange={(event) => setLoanForm((current) => ({ ...current, borrower_name: event.target.value }))}
-                      required
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium text-ghost">Borrower Email</span>
-                    <input
-                      className="input w-full"
-                      type="email"
-                      value={loanForm.borrower_email}
-                      onChange={(event) => setLoanForm((current) => ({ ...current, borrower_email: event.target.value }))}
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium text-ghost">Loaned On</span>
-                    <input
-                      className="input w-full"
-                      type="date"
-                      value={loanForm.loaned_at}
-                      onChange={(event) => setLoanForm((current) => ({
+      <div className="divider" />
+
+      <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-6">
+        {!showLoanFocusedView ? <CollectibleTraitReadback traits={item.collectible_traits} /> : null}
+        {!showLoanFocusedView ? <DrawerMetadataList items={drawerMetadataItems} /> : null}
+        {!showLoanFocusedView && item.overview ? (
+          <DrawerOverview
+            text={item.overview}
+            collapsedLines={4}
+            className={cx(isBook || isComic ? 'max-w-3xl' : '')}
+            textClassName={isBook ? 'leading-7' : ''}
+          />
+        ) : null}
+
+        <DrawerMetadataEntry
+          metadata={loanMetadata}
+          actionLabel={loanFormOpen ? 'Cancel' : 'Loan out'}
+          onAction={!activeLoan ? () => setLoanFormOpen((value) => !value) : undefined}
+          actionDisabled={loanSaving}
+          actions={
+            activeLoan ? (
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <button type="button" className="btn-ghost btn-sm" onClick={() => setShowLoanItemDetails((value) => !value)}>
+                  {showLoanItemDetails ? 'Hide' : 'Details'}
+                </button>
+                {activeLoan.reminder_eligible ? (
+                  <button
+                    type="button"
+                    className="btn-secondary btn-sm"
+                    onClick={() => sendLoanReminder(activeLoan.id)}
+                    disabled={loanReminderSending}
+                  >
+                    <Icons.Mail />
+                    {loanReminderSending ? 'Sending…' : 'Send Reminder'}
+                  </button>
+                ) : (
+                  <div className="inline-flex h-9 items-center gap-2 px-1 text-sm text-dim">
+                    <Icons.Mail />
+                    <span>
+                      {!activeLoan.borrower_email
+                        ? 'Add email to send reminder'
+                        : activeLoan.reminder_sent_today
+                          ? 'Reminder sent today'
+                          : loanReminderLabel(activeLoan)}
+                    </span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="btn-primary btn-sm"
+                  onClick={() => markLoanReturned(activeLoan.id)}
+                  disabled={loanSaving || loanLoading}
+                >
+                  <Icons.Check />
+                  {loanSaving ? 'Returning…' : 'Mark Returned'}
+                </button>
+              </div>
+            ) : null
+          }
+        >
+          {loanLoading ? (
+            <div className="flex items-center gap-2 text-sm text-ghost">
+              <Spinner size={16} />
+              Loading loans…
+            </div>
+          ) : null}
+
+          {activeLoan ? (
+            <div className={cx('border-t pt-3', activeLoan.is_overdue ? 'border-err/30' : 'border-edge/70')}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={cx(
+                        'badge',
+                        activeLoan.is_overdue ? 'border border-err/25 bg-err/10 text-err' : 'border border-edge/70 bg-abyss text-dim'
+                      )}
+                    >
+                      {activeLoan.is_overdue ? 'Overdue' : 'Active'}
+                    </span>
+                    <p className="text-sm font-medium text-ink">{activeLoan.borrower_name || 'Borrower'}</p>
+                  </div>
+                  {activeLoan.borrower_email ? <p className="mt-1 text-sm text-dim">{activeLoan.borrower_email}</p> : null}
+                </div>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+                  <div>
+                    <dt className="text-xs font-medium text-ghost">Loaned</dt>
+                    <dd className="mt-1 text-ink">{formatDate(activeLoan.loaned_at)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-ghost">Due Back</dt>
+                    <dd className="mt-1 text-ink">{formatDate(activeLoan.due_at)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-ghost">Format</dt>
+                    <dd className="mt-1 text-ink">{activeLoan.loan_format || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-ghost">Reminder</dt>
+                    <dd className="mt-1 text-ink">{loanReminderLabel(activeLoan)}</dd>
+                    {activeLoan.reminder_last_sent_at ? (
+                      <p className="mt-1 text-xs text-dim">Last sent {formatReminderTimestamp(activeLoan.reminder_last_sent_at)}</p>
+                    ) : null}
+                  </div>
+                </dl>
+              </div>
+              {activeLoan.notes ? <p className="mt-3 text-sm text-dim">{activeLoan.notes}</p> : null}
+              {!activeLoan.borrower_email ? <p className="mt-3 text-sm text-dim">Add borrower email to send reminders.</p> : null}
+              <ReminderHistorySummary events={activeLoan.reminder_events} />
+            </div>
+          ) : null}
+
+          {loanFormOpen ? (
+            <form className="space-y-3" onSubmit={submitLoan}>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-ghost">Borrower</span>
+                  <input
+                    className="input w-full"
+                    value={loanForm.borrower_name}
+                    onChange={(event) => setLoanForm((current) => ({ ...current, borrower_name: event.target.value }))}
+                    required
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-ghost">Borrower Email</span>
+                  <input
+                    className="input w-full"
+                    type="email"
+                    value={loanForm.borrower_email}
+                    onChange={(event) => setLoanForm((current) => ({ ...current, borrower_email: event.target.value }))}
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-ghost">Loaned On</span>
+                  <input
+                    className="input w-full"
+                    type="date"
+                    value={loanForm.loaned_at}
+                    onChange={(event) =>
+                      setLoanForm((current) => ({
                         ...current,
                         loaned_at: event.target.value,
-                        due_at: current.due_at && current.due_at >= event.target.value ? current.due_at : addDaysToIsoDate(event.target.value, 14)
-                      }))}
-                      required
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium text-ghost">Due Back</span>
-                    <input
-                      className="input w-full"
-                      type="date"
-                      value={loanForm.due_at}
-                      onChange={(event) => setLoanForm((current) => ({ ...current, due_at: event.target.value }))}
-                      required
-                    />
-                  </label>
-                </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,220px),1fr]">
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium text-ghost">Loan Format</span>
-                    <input
-                      className="input w-full"
-                      value={loanForm.loan_format}
-                      onChange={(event) => setLoanForm((current) => ({ ...current, loan_format: event.target.value }))}
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium text-ghost">Notes</span>
-                    <input
-                      className="input w-full"
-                      value={loanForm.notes}
-                      onChange={(event) => setLoanForm((current) => ({ ...current, notes: event.target.value }))}
-                    />
-                  </label>
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                  <button type="button" className="btn-ghost btn-sm" onClick={() => setLoanFormOpen(false)} disabled={loanSaving}>Cancel</button>
-                  <button type="submit" className="btn-primary btn-sm" disabled={loanSaving}>
-                    {loanSaving ? 'Saving…' : 'Save Loan'}
-                  </button>
-                </div>
-              </form>
-            ) : null}
+                        due_at:
+                          current.due_at && current.due_at >= event.target.value ? current.due_at : addDaysToIsoDate(event.target.value, 14)
+                      }))
+                    }
+                    required
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-ghost">Due Back</span>
+                  <input
+                    className="input w-full"
+                    type="date"
+                    value={loanForm.due_at}
+                    onChange={(event) => setLoanForm((current) => ({ ...current, due_at: event.target.value }))}
+                    required
+                  />
+                </label>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,220px),1fr]">
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-ghost">Loan Format</span>
+                  <input
+                    className="input w-full"
+                    value={loanForm.loan_format}
+                    onChange={(event) => setLoanForm((current) => ({ ...current, loan_format: event.target.value }))}
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-ghost">Notes</span>
+                  <input
+                    className="input w-full"
+                    value={loanForm.notes}
+                    onChange={(event) => setLoanForm((current) => ({ ...current, notes: event.target.value }))}
+                  />
+                </label>
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <button type="button" className="btn-ghost btn-sm" onClick={() => setLoanFormOpen(false)} disabled={loanSaving}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary btn-sm" disabled={loanSaving}>
+                  {loanSaving ? 'Saving…' : 'Save Loan'}
+                </button>
+              </div>
+            </form>
+          ) : null}
 
-            {!loanLoading && loanHistory.length > 0 ? (
-              <div className="pt-1">
-                <p className="text-sm text-dim">History</p>
-                <div className="mt-3 space-y-0">
-                  {loanHistory.slice(0, 3).map((loan) => (
-                    <div key={loan.id} className="flex items-start justify-between gap-3 border-t border-edge/70 py-3 first:border-t-0 first:pt-0">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-ink">{loan.borrower_name || 'Borrower'}</p>
-                        <p className="mt-1 text-sm text-ghost">
-                          {formatDate(loan.loaned_at)} to {loan.returned_at ? formatDate(loan.returned_at) : formatDate(loan.due_at)}
-                        </p>
-                        <ReminderHistorySummary events={loan.reminder_events} className="mt-2 pt-0" />
-                      </div>
-                      <span className={cx(
+          {!loanLoading && loanHistory.length > 0 ? (
+            <div className="pt-1">
+              <p className="text-sm text-dim">History</p>
+              <div className="mt-3 space-y-0">
+                {loanHistory.slice(0, 3).map((loan) => (
+                  <div
+                    key={loan.id}
+                    className="flex items-start justify-between gap-3 border-t border-edge/70 py-3 first:border-t-0 first:pt-0"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-ink">{loan.borrower_name || 'Borrower'}</p>
+                      <p className="mt-1 text-sm text-ghost">
+                        {formatDate(loan.loaned_at)} to {loan.returned_at ? formatDate(loan.returned_at) : formatDate(loan.due_at)}
+                      </p>
+                      <ReminderHistorySummary events={loan.reminder_events} className="mt-2 pt-0" />
+                    </div>
+                    <span
+                      className={cx(
                         'badge shrink-0',
                         loan.returned_at ? 'border border-edge/70 bg-abyss text-dim' : 'border border-gold/25 bg-gold/10 text-gold'
-                      )}>
-                        {loan.returned_at ? 'Returned' : (loan.is_overdue ? 'Overdue' : 'Out')}
-                      </span>
+                      )}
+                    >
+                      {loan.returned_at ? 'Returned' : loan.is_overdue ? 'Overdue' : 'Out'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </DrawerMetadataEntry>
+
+        {!showLoanFocusedView ? (
+          <>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              {[
+                ['Runtime', item.runtime ? `${item.runtime} min` : null],
+                ['Rating', item.rating ? `${item.rating} / 10` : null],
+                ['Release', item.release_date ? String(item.release_date).slice(0, 10) : null],
+                ['UPC', item.upc],
+                ['Cast', item.cast],
+                ['Signed by', item.signed_by],
+                ['Signed as', item.signed_role],
+                ['Signed on', item.signed_on ? String(item.signed_on).slice(0, 10) : null],
+                ['Signed at', item.signed_at],
+                ['Location', item.location]
+              ]
+                .filter(([, v]) => v)
+                .map(([k, v]) => (
+                  <div key={k}>
+                    <p className="label">{k}</p>
+                    <p className="text-ink">{v}</p>
+                  </div>
+                ))}
+            </div>
+
+            {hasValuationData && (
+              <div>
+                <div className="mb-2 flex items-center gap-3">
+                  <p className="label">Valuation</p>
+                  <button
+                    type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ghost transition-colors hover:bg-raised/70 hover:text-ink disabled:cursor-default disabled:opacity-50"
+                    onClick={refreshValuation}
+                    disabled={valuationRefreshing}
+                    aria-label="Refresh valuation"
+                    title="Refresh valuation"
+                  >
+                    {valuationRefreshing ? <Spinner size={14} /> : <Icons.Refresh />}
+                  </button>
+                </div>
+                {valuationSummaryRows.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-4 border-b border-edge/60 pb-3">
+                    {valuationSummaryRows.map(([label, value]) => (
+                      <div key={label} className="min-w-0">
+                        <p className="text-[11px] font-medium text-ghost">{label}</p>
+                        <p className="mt-1 truncate text-sm font-medium text-ink">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {valuationMetaRows.length > 0 ? (
+                  <div className="mt-3 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+                    {valuationMetaRows.map(([label, value]) => (
+                      <div key={label}>
+                        <p className="label">{label}</p>
+                        <p className="text-ink">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )}
+            {!hasValuationData && (
+              <div>
+                <div className="mb-2 flex items-center gap-3">
+                  <p className="label">Valuation</p>
+                  <button
+                    type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ghost transition-colors hover:bg-raised/70 hover:text-ink disabled:cursor-default disabled:opacity-50"
+                    onClick={refreshValuation}
+                    disabled={valuationRefreshing}
+                    aria-label="Refresh valuation"
+                    title="Refresh valuation"
+                  >
+                    {valuationRefreshing ? <Spinner size={14} /> : <Icons.Refresh />}
+                  </button>
+                </div>
+                <p className="text-sm text-ghost">No values yet.</p>
+              </div>
+            )}
+
+            {item.signed_proof_path && (
+              <div>
+                <p className="label mb-2">Signing proof</p>
+                <a
+                  href={posterUrl(item.signed_proof_path)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-dim transition-colors hover:text-ink"
+                >
+                  <Icons.Link />
+                  Open proof image
+                </a>
+              </div>
+            )}
+
+            {Array.isArray(item.signatures) && item.signatures.length > 1 && (
+              <div>
+                <p className="label mb-2">All signatures</p>
+                <div className="space-y-2">
+                  {item.signatures.map((signature) => (
+                    <div key={signature.id} className="border-t border-edge/70 pt-2 first:border-t-0 first:pt-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm text-dim">
+                          {[signature.signer_name, signature.signer_role, signature.signed_on, signature.signed_at]
+                            .filter(Boolean)
+                            .join(' · ') || 'Signed copy'}
+                        </p>
+                        {signature.is_primary ? <span className="badge badge-dim shrink-0">Primary</span> : null}
+                      </div>
+                      {signature.notes ? <p className="mt-1 text-xs text-ghost">{signature.notes}</p> : null}
+                      {Array.isArray(signature.proofs) && signature.proofs.length ? (
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {signature.proofs.map((proof, index) => (
+                            <a
+                              key={proof.id || `${signature.id}:proof:${index}`}
+                              href={posterUrl(proof.proof_path)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-2 text-xs text-dim transition-colors hover:text-ink"
+                            >
+                              <Icons.Link />
+                              {proof.label || proof.proof_type || (proof.is_primary ? 'Primary proof' : `Proof ${index + 1}`)}
+                            </a>
+                          ))}
+                        </div>
+                      ) : signature.proof_path ? (
+                        <a
+                          href={posterUrl(signature.proof_path)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-flex items-center gap-2 text-xs text-dim transition-colors hover:text-ink"
+                        >
+                          <Icons.Link />
+                          Open proof image
+                        </a>
+                      ) : null}
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {isBook && bookDetailRows.length > 0 && (
+              <div>
+                <p className="label mb-2">Book details</p>
+                <div className="grid gap-x-8 gap-y-3 text-sm md:grid-cols-2">
+                  {bookDetailRows.map(([label, value]) => (
+                    <div key={label} className="border-b border-edge/60 pb-3 last:border-b-0">
+                      <p className="text-[11px] font-medium text-ghost">{label}</p>
+                      <p className="mt-1 text-sm text-ink">{String(value)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {isAudio && audioDetailRows.length > 0 && (
+              <div>
+                <p className="label mb-2">Album details</p>
+                <div className="grid gap-x-8 gap-y-3 text-sm md:grid-cols-2">
+                  {audioDetailRows.map(([label, value]) => (
+                    <div key={label} className="border-b border-edge/60 pb-3 last:border-b-0">
+                      <p className="text-[11px] font-medium text-ghost">{label}</p>
+                      <p className="mt-1 text-sm text-ink">{String(value)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {seriesMemberships.length > 0 && (
+              <div>
+                <p className="label mb-2">Series memberships</p>
+                <div className="space-y-2">
+                  {seriesMemberships.map((membership, index) => (
+                    <div
+                      key={`${membership.provider_series_id || membership.name || 'series'}:${index}`}
+                      className="rounded-lg border border-edge/70 bg-panel px-3 py-3"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="text-sm font-medium text-ink">{membership.name || 'Unnamed series'}</p>
+                        <span className="badge badge-dim">{formatSeriesMembershipPosition(membership)}</span>
+                      </div>
+                      {formatSeriesMembershipProvenance(membership) ? (
+                        <p className="mt-1 text-xs text-ghost">{formatSeriesMembershipProvenance(membership)}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!isBook && item.type_details && typeof item.type_details === 'object' && defaultTypeDetailEntries.length > 0 && (
+              <div>
+                <p className="label mb-2">Type Details</p>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  {defaultTypeDetailEntries.map(([k, v]) => (
+                    <div key={k}>
+                      <p className="label">{k.replace(/_/g, ' ')}</p>
+                      <p className="text-ink">{String(v)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <MergeEvidenceSection
+              mergeDetailsLoading={mergeDetailsLoading}
+              mergeSummary={mergeSummary}
+              mergeDisclosureItems={mergeDisclosureItems}
+              openMergeEntryId={openMergeEntryId}
+              setOpenMergeEntryId={setOpenMergeEntryId}
+              itemTitle={item.title}
+              formatMergeSourceLabel={formatMergeSourceLabel}
+              formatMergeTimestamp={formatMergeTimestamp}
+              formatMergeValue={formatMergeValue}
+              formatMergeTechnicalLabel={formatMergeTechnicalLabel}
+            />
+
+            {isBook && bookSourceLinks.length > 0 && (
+              <div>
+                <p className="label mb-2">Sources</p>
+                <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                  {bookSourceLinks.map(([label, href]) => (
+                    <a
+                      key={`${label}-${href}`}
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
+                    >
+                      <Icons.Link />
+                      <span>{label}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {isComic && comicSourceLinks.length > 0 && (
+              <div>
+                <p className="label mb-2">Sources</p>
+                <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                  {comicSourceLinks.map(([label, href]) => (
+                    <a
+                      key={`${label}-${href}`}
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
+                    >
+                      <Icons.Link />
+                      <span>{label}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {isKavitaLinked ? (
+              <div className="border-t border-edge/60 pt-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="label">Kavita Metadata</p>
+                    <p className="mt-1 text-sm text-ghost">Review the diff before writing selected collectZ values to Kavita.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={loadKavitaWritebackPreview}
+                      disabled={kavitaPreviewLoading || kavitaApplyLoading}
+                    >
+                      {kavitaPreviewLoading ? <Spinner size={14} /> : <Icons.Refresh />}
+                      {kavitaPreviewLoading ? 'Loading…' : 'Preview Diff'}
+                    </button>
+                    {kavitaPreview ? (
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={applyKavitaWriteback}
+                        disabled={kavitaApplyLoading || kavitaPreviewLoading || kavitaSelectedFields.length === 0}
+                      >
+                        {kavitaApplyLoading ? <Spinner size={14} /> : <Icons.Check />}
+                        {kavitaApplyLoading ? 'Applying…' : 'Apply to Kavita'}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                {kavitaPreview ? (
+                  <div className="mt-4 space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="badge badge-dim">{kavitaPreview.target}</span>
+                      <span className="badge badge-dim">{(kavitaPreview.changedFields || []).length} changed</span>
+                      <span className="badge badge-dim">{kavitaSelectedFields.length} selected</span>
+                      {(kavitaPreview.skippedFields || []).length > 0 ? (
+                        <span className="badge badge-dim">{kavitaPreview.skippedFields.length} skipped</span>
+                      ) : null}
+                    </div>
+                    {Array.isArray(kavitaPreview.diff) && kavitaPreview.diff.length > 0 ? (
+                      <div className="divide-y divide-edge/60 rounded-lg border border-edge bg-panel">
+                        {kavitaPreview.diff.slice(0, 8).map((entry) => (
+                          <div key={entry.field} className="grid gap-2 px-3 py-3 text-sm sm:grid-cols-[150px,1fr]">
+                            <div className="flex items-center gap-2">
+                              {entry.changed ? (
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-edge bg-panel text-accent"
+                                  checked={kavitaSelectedFields.includes(entry.field)}
+                                  onChange={() => toggleKavitaSelectedField(entry.field)}
+                                  aria-label={`Apply ${entry.field} to Kavita`}
+                                />
+                              ) : (
+                                <span className="h-4 w-4" aria-hidden="true" />
+                              )}
+                              <span className={cx('h-2 w-2 rounded-full', entry.changed ? 'bg-gold' : 'bg-ok')} />
+                              <span className="min-w-0 break-words font-medium text-ink">{entry.field}</span>
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <div>
+                                <p className="text-[11px] font-medium text-ghost">Kavita</p>
+                                <p className="mt-1 break-words text-dim">{formatKavitaPreviewValue(entry.currentValue)}</p>
+                              </div>
+                              <div>
+                                <p className="text-[11px] font-medium text-ghost">collectZ</p>
+                                <p className="mt-1 break-words text-dim">{formatKavitaPreviewValue(entry.proposedValue)}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-ghost">No writable fields have local values to preview.</p>
+                    )}
+                    {Array.isArray(kavitaPreview.skippedFields) && kavitaPreview.skippedFields.length > 0 ? (
+                      <p className="text-xs text-ghost">
+                        Skipped {kavitaPreview.skippedFields.map((entry) => `${entry.field}: ${entry.reason}`).join(', ')}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {isKavitaLinked && isKavitaChapterBacked ? (
+              <div className="border-t border-edge/60 pt-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="label">Kavita Reader</p>
+                    <p className="mt-1 text-sm text-ghost">Chapter page, progress, and read-state controls for the linked Kavita row.</p>
+                  </div>
+                  <button type="button" className="btn-secondary" onClick={loadKavitaProgress} disabled={kavitaProgressLoading}>
+                    {kavitaProgressLoading ? <Spinner size={14} /> : <Icons.Refresh />}
+                    {kavitaProgressLoading ? 'Loading…' : 'Read Progress'}
+                  </button>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                  <span className="badge badge-dim">Reader {kavitaReaderInfo ? 'ready' : 'not loaded'}</span>
+                  <span className="badge badge-dim">
+                    Page {kavitaReaderInfo ? kavitaReaderDisplayPage : '—'} / {kavitaReaderTotalLabel}
+                  </span>
+                  <span className="badge badge-dim">
+                    Saved {kavitaProgressDisplayPage ? `page ${kavitaProgressDisplayPage}` : 'not loaded'}
+                  </span>
+                  {kavitaReaderImageStatus === 'error' ? (
+                    <span className="badge border-err/40 bg-err/10 text-err">Page image failed</span>
+                  ) : null}
+                </div>
+                {kavitaProgressRows.length > 0 ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    {kavitaProgressRows.map(([label, value]) => (
+                      <div key={label} className="rounded-md border border-edge bg-panel px-3 py-2">
+                        <p className="text-[11px] font-medium text-ghost">{label}</p>
+                        <p className="mt-1 break-words text-sm text-ink">{String(value)}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-ghost">No Kavita progress has been loaded for this chapter.</p>
+                )}
+                <div className="mt-5 rounded-md border border-edge bg-panel/70 p-3">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-ink">Page preview</p>
+                      <p className="mt-1 text-xs text-ghost">Page images are proxied one at a time; Kavita credentials stay server-side.</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                      <button type="button" className="btn-secondary btn-sm" onClick={loadKavitaReaderInfo} disabled={kavitaReaderLoading}>
+                        {kavitaReaderLoading ? <Spinner size={14} /> : <Icons.Eye />}
+                        {kavitaReaderLoading ? 'Loading…' : 'Load Reader'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm"
+                        onClick={saveKavitaProgress}
+                        disabled={kavitaProgressSaving || !kavitaReaderInfo}
+                      >
+                        {kavitaProgressSaving ? <Spinner size={14} /> : <Icons.Check />}
+                        {kavitaProgressSaving ? 'Saving…' : 'Save Progress'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm"
+                        onClick={resetKavitaProgress}
+                        disabled={kavitaProgressResetting}
+                      >
+                        {kavitaProgressResetting ? <Spinner size={14} /> : <Icons.Refresh />}
+                        {kavitaProgressResetting ? 'Resetting…' : 'Reset Progress'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm"
+                        onClick={markKavitaChapterRead}
+                        disabled={kavitaMarkReadSaving}
+                      >
+                        {kavitaMarkReadSaving ? <Spinner size={14} /> : <Icons.Check />}
+                        {kavitaMarkReadSaving ? 'Marking…' : 'Mark Read in Kavita'}
+                      </button>
+                    </div>
+                  </div>
+                  {kavitaReaderError ? (
+                    <p className="mt-3 rounded-md border border-err/30 bg-err/10 px-3 py-2 text-sm text-err">{kavitaReaderError}</p>
+                  ) : null}
+                  {kavitaReaderInfo ? (
+                    <div className="mt-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-edge bg-raised/70 px-3 py-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-medium text-ghost">Page</span>
+                          <span className="text-sm font-semibold text-ink">{kavitaReaderDisplayPage}</span>
+                          <span className="text-xs text-ghost">of {kavitaReaderTotalLabel}</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            className="btn-icon btn-sm"
+                            onClick={() => setBoundedKavitaReaderPage(kavitaReaderPage - 1)}
+                            disabled={kavitaReaderPage <= 0}
+                            aria-label="Previous Kavita page"
+                            title="Previous page"
+                          >
+                            <Icons.ChevronLeft />
+                          </button>
+                          <label className="flex items-center gap-2 text-xs text-ghost">
+                            <span>Go to</span>
+                            <input
+                              className="input h-8 w-20 px-2 py-1 text-sm"
+                              type="number"
+                              min="1"
+                              max={kavitaReaderTotalPages > 0 ? kavitaReaderTotalPages : undefined}
+                              value={kavitaReaderDisplayPage}
+                              onChange={(event) => setKavitaReaderDisplayPage(Number(event.target.value))}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            className="btn-icon btn-sm"
+                            onClick={() => setBoundedKavitaReaderPage(kavitaReaderPage + 1)}
+                            disabled={kavitaReaderTotalPages > 0 && kavitaReaderPage >= kavitaReaderTotalPages - 1}
+                            aria-label="Next Kavita page"
+                            title="Next page"
+                          >
+                            <Icons.ChevronRight />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="relative min-h-[220px] overflow-hidden rounded-md border border-edge bg-black">
+                        {kavitaReaderImageStatus === 'loading' ? (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/70 text-sm text-white">
+                            <Spinner size={18} />
+                            <span className="ml-2">Loading page…</span>
+                          </div>
+                        ) : null}
+                        {kavitaReaderImageStatus === 'error' ? (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/85 px-4 text-center text-sm text-white">
+                            This Kavita page could not be loaded.
+                          </div>
+                        ) : null}
+                        {kavitaReaderPageUrl ? (
+                          <img
+                            src={kavitaReaderPageUrl}
+                            alt={`${item.title || 'Kavita chapter'} page ${kavitaReaderDisplayPage}`}
+                            className="mx-auto max-h-[72vh] w-auto max-w-full object-contain"
+                            onLoad={() => setKavitaReaderImageStatus('loaded')}
+                            onError={() => setKavitaReaderImageStatus('error')}
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ) : null}
-          </DrawerMetadataEntry>
 
-          {!showLoanFocusedView ? (
-          <>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            {[
-              ['Runtime', item.runtime ? `${item.runtime} min` : null],
-              ['Rating', item.rating ? `${item.rating} / 10` : null],
-              ['Release', item.release_date ? String(item.release_date).slice(0, 10) : null],
-              ['UPC', item.upc],
-              ['Cast', item.cast],
-              ['Signed by', item.signed_by],
-              ['Signed as', item.signed_role],
-              ['Signed on', item.signed_on ? String(item.signed_on).slice(0, 10) : null],
-              ['Signed at', item.signed_at],
-              ['Location', item.location]
-            ].filter(([, v]) => v).map(([k, v]) => (
-              <div key={k}><p className="label">{k}</p><p className="text-ink">{v}</p></div>
-            ))}
-          </div>
-
-          {hasValuationData && (
-            <div>
-              <div className="mb-2 flex items-center gap-3">
-                <p className="label">Valuation</p>
-                <button
-                  type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ghost transition-colors hover:bg-raised/70 hover:text-ink disabled:cursor-default disabled:opacity-50"
-                  onClick={refreshValuation}
-                  disabled={valuationRefreshing}
-                  aria-label="Refresh valuation"
-                  title="Refresh valuation"
-                >
-                  {valuationRefreshing ? <Spinner size={14} /> : <Icons.Refresh />}
-                </button>
+            {!isBook && !isComic && (externalMediaUrl || item.trailer_url) && (
+              <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                {externalMediaUrl && (
+                  <a
+                    href={externalMediaUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
+                  >
+                    <Icons.Link />
+                    <span>{externalMediaLabel}</span>
+                  </a>
+                )}
+                {item.trailer_url && (
+                  <a
+                    href={item.trailer_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
+                  >
+                    <Icons.Play />
+                    <span>Trailer</span>
+                  </a>
+                )}
               </div>
-              {valuationSummaryRows.length > 0 ? (
-                <div className="grid grid-cols-3 gap-4 border-b border-edge/60 pb-3">
-                  {valuationSummaryRows.map(([label, value]) => (
-                    <div key={label} className="min-w-0">
-                      <p className="text-[11px] font-medium text-ghost">{label}</p>
-                      <p className="mt-1 truncate text-sm font-medium text-ink">{value}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-              {valuationMetaRows.length > 0 ? (
-                <div className="mt-3 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-                  {valuationMetaRows.map(([label, value]) => (
-                    <div key={label}>
-                      <p className="label">{label}</p>
-                      <p className="text-ink">{value}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          )}
-          {!hasValuationData && (
-            <div>
-              <div className="mb-2 flex items-center gap-3">
-                <p className="label">Valuation</p>
-                <button
-                  type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ghost transition-colors hover:bg-raised/70 hover:text-ink disabled:cursor-default disabled:opacity-50"
-                  onClick={refreshValuation}
-                  disabled={valuationRefreshing}
-                  aria-label="Refresh valuation"
-                  title="Refresh valuation"
-                >
-                  {valuationRefreshing ? <Spinner size={14} /> : <Icons.Refresh />}
-                </button>
-              </div>
-              <p className="text-sm text-ghost">No values yet.</p>
-            </div>
-          )}
+            )}
 
-          {item.signed_proof_path && (
-            <div>
-              <p className="label mb-2">Signing proof</p>
-              <a
-                href={posterUrl(item.signed_proof_path)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-dim transition-colors hover:text-ink"
-              >
-                <Icons.Link />
-                Open proof image
-              </a>
-            </div>
-          )}
-
-          {Array.isArray(item.signatures) && item.signatures.length > 1 && (
-            <div>
-              <p className="label mb-2">All signatures</p>
-              <div className="space-y-2">
-                {item.signatures.map((signature) => (
-                  <div key={signature.id} className="border-t border-edge/70 pt-2 first:border-t-0 first:pt-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm text-dim">
-                        {[signature.signer_name, signature.signer_role, signature.signed_on, signature.signed_at].filter(Boolean).join(' · ') || 'Signed copy'}
-                      </p>
-                      {signature.is_primary ? <span className="badge badge-dim shrink-0">Primary</span> : null}
-                    </div>
-                    {signature.notes ? <p className="mt-1 text-xs text-ghost">{signature.notes}</p> : null}
-                    {Array.isArray(signature.proofs) && signature.proofs.length ? (
-                      <div className="mt-1 flex flex-wrap gap-2">
-                        {signature.proofs.map((proof, index) => (
-                          <a
-                            key={proof.id || `${signature.id}:proof:${index}`}
-                            href={posterUrl(proof.proof_path)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 text-xs text-dim transition-colors hover:text-ink"
-                          >
-                            <Icons.Link />
-                            {proof.label || proof.proof_type || (proof.is_primary ? 'Primary proof' : `Proof ${index + 1}`)}
-                          </a>
+            {isBook ? (
+              <div className="grid gap-6 border-t border-edge/60 pt-5 md:grid-cols-[minmax(0,1fr)_220px]">
+                <div>
+                  <p className="label mb-2">Editions</p>
+                  {variantLoading && <p className="text-sm text-ghost">Loading variants…</p>}
+                  {!variantLoading && variants.length === 0 && <p className="text-sm text-ghost">No edition data yet</p>}
+                  {!variantLoading && variants.length > 0 && (
+                    <div className="space-y-2">
+                      {variants
+                        .filter((v) => Boolean(v.edition))
+                        .map((v) => (
+                          <div key={v.id} className="border-b border-edge/60 pb-2 last:border-b-0">
+                            <p className="text-sm font-medium text-ink">{v.edition || 'Default edition'}</p>
+                            <p className="mt-1 text-xs text-ghost">
+                              {[v.resolution, v.container, v.video_codec, v.audio_codec, v.audio_channels ? `${v.audio_channels}ch` : null]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
+                            {v.file_path ? <p className="mt-1 break-all font-mono text-[11px] text-ghost/80">{v.file_path}</p> : null}
+                          </div>
                         ))}
-                      </div>
-                    ) : signature.proof_path ? (
-                      <a
-                        href={posterUrl(signature.proof_path)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 inline-flex items-center gap-2 text-xs text-dim transition-colors hover:text-ink"
-                      >
-                        <Icons.Link />
-                        Open proof image
-                      </a>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isBook && bookDetailRows.length > 0 && (
-            <div>
-              <p className="label mb-2">Book details</p>
-              <div className="grid gap-x-8 gap-y-3 text-sm md:grid-cols-2">
-                {bookDetailRows.map(([label, value]) => (
-                  <div key={label} className="border-b border-edge/60 pb-3 last:border-b-0">
-                    <p className="text-[11px] font-medium text-ghost">{label}</p>
-                    <p className="mt-1 text-sm text-ink">{String(value)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isAudio && audioDetailRows.length > 0 && (
-            <div>
-              <p className="label mb-2">Album details</p>
-              <div className="grid gap-x-8 gap-y-3 text-sm md:grid-cols-2">
-                {audioDetailRows.map(([label, value]) => (
-                  <div key={label} className="border-b border-edge/60 pb-3 last:border-b-0">
-                    <p className="text-[11px] font-medium text-ghost">{label}</p>
-                    <p className="mt-1 text-sm text-ink">{String(value)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {seriesMemberships.length > 0 && (
-            <div>
-              <p className="label mb-2">Series memberships</p>
-              <div className="space-y-2">
-                {seriesMemberships.map((membership, index) => (
-                  <div
-                    key={`${membership.provider_series_id || membership.name || 'series'}:${index}`}
-                    className="rounded-lg border border-edge/70 bg-panel px-3 py-3"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <p className="text-sm font-medium text-ink">{membership.name || 'Unnamed series'}</p>
-                      <span className="badge badge-dim">{formatSeriesMembershipPosition(membership)}</span>
                     </div>
-                    {formatSeriesMembershipProvenance(membership) ? (
-                      <p className="mt-1 text-xs text-ghost">{formatSeriesMembershipProvenance(membership)}</p>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {!isBook && item.type_details && typeof item.type_details === 'object' && defaultTypeDetailEntries.length > 0 && (
-            <div>
-              <p className="label mb-2">Type Details</p>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                {defaultTypeDetailEntries.map(([k, v]) => (
-                  <div key={k}>
-                    <p className="label">{k.replace(/_/g, ' ')}</p>
-                    <p className="text-ink">{String(v)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <MergeEvidenceSection
-            mergeDetailsLoading={mergeDetailsLoading}
-            mergeSummary={mergeSummary}
-            mergeDisclosureItems={mergeDisclosureItems}
-            openMergeEntryId={openMergeEntryId}
-            setOpenMergeEntryId={setOpenMergeEntryId}
-            itemTitle={item.title}
-            formatMergeSourceLabel={formatMergeSourceLabel}
-            formatMergeTimestamp={formatMergeTimestamp}
-            formatMergeValue={formatMergeValue}
-            formatMergeTechnicalLabel={formatMergeTechnicalLabel}
-          />
-
-          {isBook && bookSourceLinks.length > 0 && (
-            <div>
-              <p className="label mb-2">Sources</p>
-              <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-                {bookSourceLinks.map(([label, href]) => (
-                  <a
-                    key={`${label}-${href}`}
-                    href={href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
-                  >
-                    <Icons.Link />
-                    <span>{label}</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isComic && comicSourceLinks.length > 0 && (
-            <div>
-              <p className="label mb-2">Sources</p>
-              <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-                {comicSourceLinks.map(([label, href]) => (
-                  <a
-                    key={`${label}-${href}`}
-                    href={href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
-                  >
-                    <Icons.Link />
-                    <span>{label}</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isKavitaLinked ? (
-            <div className="border-t border-edge/60 pt-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="label">Kavita Metadata</p>
-                  <p className="mt-1 text-sm text-ghost">Review the diff before writing selected collectZ values to Kavita.</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={loadKavitaWritebackPreview}
-                    disabled={kavitaPreviewLoading || kavitaApplyLoading}
-                  >
-                    {kavitaPreviewLoading ? <Spinner size={14} /> : <Icons.Refresh />}
-                    {kavitaPreviewLoading ? 'Loading…' : 'Preview Diff'}
-                  </button>
-                  {kavitaPreview ? (
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={applyKavitaWriteback}
-                      disabled={kavitaApplyLoading || kavitaPreviewLoading || kavitaSelectedFields.length === 0}
-                    >
-                      {kavitaApplyLoading ? <Spinner size={14} /> : <Icons.Check />}
-                      {kavitaApplyLoading ? 'Applying…' : 'Apply to Kavita'}
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-              {kavitaPreview ? (
-                <div className="mt-4 space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="badge badge-dim">{kavitaPreview.target}</span>
-                    <span className="badge badge-dim">{(kavitaPreview.changedFields || []).length} changed</span>
-                    <span className="badge badge-dim">{kavitaSelectedFields.length} selected</span>
-                    {(kavitaPreview.skippedFields || []).length > 0 ? (
-                      <span className="badge badge-dim">{kavitaPreview.skippedFields.length} skipped</span>
-                    ) : null}
-                  </div>
-                  {Array.isArray(kavitaPreview.diff) && kavitaPreview.diff.length > 0 ? (
-                    <div className="divide-y divide-edge/60 rounded-lg border border-edge bg-panel">
-                      {kavitaPreview.diff.slice(0, 8).map((entry) => (
-                        <div key={entry.field} className="grid gap-2 px-3 py-3 text-sm sm:grid-cols-[150px,1fr]">
-                          <div className="flex items-center gap-2">
-                            {entry.changed ? (
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 rounded border-edge bg-panel text-accent"
-                                checked={kavitaSelectedFields.includes(entry.field)}
-                                onChange={() => toggleKavitaSelectedField(entry.field)}
-                                aria-label={`Apply ${entry.field} to Kavita`}
-                              />
-                            ) : (
-                              <span className="h-4 w-4" aria-hidden="true" />
-                            )}
-                            <span className={cx('h-2 w-2 rounded-full', entry.changed ? 'bg-gold' : 'bg-ok')} />
-                            <span className="min-w-0 break-words font-medium text-ink">{entry.field}</span>
-                          </div>
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            <div>
-                              <p className="text-[11px] font-medium text-ghost">Kavita</p>
-                              <p className="mt-1 break-words text-dim">{formatKavitaPreviewValue(entry.currentValue)}</p>
-                            </div>
-                            <div>
-                              <p className="text-[11px] font-medium text-ghost">collectZ</p>
-                              <p className="mt-1 break-words text-dim">{formatKavitaPreviewValue(entry.proposedValue)}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-ghost">No writable fields have local values to preview.</p>
                   )}
-                  {Array.isArray(kavitaPreview.skippedFields) && kavitaPreview.skippedFields.length > 0 ? (
-                    <p className="text-xs text-ghost">
-                      Skipped {kavitaPreview.skippedFields.map((entry) => `${entry.field}: ${entry.reason}`).join(', ')}
-                    </p>
+                </div>
+
+                <div className="space-y-5">
+                  <div>
+                    <p className="label mb-2">Your Rating</p>
+                    <StarRating value={userRatingToStars(item.user_rating)} onChange={(r) => onRating(item.id, starsToUserRating(r))} />
+                    {showPlexWritebackControls ? (
+                      <PlexWritebackControls
+                        item={item}
+                        loading={plexWritebackLoading}
+                        onWriteRating={writePlexRating}
+                        onWriteWatchState={writePlexWatchState}
+                        canWriteRating={canWritePlexRating}
+                        canWriteWatchState={canWritePlexWatchState}
+                      />
+                    ) : null}
+                  </div>
+                  {item.notes ? (
+                    <div>
+                      <p className="label mb-1">Notes</p>
+                      <p className="text-sm text-dim">{item.notes}</p>
+                    </div>
                   ) : null}
                 </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {isKavitaLinked && isKavitaChapterBacked ? (
-            <div className="border-t border-edge/60 pt-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              </div>
+            ) : (
+              <>
                 <div>
-                  <p className="label">Kavita Reader</p>
-                  <p className="mt-1 text-sm text-ghost">Chapter page, progress, and read-state controls for the linked Kavita row.</p>
+                  <p className="label mb-2">{item.media_type === 'tv_series' ? 'Seasons' : 'Editions'}</p>
+                  {variantLoading && <p className="text-sm text-ghost">Loading variants…</p>}
+                  {!variantLoading && variants.length === 0 && (
+                    <p className="text-sm text-ghost">{item.media_type === 'tv_series' ? 'No season data yet' : 'No edition data yet'}</p>
+                  )}
+                  {!variantLoading &&
+                    variants.length > 0 &&
+                    (item.media_type === 'tv_series' ? (
+                      <div className="space-y-4">
+                        <div className="overflow-x-auto no-scrollbar border-b border-edge/70">
+                          <div className="flex min-w-full gap-4 whitespace-nowrap">
+                            {tvSeasonVariants.map((v) => {
+                              const seasonKey = Number(v.season_number);
+                              const isActive = seasonKey === (activeSeasonVariant ? Number(activeSeasonVariant.season_number) : null);
+                              return (
+                                <button
+                                  key={v.id}
+                                  type="button"
+                                  className={cx(
+                                    'inline-flex items-center gap-2 border-b-2 px-0 py-2 text-sm transition-colors',
+                                    isActive ? 'border-brand text-ink' : 'border-transparent text-dim hover:text-ink'
+                                  )}
+                                  onClick={() => loadSeasonDetail(seasonKey)}
+                                >
+                                  <span>{`S${seasonKey}`}</span>
+                                  {v.watch_state === 'completed' ? (
+                                    <span className="text-ok" aria-label="Watched" title="Watched">
+                                      <Icons.Check />
+                                    </span>
+                                  ) : null}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {activeSeasonVariant &&
+                          (() => {
+                            const key = Number(activeSeasonVariant.season_number);
+                            const details = seasonDetails[key];
+                            const tmdbEpisodeCount = Number(details?.tmdb?.episode_count);
+                            const tmdbDerivedCount = Array.isArray(details?.tmdb?.episodes) ? details.tmdb.episodes.length : null;
+                            const expectedEpisodes =
+                              Number.isFinite(Number(activeSeasonVariant.expected_episodes)) &&
+                              Number(activeSeasonVariant.expected_episodes) > 0
+                                ? Number(activeSeasonVariant.expected_episodes)
+                                : Number.isFinite(tmdbEpisodeCount) && tmdbEpisodeCount > 0
+                                  ? tmdbEpisodeCount
+                                  : Number.isInteger(tmdbDerivedCount) && tmdbDerivedCount > 0
+                                    ? tmdbDerivedCount
+                                    : null;
+                            const ownedEpisodes = Number.isFinite(Number(activeSeasonVariant.available_episodes))
+                              ? Number(activeSeasonVariant.available_episodes)
+                              : null;
+                            const episodesLabel =
+                              ownedEpisodes !== null
+                                ? `Episodes ${ownedEpisodes}/${expectedEpisodes ?? '?'}`
+                                : `Episodes ?/${expectedEpisodes ?? '?'}`;
+                            return (
+                              <div className="space-y-3 pt-1">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="min-w-0">
+                                    <p className="mt-1 text-xs text-ghost">
+                                      {[
+                                        episodesLabel,
+                                        expectedEpisodes !== null && ownedEpisodes !== null && ownedEpisodes < expectedEpisodes
+                                          ? 'Missing episodes'
+                                          : null
+                                      ]
+                                        .filter(Boolean)
+                                        .join(' · ')}
+                                    </p>
+                                    <p className="mt-1 text-xs text-ghost">
+                                      {[
+                                        details?.tmdb?.air_date ? `Air date: ${details.tmdb.air_date}` : null,
+                                        Number.isFinite(tmdbEpisodeCount) && tmdbEpisodeCount > 0
+                                          ? `TMDB episodes: ${tmdbEpisodeCount}`
+                                          : null
+                                      ]
+                                        .filter(Boolean)
+                                        .join(' · ') || 'No TMDB season metadata available'}
+                                    </p>
+                                  </div>
+                                  <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      className="text-sm font-medium text-dim transition-colors hover:text-ink disabled:cursor-default disabled:opacity-50"
+                                      onClick={() => markSeasonWatched(key)}
+                                      disabled={Boolean(seasonSaving[key]) || activeSeasonVariant.watch_state === 'completed'}
+                                    >
+                                      {seasonSaving[key] ? <Spinner size={14} /> : null}
+                                      {seasonSaving[key] ? 'Saving…' : 'Mark season watched'}
+                                    </button>
+                                    {canWritePlexWatchState ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          className="btn-secondary btn-sm"
+                                          onClick={() => writePlexWatchState('scrobble', { seasonNumber: key })}
+                                          disabled={Boolean(plexWritebackLoading)}
+                                          data-testid="plex-season-watch-scrobble-button"
+                                        >
+                                          {plexWritebackLoading === `scrobble:season:${key}` ? <Spinner size={14} /> : <Icons.Check />}
+                                          Plex watched
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="btn-secondary btn-sm"
+                                          onClick={() => writePlexWatchState('unscrobble', { seasonNumber: key })}
+                                          disabled={Boolean(plexWritebackLoading)}
+                                          data-testid="plex-season-watch-unscrobble-button"
+                                        >
+                                          {plexWritebackLoading === `unscrobble:season:${key}` ? <Spinner size={14} /> : <Icons.Refresh />}
+                                          Plex unwatched
+                                        </button>
+                                      </>
+                                    ) : null}
+                                  </div>
+                                </div>
+                                {seasonDetailLoading[key] && <p className="text-xs text-ghost">Loading season metadata…</p>}
+                                {!seasonDetailLoading[key] && Array.isArray(details?.tmdb?.episodes) && details.tmdb.episodes.length > 0 ? (
+                                  <div className="max-h-48 overflow-auto pr-1 space-y-1">
+                                    {details.tmdb.episodes.map((episode) => (
+                                      <div key={episode.id || `ep-${episode.episode_number}`} className="text-xs text-dim">
+                                        <span className="text-ink">E{episode.episode_number}:</span> {episode.name || 'Untitled'}
+                                        {episode.watched ? (
+                                          <span className="text-ok"> · watched</span>
+                                        ) : (
+                                          <span className="text-brand-300"> · unwatched</span>
+                                        )}
+                                        {episode.in_library ? <span className="text-ghost"> · in library</span> : null}
+                                        {episode.air_date ? <span className="text-ghost"> · {episode.air_date}</span> : null}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          })()}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {variants
+                          .filter((v) => Boolean(v.edition))
+                          .map((v) => (
+                            <div key={v.id} className="card p-3">
+                              <p className="text-sm text-ink font-medium flex items-center gap-2">
+                                <span>{v.edition || (item.media_type === 'movie' ? 'Theatrical' : 'Default edition')}</span>
+                              </p>
+                              <p className="text-xs text-ghost mt-1">
+                                {[
+                                  v.resolution,
+                                  v.container,
+                                  v.video_codec,
+                                  v.audio_codec,
+                                  v.audio_channels ? `${v.audio_channels}ch` : null
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </p>
+                              {v.file_path && <p className="text-xs text-ghost/80 font-mono mt-1 break-all">{v.file_path}</p>}
+                            </div>
+                          ))}
+                      </div>
+                    ))}
                 </div>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={loadKavitaProgress}
-                  disabled={kavitaProgressLoading}
-                >
-                  {kavitaProgressLoading ? <Spinner size={14} /> : <Icons.Refresh />}
-                  {kavitaProgressLoading ? 'Loading…' : 'Read Progress'}
-                </button>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                <span className="badge badge-dim">
-                  Reader {kavitaReaderInfo ? 'ready' : 'not loaded'}
-                </span>
-                <span className="badge badge-dim">
-                  Page {kavitaReaderInfo ? kavitaReaderDisplayPage : '—'} / {kavitaReaderTotalLabel}
-                </span>
-                <span className="badge badge-dim">
-                  Saved {kavitaProgressDisplayPage ? `page ${kavitaProgressDisplayPage}` : 'not loaded'}
-                </span>
-                {kavitaReaderImageStatus === 'error' ? (
-                  <span className="badge border-err/40 bg-err/10 text-err">Page image failed</span>
-                ) : null}
-              </div>
-              {kavitaProgressRows.length > 0 ? (
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  {kavitaProgressRows.map(([label, value]) => (
-                    <div key={label} className="rounded-md border border-edge bg-panel px-3 py-2">
-                      <p className="text-[11px] font-medium text-ghost">{label}</p>
-                      <p className="mt-1 break-words text-sm text-ink">{String(value)}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-3 text-sm text-ghost">No Kavita progress has been loaded for this chapter.</p>
-              )}
-              <div className="mt-5 rounded-md border border-edge bg-panel/70 p-3">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+
+                {item.notes && (
                   <div>
-                    <p className="text-sm font-medium text-ink">Page preview</p>
-                    <p className="mt-1 text-xs text-ghost">Page images are proxied one at a time; Kavita credentials stay server-side.</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                    <button
-                      type="button"
-                      className="btn-secondary btn-sm"
-                      onClick={loadKavitaReaderInfo}
-                      disabled={kavitaReaderLoading}
-                    >
-                      {kavitaReaderLoading ? <Spinner size={14} /> : <Icons.Eye />}
-                      {kavitaReaderLoading ? 'Loading…' : 'Load Reader'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary btn-sm"
-                      onClick={saveKavitaProgress}
-                      disabled={kavitaProgressSaving || !kavitaReaderInfo}
-                    >
-                      {kavitaProgressSaving ? <Spinner size={14} /> : <Icons.Check />}
-                      {kavitaProgressSaving ? 'Saving…' : 'Save Progress'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary btn-sm"
-                      onClick={resetKavitaProgress}
-                      disabled={kavitaProgressResetting}
-                    >
-                      {kavitaProgressResetting ? <Spinner size={14} /> : <Icons.Refresh />}
-                      {kavitaProgressResetting ? 'Resetting…' : 'Reset Progress'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary btn-sm"
-                      onClick={markKavitaChapterRead}
-                      disabled={kavitaMarkReadSaving}
-                    >
-                      {kavitaMarkReadSaving ? <Spinner size={14} /> : <Icons.Check />}
-                      {kavitaMarkReadSaving ? 'Marking…' : 'Mark Read in Kavita'}
-                    </button>
-                  </div>
-                </div>
-                {kavitaReaderError ? (
-                  <p className="mt-3 rounded-md border border-err/30 bg-err/10 px-3 py-2 text-sm text-err">{kavitaReaderError}</p>
-                ) : null}
-                {kavitaReaderInfo ? (
-                  <div className="mt-4 space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-edge bg-raised/70 px-3 py-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-medium text-ghost">Page</span>
-                        <span className="text-sm font-semibold text-ink">{kavitaReaderDisplayPage}</span>
-                        <span className="text-xs text-ghost">of {kavitaReaderTotalLabel}</span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        className="btn-icon btn-sm"
-                        onClick={() => setBoundedKavitaReaderPage(kavitaReaderPage - 1)}
-                        disabled={kavitaReaderPage <= 0}
-                        aria-label="Previous Kavita page"
-                        title="Previous page"
-                      >
-                        <Icons.ChevronLeft />
-                      </button>
-                      <label className="flex items-center gap-2 text-xs text-ghost">
-                        <span>Go to</span>
-                        <input
-                          className="input h-8 w-20 px-2 py-1 text-sm"
-                          type="number"
-                          min="1"
-                          max={kavitaReaderTotalPages > 0 ? kavitaReaderTotalPages : undefined}
-                          value={kavitaReaderDisplayPage}
-                          onChange={(event) => setKavitaReaderDisplayPage(Number(event.target.value))}
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        className="btn-icon btn-sm"
-                        onClick={() => setBoundedKavitaReaderPage(kavitaReaderPage + 1)}
-                        disabled={kavitaReaderTotalPages > 0 && kavitaReaderPage >= kavitaReaderTotalPages - 1}
-                        aria-label="Next Kavita page"
-                        title="Next page"
-                      >
-                        <Icons.ChevronRight />
-                      </button>
-                      </div>
-                    </div>
-                    <div className="relative min-h-[220px] overflow-hidden rounded-md border border-edge bg-black">
-                      {kavitaReaderImageStatus === 'loading' ? (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/70 text-sm text-white">
-                          <Spinner size={18} />
-                          <span className="ml-2">Loading page…</span>
-                        </div>
-                      ) : null}
-                      {kavitaReaderImageStatus === 'error' ? (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/85 px-4 text-center text-sm text-white">
-                          This Kavita page could not be loaded.
-                        </div>
-                      ) : null}
-                      {kavitaReaderPageUrl ? (
-                        <img
-                          src={kavitaReaderPageUrl}
-                          alt={`${item.title || 'Kavita chapter'} page ${kavitaReaderDisplayPage}`}
-                          className="mx-auto max-h-[72vh] w-auto max-w-full object-contain"
-                          onLoad={() => setKavitaReaderImageStatus('loaded')}
-                          onError={() => setKavitaReaderImageStatus('error')}
-                        />
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          {!isBook && !isComic && (externalMediaUrl || item.trailer_url) && (
-            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-              {externalMediaUrl && (
-                <a
-                  href={externalMediaUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
-                >
-                  <Icons.Link />
-                  <span>{externalMediaLabel}</span>
-                </a>
-              )}
-              {item.trailer_url && (
-                <a
-                  href={item.trailer_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 text-dim transition-colors hover:text-ink"
-                >
-                  <Icons.Play />
-                  <span>Trailer</span>
-                </a>
-              )}
-            </div>
-          )}
-
-          {isBook ? (
-            <div className="grid gap-6 border-t border-edge/60 pt-5 md:grid-cols-[minmax(0,1fr)_220px]">
-              <div>
-                <p className="label mb-2">Editions</p>
-                {variantLoading && <p className="text-sm text-ghost">Loading variants…</p>}
-                {!variantLoading && variants.length === 0 && (
-                  <p className="text-sm text-ghost">No edition data yet</p>
-                )}
-                {!variantLoading && variants.length > 0 && (
-                  <div className="space-y-2">
-                    {variants
-                      .filter((v) => Boolean(v.edition))
-                      .map((v) => (
-                        <div key={v.id} className="border-b border-edge/60 pb-2 last:border-b-0">
-                          <p className="text-sm font-medium text-ink">{v.edition || 'Default edition'}</p>
-                          <p className="mt-1 text-xs text-ghost">{[v.resolution, v.container, v.video_codec, v.audio_codec, v.audio_channels ? `${v.audio_channels}ch` : null].filter(Boolean).join(' · ')}</p>
-                          {v.file_path ? <p className="mt-1 break-all font-mono text-[11px] text-ghost/80">{v.file_path}</p> : null}
-                        </div>
-                      ))}
+                    <p className="label mb-1">Notes</p>
+                    <p className="max-w-3xl text-sm text-dim leading-7">{item.notes}</p>
                   </div>
                 )}
-              </div>
 
-              <div className="space-y-5">
                 <div>
                   <p className="label mb-2">Your Rating</p>
                   <StarRating value={userRatingToStars(item.user_rating)} onChange={(r) => onRating(item.id, starsToUserRating(r))} />
@@ -2401,208 +2815,46 @@ function MediaDetail({ item, onClose, onEdit, onDelete, onRating, apiCall, onVal
                     />
                   ) : null}
                 </div>
-                {item.notes ? (
-                  <div>
-                    <p className="label mb-1">Notes</p>
-                    <p className="text-sm text-dim">{item.notes}</p>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <>
-              <div>
-                <p className="label mb-2">{item.media_type === 'tv_series' ? 'Seasons' : 'Editions'}</p>
-                {variantLoading && <p className="text-sm text-ghost">Loading variants…</p>}
-                {!variantLoading && variants.length === 0 && (
-                  <p className="text-sm text-ghost">{item.media_type === 'tv_series' ? 'No season data yet' : 'No edition data yet'}</p>
-                )}
-                {!variantLoading && variants.length > 0 && (
-                  item.media_type === 'tv_series' ? (
-                    <div className="space-y-4">
-                      <div className="overflow-x-auto no-scrollbar border-b border-edge/70">
-                        <div className="flex min-w-full gap-4 whitespace-nowrap">
-                          {tvSeasonVariants.map((v) => {
-                            const seasonKey = Number(v.season_number);
-                            const isActive = seasonKey === (activeSeasonVariant ? Number(activeSeasonVariant.season_number) : null);
-                            return (
-                              <button
-                                key={v.id}
-                                type="button"
-                                className={cx(
-                                  'inline-flex items-center gap-2 border-b-2 px-0 py-2 text-sm transition-colors',
-                                  isActive
-                                    ? 'border-brand text-ink'
-                                    : 'border-transparent text-dim hover:text-ink'
-                                )}
-                                onClick={() => loadSeasonDetail(seasonKey)}
-                              >
-                                <span>{`S${seasonKey}`}</span>
-                                {v.watch_state === 'completed' ? (
-                                  <span className="text-ok" aria-label="Watched" title="Watched">
-                                    <Icons.Check />
-                                  </span>
-                                ) : null}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      {activeSeasonVariant && (() => {
-                        const key = Number(activeSeasonVariant.season_number);
-                        const details = seasonDetails[key];
-                        const tmdbEpisodeCount = Number(details?.tmdb?.episode_count);
-                        const tmdbDerivedCount = Array.isArray(details?.tmdb?.episodes)
-                          ? details.tmdb.episodes.length
-                          : null;
-                        const expectedEpisodes = Number.isFinite(Number(activeSeasonVariant.expected_episodes))
-                          && Number(activeSeasonVariant.expected_episodes) > 0
-                          ? Number(activeSeasonVariant.expected_episodes)
-                          : ((Number.isFinite(tmdbEpisodeCount) && tmdbEpisodeCount > 0)
-                            ? tmdbEpisodeCount
-                            : ((Number.isInteger(tmdbDerivedCount) && tmdbDerivedCount > 0) ? tmdbDerivedCount : null));
-                        const ownedEpisodes = Number.isFinite(Number(activeSeasonVariant.available_episodes)) ? Number(activeSeasonVariant.available_episodes) : null;
-                        const episodesLabel = ownedEpisodes !== null
-                          ? `Episodes ${ownedEpisodes}/${expectedEpisodes ?? '?'}`
-                          : `Episodes ?/${expectedEpisodes ?? '?'}`;
-                        return (
-                          <div className="space-y-3 pt-1">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="min-w-0">
-                                <p className="mt-1 text-xs text-ghost">
-                                  {[episodesLabel, expectedEpisodes !== null && ownedEpisodes !== null && ownedEpisodes < expectedEpisodes ? 'Missing episodes' : null].filter(Boolean).join(' · ')}
-                                </p>
-                                <p className="mt-1 text-xs text-ghost">
-                                  {[
-                                    details?.tmdb?.air_date ? `Air date: ${details.tmdb.air_date}` : null,
-                                    Number.isFinite(tmdbEpisodeCount) && tmdbEpisodeCount > 0 ? `TMDB episodes: ${tmdbEpisodeCount}` : null
-                                  ].filter(Boolean).join(' · ') || 'No TMDB season metadata available'}
-                                </p>
-                              </div>
-                              <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                                <button
-                                  type="button"
-                                  className="text-sm font-medium text-dim transition-colors hover:text-ink disabled:cursor-default disabled:opacity-50"
-                                  onClick={() => markSeasonWatched(key)}
-                                  disabled={Boolean(seasonSaving[key]) || activeSeasonVariant.watch_state === 'completed'}
-                                >
-                                  {seasonSaving[key] ? <Spinner size={14} /> : null}
-                                  {seasonSaving[key] ? 'Saving…' : 'Mark season watched'}
-                                </button>
-                                {canWritePlexWatchState ? (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className="btn-secondary btn-sm"
-                                      onClick={() => writePlexWatchState('scrobble', { seasonNumber: key })}
-                                      disabled={Boolean(plexWritebackLoading)}
-                                      data-testid="plex-season-watch-scrobble-button"
-                                    >
-                                      {plexWritebackLoading === `scrobble:season:${key}` ? <Spinner size={14} /> : <Icons.Check />}
-                                      Plex watched
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="btn-secondary btn-sm"
-                                      onClick={() => writePlexWatchState('unscrobble', { seasonNumber: key })}
-                                      disabled={Boolean(plexWritebackLoading)}
-                                      data-testid="plex-season-watch-unscrobble-button"
-                                    >
-                                      {plexWritebackLoading === `unscrobble:season:${key}` ? <Spinner size={14} /> : <Icons.Refresh />}
-                                      Plex unwatched
-                                    </button>
-                                  </>
-                                ) : null}
-                              </div>
-                            </div>
-                            {seasonDetailLoading[key] && (
-                              <p className="text-xs text-ghost">Loading season metadata…</p>
-                            )}
-                            {!seasonDetailLoading[key] && Array.isArray(details?.tmdb?.episodes) && details.tmdb.episodes.length > 0 ? (
-                              <div className="max-h-48 overflow-auto pr-1 space-y-1">
-                                {details.tmdb.episodes.map((episode) => (
-                                  <div key={episode.id || `ep-${episode.episode_number}`} className="text-xs text-dim">
-                                    <span className="text-ink">E{episode.episode_number}:</span> {episode.name || 'Untitled'}
-                                    {episode.watched
-                                      ? <span className="text-ok"> · watched</span>
-                                      : <span className="text-brand-300"> · unwatched</span>}
-                                    {episode.in_library ? <span className="text-ghost"> · in library</span> : null}
-                                    {episode.air_date ? <span className="text-ghost"> · {episode.air_date}</span> : null}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {variants
-                        .filter((v) => Boolean(v.edition))
-                        .map((v) => (
-                          <div key={v.id} className="card p-3">
-                            <p className="text-sm text-ink font-medium flex items-center gap-2">
-                              <span>{v.edition || (item.media_type === 'movie' ? 'Theatrical' : 'Default edition')}</span>
-                            </p>
-                            <p className="text-xs text-ghost mt-1">{[v.resolution, v.container, v.video_codec, v.audio_codec, v.audio_channels ? `${v.audio_channels}ch` : null].filter(Boolean).join(' · ')}</p>
-                            {v.file_path && <p className="text-xs text-ghost/80 font-mono mt-1 break-all">{v.file_path}</p>}
-                          </div>
-                        ))}
-                    </div>
-                  )
-                )}
-              </div>
-
-              {item.notes && (
-                <div>
-                  <p className="label mb-1">Notes</p>
-                  <p className="max-w-3xl text-sm text-dim leading-7">{item.notes}</p>
-                </div>
-              )}
-
-              <div>
-                <p className="label mb-2">Your Rating</p>
-                <StarRating value={userRatingToStars(item.user_rating)} onChange={(r) => onRating(item.id, starsToUserRating(r))} />
-                {showPlexWritebackControls ? (
-                  <PlexWritebackControls
-                    item={item}
-                    loading={plexWritebackLoading}
-                    onWriteRating={writePlexRating}
-                    onWriteWatchState={writePlexWatchState}
-                    canWriteRating={canWritePlexRating}
-                    canWriteWatchState={canWritePlexWatchState}
-                  />
-                ) : null}
-              </div>
-            </>
-          )}
+              </>
+            )}
           </>
-          ) : null}
-        </div>
+        ) : null}
+      </div>
 
-        <div className="p-4 border-t border-edge flex gap-3 shrink-0">
-          <button onClick={onClose} className="btn-ghost">Close</button>
-          {onFindPossibleDuplicates ? (
-            <button
-              onClick={() => {
-                onFindPossibleDuplicates(item);
-                onClose();
-              }}
-              className="btn-ghost"
-            >
-              <Icons.Link />
-              Find possible duplicates
-            </button>
-          ) : null}
-          <button onClick={() => onEdit(item)} className="btn-ghost flex-1" data-testid="media-detail-edit-button"><Icons.Edit />Edit</button>
+      <div className="p-4 border-t border-edge flex gap-3 shrink-0">
+        <button onClick={onClose} className="btn-ghost">
+          Close
+        </button>
+        {onFindPossibleDuplicates ? (
           <button
-            onClick={() => { if (window.confirm('Delete this item?')) { onDelete(item.id); onClose(); } }}
-            className="btn-ghost text-err hover:bg-err/10"
+            onClick={() => {
+              onFindPossibleDuplicates(item);
+              onClose();
+            }}
+            className="btn-ghost"
           >
-            <Icons.Trash />
+            <Icons.Link />
+            Find possible duplicates
           </button>
-        </div>
+        ) : null}
+        <button onClick={() => onEdit(item)} className="btn-ghost flex-1" data-testid="media-detail-edit-button">
+          <Icons.Edit />
+          Edit
+        </button>
+        <button
+          onClick={() => {
+            if (window.confirm('Delete this item?')) {
+              onDelete(item.id);
+              onClose();
+            }
+          }}
+          className="btn-ghost text-err hover:bg-err/10"
+          aria-label="Delete media"
+          data-testid="media-detail-delete-button"
+        >
+          <Icons.Trash />
+        </button>
+      </div>
     </DetailDrawerShell>
   );
 }
@@ -2646,7 +2898,9 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchMatches([]);
       setSelectedMatchId(null);
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }
     const timer = setTimeout(async () => {
       try {
@@ -2661,7 +2915,12 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
         const items = Array.isArray(payload?.items) ? payload.items : [];
         setSearchMatches(items);
         const normalized = title.toLowerCase();
-        const exact = items.find((row) => String(row?.title || '').trim().toLowerCase() === normalized);
+        const exact = items.find(
+          (row) =>
+            String(row?.title || '')
+              .trim()
+              .toLowerCase() === normalized
+        );
         setSelectedMatchId(exact?.id || null);
       } catch (_err) {
         if (active) {
@@ -2741,20 +3000,37 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
         <div className="px-5 py-4 border-b border-edge flex items-center gap-3 shrink-0">
           <h2 className="section-title !text-xl">Edit Collection</h2>
           <div className="flex-1" />
-          <button className="btn-icon" onClick={onClose}><Icons.X /></button>
+          <button className="btn-icon" onClick={onClose}>
+            <Icons.X />
+          </button>
         </div>
-      <div className="p-5 overflow-y-auto space-y-4 flex-1">
+        <div className="p-5 overflow-y-auto space-y-4 flex-1">
           {error && <p className="text-sm text-err">{error}</p>}
-          {loading && <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading...</div>}
+          {loading && (
+            <div className="flex items-center gap-2 text-dim">
+              <Spinner size={16} />
+              Loading...
+            </div>
+          )}
           {!loading && data?.collection && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-dim">
-                <div><span className="text-ghost">Collection:</span> <span className="text-ink">{data.collection.name || data.collection.source_title || `Collection #${collectionId}`}</span></div>
-                <div><span className="text-ghost">Media type:</span> <span className="text-ink">{data.collection.media_type || 'movie'}</span></div>
-                <div><span className="text-ghost">Import source:</span> <span className="text-ink">{data.collection.import_source || 'manual'}</span></div>
+                <div>
+                  <span className="text-ghost">Collection:</span>{' '}
+                  <span className="text-ink">{data.collection.name || data.collection.source_title || `Collection #${collectionId}`}</span>
+                </div>
+                <div>
+                  <span className="text-ghost">Media type:</span> <span className="text-ink">{data.collection.media_type || 'movie'}</span>
+                </div>
+                <div>
+                  <span className="text-ghost">Import source:</span>{' '}
+                  <span className="text-ink">{data.collection.import_source || 'manual'}</span>
+                </div>
               </div>
               <div className="flex gap-2">
-                <button className="btn-secondary" disabled={deleting} onClick={convertToIndividuals}>Convert to Title</button>
+                <button className="btn-secondary" disabled={deleting} onClick={convertToIndividuals}>
+                  Convert to Title
+                </button>
               </div>
 
               <div className="pt-2 border-t border-edge space-y-2">
@@ -2765,9 +3041,13 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
                     placeholder="Type a title (existing matches are preferred)"
                     value={newItemTitle}
                     onChange={(e) => setNewItemTitle(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') addManualItem(); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') addManualItem();
+                    }}
                   />
-                  <button className="btn-secondary" disabled={saving || !newItemTitle.trim()} onClick={addManualItem}>Add</button>
+                  <button className="btn-secondary" disabled={saving || !newItemTitle.trim()} onClick={addManualItem}>
+                    Add
+                  </button>
                 </div>
                 {newItemTitle.trim() && (
                   <div className="rounded-lg border border-edge bg-surface p-2 text-xs">
@@ -2780,7 +3060,10 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
                             <button
                               key={row.id}
                               type="button"
-                              className={cx('w-full text-left px-2 py-1 rounded border border-edge', Number(selectedMatchId) === Number(row.id) ? 'bg-veil text-ink' : 'text-dim')}
+                              className={cx(
+                                'w-full text-left px-2 py-1 rounded border border-edge',
+                                Number(selectedMatchId) === Number(row.id) ? 'bg-veil text-ink' : 'text-dim'
+                              )}
                               onClick={() => setSelectedMatchId(row.id)}
                             >
                               {row.title} {row.year ? `(${row.year})` : ''} · #{row.id}
@@ -2799,9 +3082,13 @@ function CollectionEditor({ collectionId, apiCall, onClose, onSaved }) {
                     <div key={item.id} className="p-2 rounded bg-surface border border-edge flex items-center gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-ink truncate">{item.media_title || item.contained_title || `Item #${item.id}`}</p>
-                        <p className="text-xs text-ghost">#{item.id} · {item.media_id ? `Media ${item.media_id}` : 'Unlinked'}</p>
+                        <p className="text-xs text-ghost">
+                          #{item.id} · {item.media_id ? `Media ${item.media_id}` : 'Unlinked'}
+                        </p>
                       </div>
-                      <button className="btn-ghost btn-sm text-err" disabled={saving} onClick={() => removeItem(item.id)}><Icons.Trash /></button>
+                      <button className="btn-ghost btn-sm text-err" disabled={saving} onClick={() => removeItem(item.id)}>
+                        <Icons.Trash />
+                      </button>
                     </div>
                   ))}
                   {!data.items?.length && <p className="text-xs text-ghost">No collection items yet.</p>}
@@ -2836,7 +3123,9 @@ function CollectionDetail({ collectionId, apiCall, onClose, onEdit, onConvert })
         if (active) setLoading(false);
       }
     })();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [apiCall, collectionId]);
 
   const collection = payload?.collection || {};
@@ -2851,9 +3140,13 @@ function CollectionDetail({ collectionId, apiCall, onClose, onEdit, onConvert })
         <div className="flex items-start gap-4 px-6 pt-6 pb-4 shrink-0">
           <div className="w-20 shrink-0 relative z-10 shadow-card">
             <div className="poster rounded-md">
-              {posterUrl(posterPath)
-                ? <img src={posterUrl(posterPath)} alt={title} className="absolute inset-0 w-full h-full object-cover" />
-                : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Library /></div>}
+              {posterUrl(posterPath) ? (
+                <img src={posterUrl(posterPath)} alt={title} className="absolute inset-0 w-full h-full object-cover" />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-ghost">
+                  <Icons.Library />
+                </div>
+              )}
             </div>
           </div>
           <div className="flex-1 min-w-0 mt-1">
@@ -2861,24 +3154,39 @@ function CollectionDetail({ collectionId, apiCall, onClose, onEdit, onConvert })
               <h2 className="text-2xl font-semibold tracking-tight text-ink leading-tight">{title}</h2>
               <p className="text-sm text-ghost">#{collectionId}</p>
             </div>
-            <p className="text-sm text-dim mt-1">{mediaTypeLabel(collection.media_type)} · {items.length} item{items.length === 1 ? '' : 's'}</p>
+            <p className="text-sm text-dim mt-1">
+              {mediaTypeLabel(collection.media_type)} · {items.length} item{items.length === 1 ? '' : 's'}
+            </p>
             {Number.isFinite(Number(collection.expected_item_count)) && Number(collection.expected_item_count) > 0 && (
               <p className="text-xs text-ghost mt-1">Expected items: {collection.expected_item_count}</p>
             )}
           </div>
-          <button onClick={onClose} className="btn-icon btn-sm shrink-0"><Icons.X /></button>
+          <button onClick={onClose} className="btn-icon btn-sm shrink-0">
+            <Icons.X />
+          </button>
         </div>
 
         <div className="divider" />
 
         <div className="flex-1 overflow-y-auto scroll-area p-6 space-y-4">
-          {loading && <div className="flex items-center gap-2 text-dim"><Spinner size={16} />Loading…</div>}
+          {loading && (
+            <div className="flex items-center gap-2 text-dim">
+              <Spinner size={16} />
+              Loading…
+            </div>
+          )}
           {error && <p className="text-sm text-err">{error}</p>}
           {!loading && !error && (
             <>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><p className="label">Collection type</p><p className="text-ink">{mediaTypeLabel(collection.media_type)}</p></div>
-                <div><p className="label">Import source</p><p className="text-ink">{collection.import_source || 'manual'}</p></div>
+                <div>
+                  <p className="label">Collection type</p>
+                  <p className="text-ink">{mediaTypeLabel(collection.media_type)}</p>
+                </div>
+                <div>
+                  <p className="label">Import source</p>
+                  <p className="text-ink">{collection.import_source || 'manual'}</p>
+                </div>
               </div>
               <div>
                 <p className="label mb-2">Items</p>
@@ -2887,14 +3195,26 @@ function CollectionDetail({ collectionId, apiCall, onClose, onEdit, onConvert })
                     <div key={row.id} className="card p-2 flex items-center gap-3">
                       <div className="w-10 shrink-0" style={{ aspectRatio: '2/3' }}>
                         <div className="poster rounded w-full h-full">
-                          {posterUrl(row.media_poster_path)
-                            ? <img src={posterUrl(row.media_poster_path)} alt={row.media_title || row.contained_title || ''} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                            : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Film /></div>}
+                          {posterUrl(row.media_poster_path) ? (
+                            <img
+                              src={posterUrl(row.media_poster_path)}
+                              alt={row.media_title || row.contained_title || ''}
+                              className="absolute inset-0 w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center text-ghost">
+                              <Icons.Film />
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm text-ink truncate">{row.media_title || row.contained_title || `Item #${row.id}`}</p>
-                        <p className="text-xs text-ghost">{row.media_year ? `${row.media_year} · ` : ''}{row.media_id ? `Media #${row.media_id}` : 'Unlinked'}</p>
+                        <p className="text-xs text-ghost">
+                          {row.media_year ? `${row.media_year} · ` : ''}
+                          {row.media_id ? `Media #${row.media_id}` : 'Unlinked'}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -2905,9 +3225,17 @@ function CollectionDetail({ collectionId, apiCall, onClose, onEdit, onConvert })
           )}
         </div>
         <div className="p-4 border-t border-edge flex gap-3 shrink-0">
-          <button onClick={onClose} className="btn-ghost">Close</button>
-          <button onClick={onEdit} className="btn-ghost flex-1"><Icons.Edit />Edit</button>
-          <button onClick={onConvert} className="btn-ghost"><Icons.Film />Convert</button>
+          <button onClick={onClose} className="btn-ghost">
+            Close
+          </button>
+          <button onClick={onEdit} className="btn-ghost flex-1">
+            <Icons.Edit />
+            Edit
+          </button>
+          <button onClick={onConvert} className="btn-ghost">
+            <Icons.Film />
+            Convert
+          </button>
         </div>
       </div>
     </div>
@@ -2919,18 +3247,18 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     if (!rawInitial?.id) return false;
     const details = rawInitial?.type_details || {};
     return Boolean(
-      rawInitial?.overview
-      || rawInitial?.genre
-      || rawInitial?.year
-      || rawInitial?.release_date
-      || rawInitial?.poster_path
-      || rawInitial?.upc
-      || details?.isbn
-      || details?.author
-      || details?.platform
-      || details?.artist
-      || details?.series
-      || details?.developer
+      rawInitial?.overview ||
+      rawInitial?.genre ||
+      rawInitial?.year ||
+      rawInitial?.release_date ||
+      rawInitial?.poster_path ||
+      rawInitial?.upc ||
+      details?.isbn ||
+      details?.author ||
+      details?.platform ||
+      details?.artist ||
+      details?.series ||
+      details?.developer
     );
   };
 
@@ -2985,8 +3313,14 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState('ok');
   const [bookCaptureState, setBookCaptureState] = useState(null);
-  const [bookIdentifierInput, setBookIdentifierInput] = useState(() => normalizeBarcodeInput(initial?.type_details?.isbn || initial?.upc || ''));
-  const [comicIdentifierInput, setComicIdentifierInput] = useState(() => normalizeBarcodeInput(initial?.type_details?.isbn || initial?.upc || '') + (initial?.type_details?.barcode_addon ? ` ${normalizeBarcodeInput(initial.type_details.barcode_addon)}` : ''));
+  const [bookIdentifierInput, setBookIdentifierInput] = useState(() =>
+    normalizeBarcodeInput(initial?.type_details?.isbn || initial?.upc || '')
+  );
+  const [comicIdentifierInput, setComicIdentifierInput] = useState(
+    () =>
+      normalizeBarcodeInput(initial?.type_details?.isbn || initial?.upc || '') +
+      (initial?.type_details?.barcode_addon ? ` ${normalizeBarcodeInput(initial.type_details.barcode_addon)}` : '')
+  );
   const lookupCaptureInputRef = useRef(null);
   const coverImageInputRef = useRef(null);
   const lookupPanelMeasureRef = useRef(null);
@@ -2997,7 +3331,10 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     set({ owned_formats: sortOwnedFormats(form.media_type, nextFormats) });
   };
   const patchLookupPanel = (patch) => setLookupPanel((current) => ({ ...current, ...patch }));
-  const notify = (text, type = 'ok') => { setMsg(text); setMsgType(type); };
+  const notify = (text, type = 'ok') => {
+    setMsg(text);
+    setMsgType(type);
+  };
   const isMovieOrTv = ['movie', 'tv_series', 'tv_episode'].includes(form.media_type);
   const isBook = form.media_type === 'book';
   const isComic = form.media_type === 'comic_book';
@@ -3102,7 +3439,17 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [lookupPanelExpanded, form.media_type, lookupCaptureLoading, lookupLoading, bookCaptureState, bookIdentifierInput, comicIdentifierInput, form.upc, form.title]);
+  }, [
+    lookupPanelExpanded,
+    form.media_type,
+    lookupCaptureLoading,
+    lookupLoading,
+    bookCaptureState,
+    bookIdentifierInput,
+    comicIdentifierInput,
+    form.upc,
+    form.title
+  ]);
 
   const resolvePrimaryTitle = () => String(form.title || (isMovieOrTv ? form.original_title : '') || '').trim();
   const resolveLookupTitle = () => resolvePrimaryTitle();
@@ -3114,26 +3461,24 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     return null;
   };
   const resolveLookupIdentifier = (upcOverride = null) => {
-    const normalizedOverride = typeof upcOverride === 'string' || typeof upcOverride === 'number'
-      ? upcOverride
-      : null;
-    const preferredLookupValue = normalizedOverride ?? (isBook ? (form.book_isbn || form.upc) : form.upc);
+    const normalizedOverride = typeof upcOverride === 'string' || typeof upcOverride === 'number' ? upcOverride : null;
+    const preferredLookupValue = normalizedOverride ?? (isBook ? form.book_isbn || form.upc : form.upc);
     return normalizeBarcodeInput(preferredLookupValue);
   };
 
-  const annotateLookupMatches = (matches, source) => (matches || []).map((match) => ({
-    ...match,
-    lookupSources: [source]
-  }));
+  const annotateLookupMatches = (matches, source) =>
+    (matches || []).map((match) => ({
+      ...match,
+      lookupSources: [source]
+    }));
 
-  const resolveLookupThumbnailPath = (match) => (
-    match?.image
-    || match?.typeEnrichment?.poster_path
-    || match?.book?.poster_path
-    || match?.tmdb?.poster_path
-    || match?.poster_path
-    || null
-  );
+  const resolveLookupThumbnailPath = (match) =>
+    match?.image ||
+    match?.typeEnrichment?.poster_path ||
+    match?.book?.poster_path ||
+    match?.tmdb?.poster_path ||
+    match?.poster_path ||
+    null;
 
   const buildLookupMatchKey = (match) => {
     if (match?.tmdb?.id) return `tmdb:${match.tmdb.tmdb_media_type || form.media_type}:${match.tmdb.id}`;
@@ -3173,29 +3518,23 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     return Array.from(merged.values());
   };
 
-  const normalizeLookupTitleForCompare = (value) => String(value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
+  const normalizeLookupTitleForCompare = (value) =>
+    String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
 
-  const resolveLookupMatchTitle = (match) => (
-    match?.typeEnrichment?.title
-      || match?.book?.title
-      || match?.normalizedTitle
-      || match?.tmdb?.title
-      || match?.title
-      || ''
-  );
+  const resolveLookupMatchTitle = (match) =>
+    match?.typeEnrichment?.title || match?.book?.title || match?.normalizedTitle || match?.tmdb?.title || match?.title || '';
 
-  const resolveLookupMatchYear = (match) => (
-    match?.typeEnrichment?.year
-      || match?.book?.year
-      || match?.tmdb?.release_year
-      || (match?.tmdb?.release_date ? Number(String(match.tmdb.release_date).slice(0, 4)) : null)
-      || (match?.release_date ? Number(String(match.release_date).slice(0, 4)) : null)
-      || (match?.year ? Number(match.year) : null)
-      || null
-  );
+  const resolveLookupMatchYear = (match) =>
+    match?.typeEnrichment?.year ||
+    match?.book?.year ||
+    match?.tmdb?.release_year ||
+    (match?.tmdb?.release_date ? Number(String(match.tmdb.release_date).slice(0, 4)) : null) ||
+    (match?.release_date ? Number(String(match.release_date).slice(0, 4)) : null) ||
+    (match?.year ? Number(match.year) : null) ||
+    null;
 
   const mergeLookupCandidateData = (baseMatch, enrichmentMatch) => ({
     ...baseMatch,
@@ -3216,15 +3555,16 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     const baseTitle = normalizeLookupTitleForCompare(resolveLookupMatchTitle(baseMatch));
     const baseYear = resolveLookupMatchYear(baseMatch);
 
-    const exact = enrichmentMatches.find((candidate) => (
-      normalizeLookupTitleForCompare(resolveLookupMatchTitle(candidate)) === baseTitle
-        && (!baseYear || !resolveLookupMatchYear(candidate) || resolveLookupMatchYear(candidate) === baseYear)
-    ));
+    const exact = enrichmentMatches.find(
+      (candidate) =>
+        normalizeLookupTitleForCompare(resolveLookupMatchTitle(candidate)) === baseTitle &&
+        (!baseYear || !resolveLookupMatchYear(candidate) || resolveLookupMatchYear(candidate) === baseYear)
+    );
     if (exact) return exact;
 
-    const sameTitle = enrichmentMatches.find((candidate) => (
-      normalizeLookupTitleForCompare(resolveLookupMatchTitle(candidate)) === baseTitle
-    ));
+    const sameTitle = enrichmentMatches.find(
+      (candidate) => normalizeLookupTitleForCompare(resolveLookupMatchTitle(candidate)) === baseTitle
+    );
     if (sameTitle) return sameTitle;
 
     return enrichmentMatches[0] || null;
@@ -3269,13 +3609,16 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         year: resolveLookupYear(),
         mediaType: inferTmdbSearchType(form.media_type)
       });
-      return annotateLookupMatches((matches || []).map((row) => ({
-        title: row?.title || row?.name || '',
-        normalizedTitle: row?.title || row?.name || '',
-        description: row?.overview || '',
-        image: row?.poster_path || null,
-        tmdb: row
-      })), 'title');
+      return annotateLookupMatches(
+        (matches || []).map((row) => ({
+          title: row?.title || row?.name || '',
+          normalizedTitle: row?.title || row?.name || '',
+          description: row?.overview || '',
+          image: row?.poster_path || null,
+          tmdb: row
+        })),
+        'title'
+      );
     }
 
     if (isBook) {
@@ -3283,27 +3626,33 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         title,
         author: String(form.book_author || '').trim()
       });
-      return annotateLookupMatches((data?.matches || []).map((row) => ({
-        mediaTypeGuess: 'book',
-        title: row?.title || '',
-        normalizedTitle: row?.title || '',
-        description: row?.overview || '',
-        image: row?.poster_path || null,
-        book: row,
-        typeDetails: row?.type_details || {}
-      })), 'title');
+      return annotateLookupMatches(
+        (data?.matches || []).map((row) => ({
+          mediaTypeGuess: 'book',
+          title: row?.title || '',
+          normalizedTitle: row?.title || '',
+          description: row?.overview || '',
+          image: row?.poster_path || null,
+          book: row,
+          typeDetails: row?.type_details || {}
+        })),
+        'title'
+      );
     }
 
     if (isComic) {
       const data = await apiCall('post', '/media/enrich/comic/search', { title });
-      return annotateLookupMatches((data?.matches || []).map((row) => ({
-        title: row?.title || '',
-        normalizedTitle: row?.title || '',
-        description: row?.overview || '',
-        image: row?.poster_path || null,
-        typeEnrichment: row,
-        typeDetails: row?.type_details || {}
-      })), 'title');
+      return annotateLookupMatches(
+        (data?.matches || []).map((row) => ({
+          title: row?.title || '',
+          normalizedTitle: row?.title || '',
+          description: row?.overview || '',
+          image: row?.poster_path || null,
+          typeEnrichment: row,
+          typeDetails: row?.type_details || {}
+        })),
+        'title'
+      );
     }
 
     if (isAudio) {
@@ -3311,26 +3660,32 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         title,
         artist: String(form.audio_artist || '').trim()
       });
-      return annotateLookupMatches((data?.matches || []).map((row) => ({
-        title: row?.title || '',
-        normalizedTitle: row?.title || '',
-        description: row?.overview || '',
-        image: row?.poster_path || null,
-        typeEnrichment: row,
-        typeDetails: row?.type_details || {}
-      })), 'title');
+      return annotateLookupMatches(
+        (data?.matches || []).map((row) => ({
+          title: row?.title || '',
+          normalizedTitle: row?.title || '',
+          description: row?.overview || '',
+          image: row?.poster_path || null,
+          typeEnrichment: row,
+          typeDetails: row?.type_details || {}
+        })),
+        'title'
+      );
     }
 
     if (isGame) {
       const data = await apiCall('post', '/media/enrich/game/search', { title });
-      return annotateLookupMatches((data?.matches || []).map((row) => ({
-        title: row?.title || '',
-        normalizedTitle: row?.title || '',
-        description: row?.overview || '',
-        image: row?.poster_path || null,
-        typeEnrichment: row,
-        typeDetails: row?.type_details || {}
-      })), 'title');
+      return annotateLookupMatches(
+        (data?.matches || []).map((row) => ({
+          title: row?.title || '',
+          normalizedTitle: row?.title || '',
+          description: row?.overview || '',
+          image: row?.poster_path || null,
+          typeEnrichment: row,
+          typeDetails: row?.type_details || {}
+        })),
+        'title'
+      );
     }
 
     return [];
@@ -3358,11 +3713,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   };
 
   const runUniversalLookup = async (options = {}) => {
-    const {
-      identifierOverride = null,
-      forceIdentifierOnly = false,
-      silent = false
-    } = options;
+    const { identifierOverride = null, forceIdentifierOnly = false, silent = false } = options;
     const title = forceIdentifierOnly ? '' : resolveLookupTitle();
     const identifier = resolveLookupIdentifier(identifierOverride);
 
@@ -3394,16 +3745,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       let matches = [];
 
       if (dualSource) {
-        const [titleResult, identifierResult] = await Promise.allSettled([
-          lookupByTitle(title),
-          lookupByIdentifier(identifier)
-        ]);
+        const [titleResult, identifierResult] = await Promise.allSettled([lookupByTitle(title), lookupByIdentifier(identifier)]);
         const fulfilledGroups = [titleResult, identifierResult]
           .filter((result) => result.status === 'fulfilled')
           .map((result) => result.value || []);
-        const rejected = [titleResult, identifierResult]
-          .filter((result) => result.status === 'rejected')
-          .map((result) => result.reason);
+        const rejected = [titleResult, identifierResult].filter((result) => result.status === 'rejected').map((result) => result.reason);
 
         matches = mergeLookupMatches(...fulfilledGroups);
         if (rejected.length) {
@@ -3452,13 +3798,25 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     }, 500);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canUniversalLookup, lookupPanelExpanded, form.media_type, form.title, form.original_title, form.year, form.release_date, form.upc, bookIdentifierInput, comicIdentifierInput]);
+  }, [
+    canUniversalLookup,
+    lookupPanelExpanded,
+    form.media_type,
+    form.title,
+    form.original_title,
+    form.year,
+    form.release_date,
+    form.upc,
+    bookIdentifierInput,
+    comicIdentifierInput
+  ]);
 
   const handleBookIdentifierChange = (value) => {
     const raw = String(value || '').toUpperCase();
     const normalized = normalizeBarcodeInput(raw);
     const normalizedIsbn = normalizeIsbnCandidate(raw);
-    const barcodeCandidate = inferBookBarcodeIdentifier(normalized) || (isLikelyRetailBookBarcode(normalized) ? normalized.replace(/\D+/g, '') : '');
+    const barcodeCandidate =
+      inferBookBarcodeIdentifier(normalized) || (isLikelyRetailBookBarcode(normalized) ? normalized.replace(/\D+/g, '') : '');
     setBookIdentifierInput(raw);
     set({
       book_isbn: normalizedIsbn || '',
@@ -3510,15 +3868,14 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     }
 
     const trustedRecoveredIsbn = isBook
-      ? (ocrCandidates.labeledIsbnCandidates?.[0] || ocrCandidates.strictIsbnCandidates?.[0] || inferBookBarcodeIdentifier(normalizedDetected))
+      ? ocrCandidates.labeledIsbnCandidates?.[0] ||
+        ocrCandidates.strictIsbnCandidates?.[0] ||
+        inferBookBarcodeIdentifier(normalizedDetected)
       : '';
     const inferredBookIsbn = trustedRecoveredIsbn;
     const lookupValue = inferredBookIsbn || normalizedDetected || ocrCandidates.upcCandidates?.[0] || '';
     const shouldDeferAmbiguousBookLookup = Boolean(
-      isBook &&
-      normalizedDetected &&
-      isLikelyRetailBookBarcode(normalizedDetected) &&
-      !inferredBookIsbn
+      isBook && normalizedDetected && isLikelyRetailBookBarcode(normalizedDetected) && !inferredBookIsbn
     );
 
     return {
@@ -3545,7 +3902,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         if (error?.message !== 'not-found') throw error;
       }
 
-      const { normalizedDetected, inferredBookIsbn, lookupValue, shouldDeferAmbiguousBookLookup } = await resolveCapturedLookupValue(file, detected, barcodeBoundingBox);
+      const { normalizedDetected, inferredBookIsbn, lookupValue, shouldDeferAmbiguousBookLookup } = await resolveCapturedLookupValue(
+        file,
+        detected,
+        barcodeBoundingBox
+      );
       if (!lookupValue) {
         throw new Error('not-found');
       }
@@ -3555,14 +3916,18 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       });
       if (isBook) {
         setBookCaptureState({
-          tone: shouldDeferAmbiguousBookLookup ? 'warning' : (inferredBookIsbn ? 'success' : 'info'),
+          tone: shouldDeferAmbiguousBookLookup ? 'warning' : inferredBookIsbn ? 'success' : 'info',
           source: 'Photo',
-          heading: shouldDeferAmbiguousBookLookup ? 'Retail barcode captured' : (inferredBookIsbn ? 'ISBN recovered from photo' : 'Barcode captured'),
+          heading: shouldDeferAmbiguousBookLookup
+            ? 'Retail barcode captured'
+            : inferredBookIsbn
+              ? 'ISBN recovered from photo'
+              : 'Barcode captured',
           detail: shouldDeferAmbiguousBookLookup
             ? 'We saw the store barcode, but not a trustworthy ISBN from the still image.'
-            : (inferredBookIsbn
+            : inferredBookIsbn
               ? 'We recovered a book identifier from the still image and will prefer that for lookup.'
-              : 'The captured identifier can be used for lookup.'),
+              : 'The captured identifier can be used for lookup.',
           capturedBarcode: normalizedDetected || '',
           recoveredIsbn: inferredBookIsbn || '',
           nextStep: shouldDeferAmbiguousBookLookup
@@ -3571,7 +3936,10 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         });
       }
       if (shouldDeferAmbiguousBookLookup) {
-        notify('Captured a retail book barcode, but no ISBN was recovered from the frame. Use Photo for sharper OCR or type the ISBN to avoid ambiguous matches.', 'error');
+        notify(
+          'Captured a retail book barcode, but no ISBN was recovered from the frame. Use Photo for sharper OCR or type the ISBN to avoid ambiguous matches.',
+          'error'
+        );
         return;
       }
       notify(inferredBookIsbn ? `Recovered book identifier ${inferredBookIsbn}` : `Captured barcode ${lookupValue}`);
@@ -3595,7 +3963,11 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const applyLookupResult = async (match) => {
     const resolvedMatch = await enrichIdentifierSelection(match);
     const notifyIfOverviewClamped = (incomingOverview, appliedOverview) => {
-      if (typeof incomingOverview === 'string' && incomingOverview.trim().length > OVERVIEW_MAX_LENGTH && appliedOverview.length <= OVERVIEW_MAX_LENGTH) {
+      if (
+        typeof incomingOverview === 'string' &&
+        incomingOverview.trim().length > OVERVIEW_MAX_LENGTH &&
+        appliedOverview.length <= OVERVIEW_MAX_LENGTH
+      ) {
         notify('Provider overview was truncated to fit the save limit');
       }
     };
@@ -3612,7 +3984,10 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         year: book?.year ? String(book.year) : form.year,
         overview: nextOverview,
         genre: book?.genre || form.genre,
-        owned_formats: sortOwnedFormats('book', normalizeOwnedFormats('book', form.owned_formats, resolvedMatch?.typeDetails?.format || form.format || 'paperback')),
+        owned_formats: sortOwnedFormats(
+          'book',
+          normalizeOwnedFormats('book', form.owned_formats, resolvedMatch?.typeDetails?.format || form.format || 'paperback')
+        ),
         poster_path: book?.poster_path || resolvedMatch?.image || form.poster_path,
         upc: resolvedMatch?.upc || form.upc,
         book_isbn: preferredCapturedIsbn || bookTypeDetails?.isbn || resolvedMatch?.typeDetails?.isbn || form.book_isbn,
@@ -3678,7 +4053,9 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         upc: resolvedMatch?.upc || form.upc,
         audio_artist: typeEnrichment.type_details?.artist || form.audio_artist,
         audio_album: typeEnrichment.type_details?.album || typeEnrichment.title || form.audio_album || form.title,
-        audio_track_count: typeEnrichment.type_details?.track_count ? String(typeEnrichment.type_details.track_count) : form.audio_track_count
+        audio_track_count: typeEnrichment.type_details?.track_count
+          ? String(typeEnrichment.type_details.track_count)
+          : form.audio_track_count
       });
       patchLookupPanel({
         error: null,
@@ -3732,7 +4109,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       title: tmdb?.title || resolvedMatch.title || form.title,
       original_title: tmdb?.original_title || form.original_title,
       release_date: releaseDate || form.release_date,
-      year: tmdb?.release_year ? String(tmdb.release_year) : (releaseDate ? String(releaseDate).slice(0, 4) : form.year),
+      year: tmdb?.release_year ? String(tmdb.release_year) : releaseDate ? String(releaseDate).slice(0, 4) : form.year,
       genre: genres || form.genre,
       director: details?.director || form.director,
       cast: details?.cast || form.cast,
@@ -3782,7 +4159,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
   const applySignatureChange = ({ owner, signatures }) => {
     const media = owner || {};
     set({
-      signatures: Array.isArray(signatures) ? signatures : (media.signatures || []),
+      signatures: Array.isArray(signatures) ? signatures : media.signatures || [],
       signed_by: media.signed_by || '',
       signed_role: media.signed_role || '',
       signed_on: normalizeDateInput(media.signed_on),
@@ -3800,47 +4177,48 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         .split(',')
         .map((v) => Number(String(v).trim()))
         .filter((n) => Number.isInteger(n) && n > 0 && n <= 999);
-      const typeDetails = form.media_type === 'book'
-        ? {
-            author: form.book_author || null,
-            isbn: form.book_isbn || null,
-            publisher: form.book_publisher || null,
-            edition: form.book_edition || null
-          }
-        : form.media_type === 'movie'
-          ? {
-              edition: String(form.movie_edition || '').trim() || 'Theatrical'
-            }
-        : form.media_type === 'comic_book'
+      const typeDetails =
+        form.media_type === 'book'
           ? {
               author: form.book_author || null,
               isbn: form.book_isbn || null,
               publisher: form.book_publisher || null,
-              edition: form.book_edition || null,
-              series: form.comic_series || null,
-              issue_number: form.comic_issue_number || null,
-              volume: form.comic_volume || null,
-              writer: form.comic_writer || null,
-              artist: form.comic_artist || null,
-              inker: form.comic_inker || null,
-              colorist: form.comic_colorist || null,
-              cover_date: form.comic_cover_date || null,
-              provider_issue_id: form.comic_provider_issue_id || null,
-              barcode_addon: form.comic_barcode_addon || null
+              edition: form.book_edition || null
             }
-        : form.media_type === 'audio'
-          ? {
-              artist: form.audio_artist || null,
-              album: form.audio_album || null,
-              track_count: form.audio_track_count ? Number(form.audio_track_count) : null
-            }
-          : form.media_type === 'game'
+          : form.media_type === 'movie'
             ? {
-                platform: form.game_platform || null,
-                developer: form.game_developer || null,
-                region: form.game_region || null
+                edition: String(form.movie_edition || '').trim() || 'Theatrical'
               }
-            : null;
+            : form.media_type === 'comic_book'
+              ? {
+                  author: form.book_author || null,
+                  isbn: form.book_isbn || null,
+                  publisher: form.book_publisher || null,
+                  edition: form.book_edition || null,
+                  series: form.comic_series || null,
+                  issue_number: form.comic_issue_number || null,
+                  volume: form.comic_volume || null,
+                  writer: form.comic_writer || null,
+                  artist: form.comic_artist || null,
+                  inker: form.comic_inker || null,
+                  colorist: form.comic_colorist || null,
+                  cover_date: form.comic_cover_date || null,
+                  provider_issue_id: form.comic_provider_issue_id || null,
+                  barcode_addon: form.comic_barcode_addon || null
+                }
+              : form.media_type === 'audio'
+                ? {
+                    artist: form.audio_artist || null,
+                    album: form.audio_album || null,
+                    track_count: form.audio_track_count ? Number(form.audio_track_count) : null
+                  }
+                : form.media_type === 'game'
+                  ? {
+                      platform: form.game_platform || null,
+                      developer: form.game_developer || null,
+                      region: form.game_region || null
+                    }
+                  : null;
       const primaryTitle = resolvePrimaryTitle();
       const rawOriginalTitle = String(form.original_title || '').trim();
       const payload = {
@@ -3851,8 +4229,8 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         year: form.year ? Number(form.year) : null,
         owned_formats: sortOwnedFormats(form.media_type, form.owned_formats || []),
         genre: String(form.genre || '').trim() || null,
-        director: isMovieOrTv ? (String(form.director || '').trim() || null) : null,
-        cast: isMovieOrTv ? (String(form.cast || '').trim() || null) : null,
+        director: isMovieOrTv ? String(form.director || '').trim() || null : null,
+        cast: isMovieOrTv ? String(form.cast || '').trim() || null : null,
         rating: isMovieOrTv ? (form.rating ? Number(form.rating) : null) : null,
         user_rating: form.user_rating ? Number(form.user_rating) : null,
         runtime: isMovieOrTv ? (form.runtime ? Number(form.runtime) : null) : null,
@@ -3861,7 +4239,7 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
         notes: String(form.notes || '').trim() || null,
         overview: clampOverviewText(form.overview) || null,
         tmdb_id: isMovieOrTv ? (form.tmdb_id ? Number(form.tmdb_id) : null) : null,
-        tmdb_media_type: isMovieOrTv ? (form.tmdb_media_type || null) : null,
+        tmdb_media_type: isMovieOrTv ? form.tmdb_media_type || null : null,
         tmdb_url: form.tmdb_url ? String(form.tmdb_url).trim() || null : null,
         trailer_url: isMovieOrTv ? (form.trailer_url ? String(form.trailer_url).trim() || null : null) : null,
         poster_path: form.poster_path ? String(form.poster_path).trim() || null : null,
@@ -3903,13 +4281,17 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
     lookupSummary.provider || '',
     lookupSummary.identifier ? `ID ${lookupSummary.identifier}` : ''
   ].filter(Boolean);
-  const searchActionLabel = (form.id || appliedLookupSummary) ? 'Search again' : 'Search';
-  const showLookupOverlay = Boolean(canUniversalLookup && lookupPanelExpanded && lookupOverlayTop !== null && (lookupMatches.length > 0 || lookupError));
+  const searchActionLabel = form.id || appliedLookupSummary ? 'Search again' : 'Search';
+  const showLookupOverlay = Boolean(
+    canUniversalLookup && lookupPanelExpanded && lookupOverlayTop !== null && (lookupMatches.length > 0 || lookupError)
+  );
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-6 py-4 border-b border-edge shrink-0">
-        <button onClick={onCancel} className="btn-icon btn-sm"><Icons.ChevronLeft /></button>
+        <button onClick={onCancel} className="btn-icon btn-sm">
+          <Icons.ChevronLeft />
+        </button>
         <div className="min-w-0 flex-1">
           <h2 className="text-xl font-semibold leading-tight text-ink truncate">{title}</h2>
         </div>
@@ -3932,7 +4314,15 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
           </button>
         )}
         {onDelete && (
-          <button onClick={() => { if (window.confirm('Delete this item?')) onDelete(); }} className="btn-danger btn-sm"><Icons.Trash />Delete</button>
+          <button
+            onClick={() => {
+              if (window.confirm('Delete this item?')) onDelete();
+            }}
+            className="btn-danger btn-sm"
+          >
+            <Icons.Trash />
+            Delete
+          </button>
         )}
       </div>
 
@@ -3963,352 +4353,566 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                 />
 
                 <div className="relative">
-                {canUniversalLookup && (
-                  <div className="border-b border-edge/60 pb-4" ref={lookupPanelMeasureRef}>
-                    {lookupPanelExpanded ? (
-                      <div className="space-y-4 pt-3" aria-label="Search panel">
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
-                          <LabeledField label={isAudio ? 'Album Title' : 'Title'} className={canIdentifierLookup ? 'md:col-span-7' : 'md:col-span-12'}>
-                            <input
-                              className="input min-w-0"
-                              placeholder={form.media_type === 'movie' ? 'Movie title' : isAudio ? 'Album title' : 'Title'}
-                              value={form.title}
-                              onChange={(e) => set({ title: e.target.value })}
-                            />
-                          </LabeledField>
-
-                          {canIdentifierLookup && (
-                            <LabeledField label={isBook ? 'ISBN / UPC' : isComic ? 'ISBN / UPC' : 'Identifier'} className="md:col-span-5">
-                              {isBook ? (
-                                <div className="flex flex-wrap gap-2 md:flex-nowrap">
-                                  <input
-                                    className="input min-w-0 flex-1 font-mono"
-                                    placeholder="055357275X, 9780553572755, or 012345678901"
-                                    value={bookIdentifierInput}
-                                    onChange={(e) => handleBookIdentifierChange(e.target.value)}
-                                  />
-                                  <button type="button" onClick={() => lookupCaptureInputRef.current?.click()} disabled={lookupCaptureLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
-                                    {lookupCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Scan</>}
-                                  </button>
-                                </div>
-                              ) : isComic ? (
-                                <div className="flex flex-wrap gap-2 md:flex-nowrap">
-                                  <input
-                                    className="input min-w-0 flex-1 font-mono"
-                                    placeholder="012345678901 01 or 9781565048010"
-                                    value={comicIdentifierInput}
-                                    onChange={(e) => handleComicIdentifierChange(e.target.value)}
-                                  />
-                                  <button type="button" onClick={() => lookupCaptureInputRef.current?.click()} disabled={lookupCaptureLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
-                                    {lookupCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Scan</>}
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="flex flex-wrap gap-2 md:flex-nowrap">
-                                  <input
-                                    className="input min-w-0 flex-1 font-mono"
-                                    placeholder="012345678901"
-                                    value={form.upc}
-                                    onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })}
-                                  />
-                                  <button type="button" onClick={() => lookupCaptureInputRef.current?.click()} disabled={lookupCaptureLoading} className="btn-secondary btn-sm shrink-0 min-w-[76px]">
-                                    {lookupCaptureLoading ? <Spinner size={14} /> : <><Icons.Camera />Scan</>}
-                                  </button>
-                                </div>
-                              )}
+                  {canUniversalLookup && (
+                    <div className="border-b border-edge/60 pb-4" ref={lookupPanelMeasureRef}>
+                      {lookupPanelExpanded ? (
+                        <div className="space-y-4 pt-3" aria-label="Search panel">
+                          <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+                            <LabeledField
+                              label={isAudio ? 'Album Title' : 'Title'}
+                              className={canIdentifierLookup ? 'md:col-span-7' : 'md:col-span-12'}
+                            >
+                              <input
+                                className="input min-w-0"
+                                placeholder={form.media_type === 'movie' ? 'Movie title' : isAudio ? 'Album title' : 'Title'}
+                                value={form.title}
+                                onChange={(e) => set({ title: e.target.value })}
+                              />
                             </LabeledField>
-                          )}
+
+                            {canIdentifierLookup && (
+                              <LabeledField label={isBook ? 'ISBN / UPC' : isComic ? 'ISBN / UPC' : 'Identifier'} className="md:col-span-5">
+                                {isBook ? (
+                                  <div className="flex flex-wrap gap-2 md:flex-nowrap">
+                                    <input
+                                      className="input min-w-0 flex-1 font-mono"
+                                      placeholder="055357275X, 9780553572755, or 012345678901"
+                                      value={bookIdentifierInput}
+                                      onChange={(e) => handleBookIdentifierChange(e.target.value)}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => lookupCaptureInputRef.current?.click()}
+                                      disabled={lookupCaptureLoading}
+                                      className="btn-secondary btn-sm shrink-0 min-w-[76px]"
+                                    >
+                                      {lookupCaptureLoading ? (
+                                        <Spinner size={14} />
+                                      ) : (
+                                        <>
+                                          <Icons.Camera />
+                                          Scan
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                ) : isComic ? (
+                                  <div className="flex flex-wrap gap-2 md:flex-nowrap">
+                                    <input
+                                      className="input min-w-0 flex-1 font-mono"
+                                      placeholder="012345678901 01 or 9781565048010"
+                                      value={comicIdentifierInput}
+                                      onChange={(e) => handleComicIdentifierChange(e.target.value)}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => lookupCaptureInputRef.current?.click()}
+                                      disabled={lookupCaptureLoading}
+                                      className="btn-secondary btn-sm shrink-0 min-w-[76px]"
+                                    >
+                                      {lookupCaptureLoading ? (
+                                        <Spinner size={14} />
+                                      ) : (
+                                        <>
+                                          <Icons.Camera />
+                                          Scan
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-wrap gap-2 md:flex-nowrap">
+                                    <input
+                                      className="input min-w-0 flex-1 font-mono"
+                                      placeholder="012345678901"
+                                      value={form.upc}
+                                      onChange={(e) => set({ upc: normalizeBarcodeInput(e.target.value) })}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => lookupCaptureInputRef.current?.click()}
+                                      disabled={lookupCaptureLoading}
+                                      className="btn-secondary btn-sm shrink-0 min-w-[76px]"
+                                    >
+                                      {lookupCaptureLoading ? (
+                                        <Spinner size={14} />
+                                      ) : (
+                                        <>
+                                          <Icons.Camera />
+                                          Scan
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                )}
+                              </LabeledField>
+                            )}
+                          </div>
+
+                          {isBook && <BookCaptureStatusCard state={bookCaptureState} />}
+
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-edge/60 pt-3">
+                            <div className="text-sm text-ghost">Matches update from title or identifier.</div>
+                            <div className="flex flex-wrap gap-2">
+                              {appliedLookupSummary ? (
+                                <button type="button" onClick={clearAppliedLookupSummary} className="btn-secondary btn-sm">
+                                  Clear match
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <input
+                            ref={lookupCaptureInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleLookupCapture}
+                          />
                         </div>
-
-                        {isBook && <BookCaptureStatusCard state={bookCaptureState} />}
-
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-edge/60 pt-3">
-                          <div className="text-sm text-ghost">Matches update from title or identifier.</div>
+                      ) : (
+                        <div className="flex flex-wrap items-center justify-between gap-3" aria-label="Search summary">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-ink">{lookupSummary.title}</p>
+                            {lookupSummaryMeta.length > 0 ? (
+                              <p className="mt-1 text-xs text-ghost">{lookupSummaryMeta.join(' · ')}</p>
+                            ) : null}
+                          </div>
                           <div className="flex flex-wrap gap-2">
                             {appliedLookupSummary ? (
                               <button type="button" onClick={clearAppliedLookupSummary} className="btn-secondary btn-sm">
                                 Clear match
                               </button>
                             ) : null}
+                            <button type="button" onClick={() => patchLookupPanel({ expanded: true })} className="btn-secondary btn-sm">
+                              {searchActionLabel}
+                            </button>
                           </div>
                         </div>
+                      )}
+                    </div>
+                  )}
 
-                        <input
-                          ref={lookupCaptureInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleLookupCapture}
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap items-center justify-between gap-3" aria-label="Search summary">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-ink">{lookupSummary.title}</p>
-                          {lookupSummaryMeta.length > 0 ? (
-                            <p className="mt-1 text-xs text-ghost">{lookupSummaryMeta.join(' · ')}</p>
-                          ) : null}
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {appliedLookupSummary ? (
-                            <button type="button" onClick={clearAppliedLookupSummary} className="btn-secondary btn-sm">
-                              Clear match
-                            </button>
-                          ) : null}
-                          <button type="button" onClick={() => patchLookupPanel({ expanded: true })} className="btn-secondary btn-sm">
-                            {searchActionLabel}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-5 pt-3 lg:flex-row lg:items-start">
-                  <div className="w-full shrink-0 lg:w-32 xl:w-28">
-                    <div className="space-y-3">
-                      <button
-                        type="button"
-                        onClick={() => coverImageInputRef.current?.click()}
-                        disabled={coverUploadLoading}
-                        className="poster relative w-full overflow-hidden rounded-md border border-edge bg-panel text-left transition-colors hover:border-muted disabled:cursor-not-allowed"
-                      >
-                        {posterUrl(form.poster_path)
-                          ? <img src={posterUrl(form.poster_path)} alt="poster" className="absolute inset-0 w-full h-full object-cover" />
-                          : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Film /></div>}
-                        <div className="absolute inset-x-0 bottom-0 border-t border-edge bg-panel/95 p-3">
-                          <p className="text-sm font-medium text-ink">{form.poster_path ? 'Replace cover' : 'Add cover'}</p>
-                          {!form.poster_path ? <p className="text-[11px] leading-4 text-dim">Photo library, camera, or file</p> : null}
-                        </div>
-                      </button>
-                      {form.poster_path ? (
-                        <button type="button" onClick={() => set({ poster_path: '' })} disabled={coverUploadLoading} className="btn-secondary btn-sm w-full text-err">
-                          <Icons.Trash />Remove cover
+                  <div className="flex flex-col gap-5 pt-3 lg:flex-row lg:items-start">
+                    <div className="w-full shrink-0 lg:w-32 xl:w-28">
+                      <div className="space-y-3">
+                        <button
+                          type="button"
+                          onClick={() => coverImageInputRef.current?.click()}
+                          disabled={coverUploadLoading}
+                          className="poster relative w-full overflow-hidden rounded-md border border-edge bg-panel text-left transition-colors hover:border-muted disabled:cursor-not-allowed"
+                        >
+                          {posterUrl(form.poster_path) ? (
+                            <img src={posterUrl(form.poster_path)} alt="poster" className="absolute inset-0 w-full h-full object-cover" />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center text-ghost">
+                              <Icons.Film />
+                            </div>
+                          )}
+                          <div className="absolute inset-x-0 bottom-0 border-t border-edge bg-panel/95 p-3">
+                            <p className="text-sm font-medium text-ink">{form.poster_path ? 'Replace cover' : 'Add cover'}</p>
+                            {!form.poster_path ? <p className="text-[11px] leading-4 text-dim">Photo library, camera, or file</p> : null}
+                          </div>
                         </button>
-                      ) : null}
+                        {form.poster_path ? (
+                          <button
+                            type="button"
+                            onClick={() => set({ poster_path: '' })}
+                            disabled={coverUploadLoading}
+                            className="btn-secondary btn-sm w-full text-err"
+                          >
+                            <Icons.Trash />
+                            Remove cover
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 flex-1 space-y-4 xl:max-w-[28rem] 2xl:max-w-[30rem]">
+                      {isMovieOrTv && (
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+                          <LabeledField label="Original Title" className="md:col-span-12">
+                            <input
+                              className="input"
+                              value={form.original_title}
+                              onChange={(e) => set({ original_title: e.target.value })}
+                            />
+                          </LabeledField>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+                        {(isMovieOrTv || isBook || isComic || isAudio || isGame) && (
+                          <LabeledField label="Owned Formats" className="md:col-span-12">
+                            <OwnedFormatPicker mediaType={form.media_type} value={form.owned_formats || []} onChange={setOwnedFormats} />
+                          </LabeledField>
+                        )}
+                        {!isGame && (
+                          <LabeledField
+                            label="Year"
+                            className={cx('md:col-span-3 xl:col-span-2', isComic && 'md:col-span-2 xl:col-span-2')}
+                          >
+                            <input
+                              className="input"
+                              placeholder="2024"
+                              value={form.year}
+                              onChange={(e) => set({ year: e.target.value })}
+                              inputMode="numeric"
+                            />
+                          </LabeledField>
+                        )}
+                        {isMovieOrTv && (
+                          <LabeledField label="Runtime (min)" className="md:col-span-4 xl:col-span-3">
+                            <input
+                              className="input"
+                              inputMode="numeric"
+                              value={form.runtime}
+                              onChange={(e) => set({ runtime: e.target.value })}
+                            />
+                          </LabeledField>
+                        )}
+                        {form.media_type === 'movie' && (
+                          <LabeledField label="Edition" className="md:col-span-2 xl:col-span-3">
+                            <input
+                              className="input"
+                              placeholder="Theatrical"
+                              value={form.movie_edition}
+                              onChange={(e) => set({ movie_edition: e.target.value })}
+                            />
+                          </LabeledField>
+                        )}
+                        {isComic && (
+                          <LabeledField label="Issue #" className="md:col-span-3 xl:col-span-2">
+                            <input
+                              className="input"
+                              inputMode="numeric"
+                              value={form.comic_issue_number}
+                              onChange={(e) => set({ comic_issue_number: e.target.value })}
+                            />
+                          </LabeledField>
+                        )}
+                        {isComic && (
+                          <LabeledField label="Volume" className="md:col-span-3 xl:col-span-2">
+                            <input
+                              className="input"
+                              inputMode="numeric"
+                              value={form.comic_volume}
+                              onChange={(e) => set({ comic_volume: e.target.value })}
+                            />
+                          </LabeledField>
+                        )}
+                      </div>
+
+                      <input
+                        ref={coverImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCoverImageSelection}
+                        className="hidden"
+                      />
                     </div>
                   </div>
 
-                  <div className="min-w-0 flex-1 space-y-4 xl:max-w-[28rem] 2xl:max-w-[30rem]">
+                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:max-w-[28rem] 2xl:max-w-[30rem]">
                     {isMovieOrTv && (
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
-                        <LabeledField label="Original Title" className="md:col-span-12">
-                          <input className="input" value={form.original_title} onChange={(e) => set({ original_title: e.target.value })} />
+                      <>
+                        <LabeledField label="Genre">
+                          <input
+                            className="input"
+                            placeholder="Action, Drama…"
+                            value={form.genre}
+                            onChange={(e) => set({ genre: e.target.value })}
+                          />
                         </LabeledField>
-                      </div>
+                        <LabeledField label="Release Date">
+                          <input
+                            className="input"
+                            type="date"
+                            value={form.release_date}
+                            onChange={(e) => set({ release_date: e.target.value })}
+                          />
+                        </LabeledField>
+                      </>
                     )}
 
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
-                      {(isMovieOrTv || isBook || isComic || isAudio || isGame) && (
-                        <LabeledField label="Owned Formats" className="md:col-span-12">
-                          <OwnedFormatPicker mediaType={form.media_type} value={form.owned_formats || []} onChange={setOwnedFormats} />
+                    {isBook && (
+                      <>
+                        <LabeledField label="Author">
+                          <input className="input" value={form.book_author} onChange={(e) => set({ book_author: e.target.value })} />
                         </LabeledField>
-                      )}
-                      {!isGame && (
-                        <LabeledField label="Year" className={cx('md:col-span-3 xl:col-span-2', isComic && 'md:col-span-2 xl:col-span-2')}>
-                          <input className="input" placeholder="2024" value={form.year} onChange={(e) => set({ year: e.target.value })} inputMode="numeric" />
+                        <LabeledField label="Publisher">
+                          <input className="input" value={form.book_publisher} onChange={(e) => set({ book_publisher: e.target.value })} />
                         </LabeledField>
-                      )}
-                      {isMovieOrTv && (
-                        <LabeledField label="Runtime (min)" className="md:col-span-4 xl:col-span-3">
-                          <input className="input" inputMode="numeric" value={form.runtime} onChange={(e) => set({ runtime: e.target.value })} />
+                        <LabeledField label="Edition">
+                          <input className="input" value={form.book_edition} onChange={(e) => set({ book_edition: e.target.value })} />
                         </LabeledField>
-                      )}
-                      {form.media_type === 'movie' && (
-                        <LabeledField label="Edition" className="md:col-span-2 xl:col-span-3">
-                          <input className="input" placeholder="Theatrical" value={form.movie_edition} onChange={(e) => set({ movie_edition: e.target.value })} />
+                        <LabeledField label="Genre">
+                          <input className="input" value={form.genre} onChange={(e) => set({ genre: e.target.value })} />
                         </LabeledField>
-                      )}
-                      {isComic && (
-                        <LabeledField label="Issue #" className="md:col-span-3 xl:col-span-2">
-                          <input className="input" inputMode="numeric" value={form.comic_issue_number} onChange={(e) => set({ comic_issue_number: e.target.value })} />
+                      </>
+                    )}
+
+                    {isComic && (
+                      <>
+                        <LabeledField label="Author">
+                          <input className="input" value={form.book_author} onChange={(e) => set({ book_author: e.target.value })} />
                         </LabeledField>
-                      )}
-                      {isComic && (
-                        <LabeledField label="Volume" className="md:col-span-3 xl:col-span-2">
-                          <input className="input" inputMode="numeric" value={form.comic_volume} onChange={(e) => set({ comic_volume: e.target.value })} />
+                        <LabeledField label="Publisher">
+                          <input className="input" value={form.book_publisher} onChange={(e) => set({ book_publisher: e.target.value })} />
                         </LabeledField>
-                      )}
-                    </div>
+                        <LabeledField label="Series">
+                          <input className="input" value={form.comic_series} onChange={(e) => set({ comic_series: e.target.value })} />
+                        </LabeledField>
+                        <LabeledField label="Writer">
+                          <input className="input" value={form.comic_writer} onChange={(e) => set({ comic_writer: e.target.value })} />
+                        </LabeledField>
+                        <LabeledField label="Artist">
+                          <input className="input" value={form.comic_artist} onChange={(e) => set({ comic_artist: e.target.value })} />
+                        </LabeledField>
+                        <LabeledField label="Inker">
+                          <input className="input" value={form.comic_inker} onChange={(e) => set({ comic_inker: e.target.value })} />
+                        </LabeledField>
+                        <LabeledField label="Colorist">
+                          <input className="input" value={form.comic_colorist} onChange={(e) => set({ comic_colorist: e.target.value })} />
+                        </LabeledField>
+                        <LabeledField label="Cover Date">
+                          <input
+                            className="input"
+                            type="date"
+                            value={form.comic_cover_date}
+                            onChange={(e) => set({ comic_cover_date: e.target.value })}
+                          />
+                        </LabeledField>
+                      </>
+                    )}
 
-                    <input
-                      ref={coverImageInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleCoverImageSelection}
-                      className="hidden"
-                    />
-                  </div>
-                </div>
+                    {isGame && (
+                      <>
+                        <LabeledField label="Platform">
+                          <input className="input" value={form.game_platform} onChange={(e) => set({ game_platform: e.target.value })} />
+                        </LabeledField>
+                        <LabeledField label="Developer">
+                          <input className="input" value={form.game_developer} onChange={(e) => set({ game_developer: e.target.value })} />
+                        </LabeledField>
+                        <LabeledField label="Genre">
+                          <input className="input" value={form.genre} onChange={(e) => set({ genre: e.target.value })} />
+                        </LabeledField>
+                        <LabeledField label="Release Date">
+                          <input
+                            className="input"
+                            type="date"
+                            value={form.release_date}
+                            onChange={(e) => set({ release_date: e.target.value })}
+                          />
+                        </LabeledField>
+                      </>
+                    )}
 
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:max-w-[28rem] 2xl:max-w-[30rem]">
-                  {isMovieOrTv && (
-                    <>
-                      <LabeledField label="Genre"><input className="input" placeholder="Action, Drama…" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
-                      <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
-                    </>
-                  )}
+                    {isAudio && (
+                      <>
+                        <LabeledField label="Artist">
+                          <input className="input" value={form.audio_artist} onChange={(e) => set({ audio_artist: e.target.value })} />
+                        </LabeledField>
+                        <LabeledField label="Track Count">
+                          <input
+                            className="input"
+                            inputMode="numeric"
+                            value={form.audio_track_count}
+                            onChange={(e) => set({ audio_track_count: e.target.value })}
+                          />
+                        </LabeledField>
+                        <LabeledField label="Release Date">
+                          <input
+                            className="input"
+                            type="date"
+                            value={form.release_date}
+                            onChange={(e) => set({ release_date: e.target.value })}
+                          />
+                        </LabeledField>
+                      </>
+                    )}
+                    {form.media_type === 'tv_episode' && (
+                      <>
+                        <LabeledField label="Season">
+                          <input
+                            className="input"
+                            inputMode="numeric"
+                            value={form.season_number}
+                            onChange={(e) => set({ season_number: e.target.value })}
+                          />
+                        </LabeledField>
+                        <LabeledField label="Episode">
+                          <input
+                            className="input"
+                            inputMode="numeric"
+                            value={form.episode_number}
+                            onChange={(e) => set({ episode_number: e.target.value })}
+                          />
+                        </LabeledField>
+                        <LabeledField label="Episode Title" className="md:col-span-2">
+                          <input className="input" value={form.episode_title} onChange={(e) => set({ episode_title: e.target.value })} />
+                        </LabeledField>
+                      </>
+                    )}
 
-                  {isBook && (
-                    <>
-                      <LabeledField label="Author"><input className="input" value={form.book_author} onChange={(e) => set({ book_author: e.target.value })} /></LabeledField>
-                      <LabeledField label="Publisher"><input className="input" value={form.book_publisher} onChange={(e) => set({ book_publisher: e.target.value })} /></LabeledField>
-                      <LabeledField label="Edition"><input className="input" value={form.book_edition} onChange={(e) => set({ book_edition: e.target.value })} /></LabeledField>
-                      <LabeledField label="Genre"><input className="input" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
-                    </>
-                  )}
-
-                  {isComic && (
-                    <>
-                      <LabeledField label="Author"><input className="input" value={form.book_author} onChange={(e) => set({ book_author: e.target.value })} /></LabeledField>
-                      <LabeledField label="Publisher"><input className="input" value={form.book_publisher} onChange={(e) => set({ book_publisher: e.target.value })} /></LabeledField>
-                      <LabeledField label="Series"><input className="input" value={form.comic_series} onChange={(e) => set({ comic_series: e.target.value })} /></LabeledField>
-                      <LabeledField label="Writer"><input className="input" value={form.comic_writer} onChange={(e) => set({ comic_writer: e.target.value })} /></LabeledField>
-                      <LabeledField label="Artist"><input className="input" value={form.comic_artist} onChange={(e) => set({ comic_artist: e.target.value })} /></LabeledField>
-                      <LabeledField label="Inker"><input className="input" value={form.comic_inker} onChange={(e) => set({ comic_inker: e.target.value })} /></LabeledField>
-                      <LabeledField label="Colorist"><input className="input" value={form.comic_colorist} onChange={(e) => set({ comic_colorist: e.target.value })} /></LabeledField>
-                      <LabeledField label="Cover Date"><input className="input" type="date" value={form.comic_cover_date} onChange={(e) => set({ comic_cover_date: e.target.value })} /></LabeledField>
-                    </>
-                  )}
-
-                  {isGame && (
-                    <>
-                      <LabeledField label="Platform"><input className="input" value={form.game_platform} onChange={(e) => set({ game_platform: e.target.value })} /></LabeledField>
-                      <LabeledField label="Developer"><input className="input" value={form.game_developer} onChange={(e) => set({ game_developer: e.target.value })} /></LabeledField>
-                      <LabeledField label="Genre"><input className="input" value={form.genre} onChange={(e) => set({ genre: e.target.value })} /></LabeledField>
-                      <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
-                    </>
-                  )}
-
-                  {isAudio && (
-                    <>
-                      <LabeledField label="Artist"><input className="input" value={form.audio_artist} onChange={(e) => set({ audio_artist: e.target.value })} /></LabeledField>
-                      <LabeledField label="Track Count"><input className="input" inputMode="numeric" value={form.audio_track_count} onChange={(e) => set({ audio_track_count: e.target.value })} /></LabeledField>
-                      <LabeledField label="Release Date"><input className="input" type="date" value={form.release_date} onChange={(e) => set({ release_date: e.target.value })} /></LabeledField>
-                    </>
-                  )}
-                  {form.media_type === 'tv_episode' && (
-                    <>
-                      <LabeledField label="Season"><input className="input" inputMode="numeric" value={form.season_number} onChange={(e) => set({ season_number: e.target.value })} /></LabeledField>
-                      <LabeledField label="Episode"><input className="input" inputMode="numeric" value={form.episode_number} onChange={(e) => set({ episode_number: e.target.value })} /></LabeledField>
-                      <LabeledField label="Episode Title" className="md:col-span-2"><input className="input" value={form.episode_title} onChange={(e) => set({ episode_title: e.target.value })} /></LabeledField>
-                    </>
-                  )}
-
-                  {!isMovieOrTv && <LabeledField label="Your Rating" className="md:col-span-2"><StarRating value={userRatingToStars(form.user_rating)} onChange={(v) => set({ user_rating: starsToUserRating(v) })} /></LabeledField>}
-                </div>
-
-                {isMovieOrTv && (
-                  <div className={cx('mt-3 grid grid-cols-1 gap-3 xl:max-w-[28rem] 2xl:max-w-[30rem]', form.media_type === 'tv_series' ? 'md:grid-cols-3' : 'md:grid-cols-2')}>
-                    {form.media_type === 'tv_series' && (
-                      <LabeledField label="Owned Seasons">
-                        <input className="input" placeholder="1, 2, 3" value={tvSeasonsText} onChange={(e) => setTvSeasonsText(e.target.value)} />
+                    {!isMovieOrTv && (
+                      <LabeledField label="Your Rating" className="md:col-span-2">
+                        <StarRating
+                          value={userRatingToStars(form.user_rating)}
+                          onChange={(v) => set({ user_rating: starsToUserRating(v) })}
+                        />
                       </LabeledField>
                     )}
-                    <LabeledField label="TMDB Rating">
-                      <input className="input" inputMode="decimal" placeholder="0.0 – 10.0" value={form.rating} onChange={(e) => set({ rating: e.target.value })} />
-                    </LabeledField>
-                    <LabeledField label="Your Rating">
-                      <StarRating value={userRatingToStars(form.user_rating)} onChange={(v) => set({ user_rating: starsToUserRating(v) })} />
-                    </LabeledField>
                   </div>
-                )}
-                {showLookupOverlay && (
-                  <div
-                    aria-label="Search results overlay"
-                    className="absolute inset-x-0 bottom-0 z-20 overflow-hidden border-t border-edge/60 bg-abyss"
-                    style={{ top: `${lookupOverlayTop}px` }}
-                  >
-                    <div className="h-full overflow-y-auto scroll-area px-1 py-3">
-                      {lookupMatches.length > 0 ? (
-                        <div>
-                          {lookupMatches.map((m, i) => {
-                            const title = m?.typeEnrichment?.title || m?.book?.title || m?.normalizedTitle || m.tmdb?.title || m.title || 'Unknown';
-                            const providerLabel = resolveLookupProviderLabel(m);
-                            const supportingDetail = m?.typeEnrichment?.type_details?.artist
-                              || m?.typeEnrichment?.type_details?.platform
-                              || m?.typeEnrichment?.type_details?.series
-                              || m?.book?.type_details?.author
-                              || m?.typeDetails?.author
-                              || m.description
-                              || '';
-                            const thumbnailSrc = posterUrl(resolveLookupThumbnailPath(m));
-                            return (
-                              <button
-                                key={i}
-                                type="button"
-                                onClick={() => applyLookupResult(m)}
-                                className="flex w-full items-start gap-3 border-b border-edge/60 px-3 py-2 text-left last:border-b-0 hover:bg-panel/50"
-                              >
-                                <div
-                                  aria-label="Search result thumbnail"
-                                  className="relative mt-0.5 h-16 w-11 shrink-0 overflow-hidden rounded-[4px] border border-edge/70 bg-panel"
-                                >
-                                  {thumbnailSrc ? (
-                                    <img src={thumbnailSrc} alt={title} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-                                  ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center bg-panel text-[10px] font-medium uppercase tracking-[0.18em] text-dim">
-                                      {String(title).trim().charAt(0) || '?'}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="truncate text-sm font-medium text-ink">{title}</p>
-                                    {(m.lookupSources || []).map((source) => (
-                                      <span key={source} className="badge badge-dim">
-                                        {formatLookupSourceLabel(source)}
-                                      </span>
-                                    ))}
-                                  </div>
-                                  <p className="text-xs text-ghost">
-                                    {providerLabel}
-                                    {(providerLabel && supportingDetail) ? ' · ' : ''}
-                                    {supportingDetail}
-                                  </p>
-                                </div>
-                                <span className="shrink-0 pt-1 text-xs text-dim">Apply</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : null}
 
-                      {lookupError ? (
-                        <div className="px-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm text-ink">{lookupError?.error || 'Search failed'}</p>
-                              {lookupError?.detail ? <p className="mt-1 text-xs text-ghost">{lookupError.detail}</p> : null}
-                            </div>
-                            {lookupError?.stage ? <span className="badge badge-dim">{lookupError.stage}</span> : null}
-                          </div>
-                          {lookupError?.request ? (
-                            <pre className="mt-2 overflow-x-auto border border-edge bg-panel p-2 text-xs text-ghost whitespace-pre-wrap break-all">
-{JSON.stringify(lookupError.request, null, 2)}
-                            </pre>
-                          ) : null}
-                        </div>
-                      ) : null}
+                  {isMovieOrTv && (
+                    <div
+                      className={cx(
+                        'mt-3 grid grid-cols-1 gap-3 xl:max-w-[28rem] 2xl:max-w-[30rem]',
+                        form.media_type === 'tv_series' ? 'md:grid-cols-3' : 'md:grid-cols-2'
+                      )}
+                    >
+                      {form.media_type === 'tv_series' && (
+                        <LabeledField label="Owned Seasons">
+                          <input
+                            className="input"
+                            placeholder="1, 2, 3"
+                            value={tvSeasonsText}
+                            onChange={(e) => setTvSeasonsText(e.target.value)}
+                          />
+                        </LabeledField>
+                      )}
+                      <LabeledField label="TMDB Rating">
+                        <input
+                          className="input"
+                          inputMode="decimal"
+                          placeholder="0.0 – 10.0"
+                          value={form.rating}
+                          onChange={(e) => set({ rating: e.target.value })}
+                        />
+                      </LabeledField>
+                      <LabeledField label="Your Rating">
+                        <StarRating
+                          value={userRatingToStars(form.user_rating)}
+                          onChange={(v) => set({ user_rating: starsToUserRating(v) })}
+                        />
+                      </LabeledField>
                     </div>
-                  </div>
-                )}
+                  )}
+                  {showLookupOverlay && (
+                    <div
+                      aria-label="Search results overlay"
+                      className="absolute inset-x-0 bottom-0 z-20 overflow-hidden border-t border-edge/60 bg-abyss"
+                      style={{ top: `${lookupOverlayTop}px` }}
+                    >
+                      <div className="h-full overflow-y-auto scroll-area px-1 py-3">
+                        {lookupMatches.length > 0 ? (
+                          <div>
+                            {lookupMatches.map((m, i) => {
+                              const title =
+                                m?.typeEnrichment?.title || m?.book?.title || m?.normalizedTitle || m.tmdb?.title || m.title || 'Unknown';
+                              const providerLabel = resolveLookupProviderLabel(m);
+                              const supportingDetail =
+                                m?.typeEnrichment?.type_details?.artist ||
+                                m?.typeEnrichment?.type_details?.platform ||
+                                m?.typeEnrichment?.type_details?.series ||
+                                m?.book?.type_details?.author ||
+                                m?.typeDetails?.author ||
+                                m.description ||
+                                '';
+                              const thumbnailSrc = posterUrl(resolveLookupThumbnailPath(m));
+                              return (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => applyLookupResult(m)}
+                                  className="flex w-full items-start gap-3 border-b border-edge/60 px-3 py-2 text-left last:border-b-0 hover:bg-panel/50"
+                                >
+                                  <div
+                                    aria-label="Search result thumbnail"
+                                    className="relative mt-0.5 h-16 w-11 shrink-0 overflow-hidden rounded-[4px] border border-edge/70 bg-panel"
+                                  >
+                                    {thumbnailSrc ? (
+                                      <img
+                                        src={thumbnailSrc}
+                                        alt={title}
+                                        className="absolute inset-0 h-full w-full object-cover"
+                                        loading="lazy"
+                                      />
+                                    ) : (
+                                      <div className="absolute inset-0 flex items-center justify-center bg-panel text-[10px] font-medium uppercase tracking-[0.18em] text-dim">
+                                        {String(title).trim().charAt(0) || '?'}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="truncate text-sm font-medium text-ink">{title}</p>
+                                      {(m.lookupSources || []).map((source) => (
+                                        <span key={source} className="badge badge-dim">
+                                          {formatLookupSourceLabel(source)}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    <p className="text-xs text-ghost">
+                                      {providerLabel}
+                                      {providerLabel && supportingDetail ? ' · ' : ''}
+                                      {supportingDetail}
+                                    </p>
+                                  </div>
+                                  <span className="shrink-0 pt-1 text-xs text-dim">Apply</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+
+                        {lookupError ? (
+                          <div className="px-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm text-ink">{lookupError?.error || 'Search failed'}</p>
+                                {lookupError?.detail ? <p className="mt-1 text-xs text-ghost">{lookupError.detail}</p> : null}
+                              </div>
+                              {lookupError?.stage ? <span className="badge badge-dim">{lookupError.stage}</span> : null}
+                            </div>
+                            {lookupError?.request ? (
+                              <pre className="mt-2 overflow-x-auto border border-edge bg-panel p-2 text-xs text-ghost whitespace-pre-wrap break-all">
+                                {JSON.stringify(lookupError.request, null, 2)}
+                              </pre>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             </SectionTabPanel>
 
             <SectionTabPanel activeId={activeEditorTab} tabKey="people" idBase="media-editor-steps">
               {isMovieOrTv ? (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <LabeledField label="Director"><input className="input" value={form.director} onChange={(e) => set({ director: e.target.value })} /></LabeledField>
-                <LabeledField label="Cast" className="md:col-span-2"><input className="input" placeholder="Actor 1, Actor 2…" value={form.cast} onChange={(e) => set({ cast: e.target.value })} /></LabeledField>
-              </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <LabeledField label="Director">
+                    <input className="input" value={form.director} onChange={(e) => set({ director: e.target.value })} />
+                  </LabeledField>
+                  <LabeledField label="Cast" className="md:col-span-2">
+                    <input
+                      className="input"
+                      placeholder="Actor 1, Actor 2…"
+                      value={form.cast}
+                      onChange={(e) => set({ cast: e.target.value })}
+                    />
+                  </LabeledField>
+                </div>
               ) : null}
             </SectionTabPanel>
 
             <SectionTabPanel activeId={activeEditorTab} tabKey="signatures" idBase="media-editor-steps">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <LabeledField label="Signed by"><input className="input" value={form.signed_by} onChange={(e) => set({ signed_by: e.target.value })} /></LabeledField>
+                <LabeledField label="Signed by">
+                  <input className="input" value={form.signed_by} onChange={(e) => set({ signed_by: e.target.value })} />
+                </LabeledField>
                 <LabeledField label="Signed as">
                   <select className="select" value={form.signed_role} onChange={(e) => set({ signed_role: e.target.value })}>
                     <option value="">Not signed</option>
@@ -4317,9 +4921,15 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                     <option value="cast">Cast</option>
                   </select>
                 </LabeledField>
-                <LabeledField label="Signed on"><input className="input" type="date" value={form.signed_on} onChange={(e) => set({ signed_on: e.target.value })} /></LabeledField>
-                <LabeledField label="Signed at"><input className="input" value={form.signed_at} onChange={(e) => set({ signed_at: e.target.value })} /></LabeledField>
-                <p className="md:col-span-2 text-xs leading-5 text-ghost">Proof file upload and removal live on each signature record below, keeping media and Art evidence on the same workflow.</p>
+                <LabeledField label="Signed on">
+                  <input className="input" type="date" value={form.signed_on} onChange={(e) => set({ signed_on: e.target.value })} />
+                </LabeledField>
+                <LabeledField label="Signed at">
+                  <input className="input" value={form.signed_at} onChange={(e) => set({ signed_at: e.target.value })} />
+                </LabeledField>
+                <p className="md:col-span-2 text-xs leading-5 text-ghost">
+                  Proof file upload and removal live on each signature record below, keeping media and Art evidence on the same workflow.
+                </p>
                 <SignatureManager
                   apiCall={apiCall}
                   endpointBase={form.id ? `/media/${form.id}` : ''}
@@ -4333,7 +4943,14 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
 
             <SectionTabPanel activeId={activeEditorTab} tabKey="storage" idBase="media-editor-steps">
               <div className="space-y-4">
-                <LabeledField label="Storage Location"><input className="input" placeholder="Shelf A3, Box 2…" value={form.location} onChange={(e) => set({ location: e.target.value })} /></LabeledField>
+                <LabeledField label="Storage Location">
+                  <input
+                    className="input"
+                    placeholder="Shelf A3, Box 2…"
+                    value={form.location}
+                    onChange={(e) => set({ location: e.target.value })}
+                  />
+                </LabeledField>
                 <LabeledField label="Overview">
                   <div className="space-y-1">
                     <textarea className="textarea" rows={4} value={form.overview} onChange={(e) => set({ overview: e.target.value })} />
@@ -4342,20 +4959,38 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
                     </p>
                   </div>
                 </LabeledField>
-                <LabeledField label="Notes"><textarea className="textarea" rows={3} value={form.notes} onChange={(e) => set({ notes: e.target.value })} /></LabeledField>
+                <LabeledField label="Notes">
+                  <textarea className="textarea" rows={3} value={form.notes} onChange={(e) => set({ notes: e.target.value })} />
+                </LabeledField>
 
                 {isMovieOrTv && (
                   <details className="group">
                     <summary className="cursor-pointer text-xs text-ghost hover:text-dim list-none flex items-center gap-2 select-none">
-                      <span className="transition-transform group-open:rotate-90"><Icons.ChevronRight /></span>
+                      <span className="transition-transform group-open:rotate-90">
+                        <Icons.ChevronRight />
+                      </span>
                       Advanced (TMDB links, poster path)
                     </summary>
                     <div className="mt-3 grid grid-cols-1 gap-3">
-                      <LabeledField label="TMDB ID" className="md:max-w-[220px]"><input className="input font-mono" value={form.tmdb_id} onChange={(e) => set({ tmdb_id: e.target.value })} /></LabeledField>
-                      <LabeledField label="TMDB Media Type" className="md:max-w-[220px]"><input className="input font-mono" value={form.tmdb_media_type} onChange={(e) => set({ tmdb_media_type: e.target.value })} /></LabeledField>
-                      <LabeledField label="TMDB URL"><input className="input" value={form.tmdb_url} onChange={(e) => set({ tmdb_url: e.target.value })} /></LabeledField>
-                      <LabeledField label="Trailer URL"><input className="input" value={form.trailer_url} onChange={(e) => set({ trailer_url: e.target.value })} /></LabeledField>
-                      <LabeledField label="Poster Path"><input className="input" value={form.poster_path} onChange={(e) => set({ poster_path: e.target.value })} /></LabeledField>
+                      <LabeledField label="TMDB ID" className="md:max-w-[220px]">
+                        <input className="input font-mono" value={form.tmdb_id} onChange={(e) => set({ tmdb_id: e.target.value })} />
+                      </LabeledField>
+                      <LabeledField label="TMDB Media Type" className="md:max-w-[220px]">
+                        <input
+                          className="input font-mono"
+                          value={form.tmdb_media_type}
+                          onChange={(e) => set({ tmdb_media_type: e.target.value })}
+                        />
+                      </LabeledField>
+                      <LabeledField label="TMDB URL">
+                        <input className="input" value={form.tmdb_url} onChange={(e) => set({ tmdb_url: e.target.value })} />
+                      </LabeledField>
+                      <LabeledField label="Trailer URL">
+                        <input className="input" value={form.trailer_url} onChange={(e) => set({ trailer_url: e.target.value })} />
+                      </LabeledField>
+                      <LabeledField label="Poster Path">
+                        <input className="input" value={form.poster_path} onChange={(e) => set({ poster_path: e.target.value })} />
+                      </LabeledField>
                     </div>
                   </details>
                 )}
@@ -4367,8 +5002,12 @@ function MediaForm({ initial = DEFAULT_MEDIA_FORM, onSave, onCancel, onDelete, o
       <div className="shrink-0 border-t border-edge bg-abyss px-6 py-4 flex items-center gap-3">
         {msg && <span className={cx('text-sm flex-1', msgType === 'error' ? 'text-err' : 'text-ok')}>{msg}</span>}
         <div className="flex gap-3 ml-auto">
-          <button type="button" onClick={onCancel} className="btn-secondary">Cancel</button>
-          <button type="button" onClick={submit} disabled={saving} className="btn-primary min-w-[100px]">{saving ? <Spinner size={16} /> : 'Save'}</button>
+          <button type="button" onClick={onCancel} className="btn-secondary">
+            Cancel
+          </button>
+          <button type="button" onClick={submit} disabled={saving} className="btn-primary min-w-[100px]">
+            {saving ? <Spinner size={16} /> : 'Save'}
+          </button>
         </div>
       </div>
     </div>
@@ -4443,6 +5082,7 @@ export default function LibraryView({
   const [collectionLoading, setCollectionLoading] = useState(false);
   const [collectionError, setCollectionError] = useState('');
   const [collectionPagination, setCollectionPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
+  const [settledCollectionQueryKey, setSettledCollectionQueryKey] = useState('');
   const [comicSeriesRows, setComicSeriesRows] = useState([]);
   const [comicSeriesLoading, setComicSeriesLoading] = useState(false);
   const [comicSeriesError, setComicSeriesError] = useState('');
@@ -4450,7 +5090,13 @@ export default function LibraryView({
   const [comicSeriesIssueRows, setComicSeriesIssueRows] = useState([]);
   const [comicSeriesIssueLoading, setComicSeriesIssueLoading] = useState(false);
   const [comicSeriesIssueError, setComicSeriesIssueError] = useState('');
-  const [comicSeriesIssuePagination, setComicSeriesIssuePagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
+  const [comicSeriesIssuePagination, setComicSeriesIssuePagination] = useState({
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 1,
+    hasMore: false
+  });
   const [editingCollectionId, setEditingCollectionId] = useState(null);
   const [viewingCollectionId, setViewingCollectionId] = useState(null);
   const [comicView, setComicView] = useState('issues');
@@ -4461,6 +5107,8 @@ export default function LibraryView({
   const selectionAnchorIdRef = useRef(null);
   const shiftPressedRef = useRef(false);
   const selectionGestureRef = useRef(false);
+  const mediaViewRequestSeqRef = useRef(0);
+  const collectionRequestSeqRef = useRef(0);
   const supportsHover = useMemo(() => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
   const addFormMediaType = useMemo(() => {
     if (forcedMediaType === 'tv') return 'tv_series';
@@ -4500,11 +5148,9 @@ export default function LibraryView({
       };
     }
     if (forcedMediaType === 'game') {
-      const platforms = [...new Set(
-        mediaItems
-          .map((item) => String(item?.type_details?.platform || '').trim())
-          .filter(Boolean)
-      )].sort((a, b) => a.localeCompare(b));
+      const platforms = [...new Set(mediaItems.map((item) => String(item?.type_details?.platform || '').trim()).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b)
+      );
       return {
         key: 'platform',
         label: 'Platform',
@@ -4513,11 +5159,9 @@ export default function LibraryView({
       };
     }
     if (forcedMediaType === 'comic_book') {
-      const publishers = [...new Set(
-        mediaItems
-          .map((item) => String(item?.type_details?.publisher || '').trim())
-          .filter(Boolean)
-      )].sort((a, b) => a.localeCompare(b));
+      const publishers = [...new Set(mediaItems.map((item) => String(item?.type_details?.publisher || '').trim()).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b)
+      );
       return {
         key: 'publisher',
         label: 'Publisher',
@@ -4531,22 +5175,28 @@ export default function LibraryView({
   const reviewFilterActiveCount = filters.review_filter ? 1 : 0;
   const libraryFilterActiveCount = quickFilterActiveCount + reviewFilterActiveCount;
   const quickFilterLabel = quickFilterConfig
-    ? (quickFilterConfig.options.find((option) => option.value === quickFilterConfig.value)?.label || quickFilterConfig.label)
+    ? quickFilterConfig.options.find((option) => option.value === quickFilterConfig.value)?.label || quickFilterConfig.label
     : '';
-  const libraryFilterSummary = libraryFilterActiveCount > 1
-    ? `${libraryFilterActiveCount} filters`
-    : (quickFilterActiveCount ? quickFilterLabel : (reviewFilterActiveCount ? activeReviewFilterLabel : 'All filters'));
+  const libraryFilterSummary =
+    libraryFilterActiveCount > 1
+      ? `${libraryFilterActiveCount} filters`
+      : quickFilterActiveCount
+        ? quickFilterLabel
+        : reviewFilterActiveCount
+          ? activeReviewFilterLabel
+          : 'All filters';
   const activeSavedLibraryView = savedLibraryViews.find((view) => view.id === activeSavedViewId) || null;
   const canSaveCurrentLibraryView = Boolean(activeSavedViewId || searchInput.trim() || libraryFilterActiveCount > 0);
   const hasSavedViewFilterControls = savedLibraryViews.length > 0 || canSaveCurrentLibraryView;
   const savedViewFilterSummary = activeSavedLibraryView?.name || libraryFilterSummary;
   const savedViewFilterActiveCount = libraryFilterActiveCount || (activeSavedLibraryView ? 1 : 0);
   const shouldShowLibraryFilterMenu = Boolean(quickFilterConfig || filters.review_filter || hasSavedViewFilterControls);
-  const suggestedSavedViewName = activeSavedLibraryView?.name || [
-    searchInput.trim(),
-    quickFilterActiveCount ? quickFilterLabel : '',
-    reviewFilterActiveCount ? activeReviewFilterLabel : ''
-  ].filter(Boolean).join(' · ') || `${title} view`;
+  const suggestedSavedViewName =
+    activeSavedLibraryView?.name ||
+    [searchInput.trim(), quickFilterActiveCount ? quickFilterLabel : '', reviewFilterActiveCount ? activeReviewFilterLabel : '']
+      .filter(Boolean)
+      .join(' · ') ||
+    `${title} view`;
   const openSaveLibraryViewDialog = useCallback(() => {
     setSavedViewNameDraft(suggestedSavedViewName);
     setSavedViewDialogMode('save');
@@ -4559,100 +5209,120 @@ export default function LibraryView({
     setSavedViewDialogMode(null);
     setSavedViewNameDraft('');
   }, []);
-  const persistSavedLibraryViews = useCallback((nextViews) => {
-    const normalized = nextViews
-      .map((record) => normalizeSavedLibraryViewRecord(record, savedViewScope))
-      .filter(Boolean);
-    setSavedLibraryViews(normalized);
-    writeSavedLibraryViews(savedViewScope, normalized);
-    return normalized;
-  }, [savedViewScope]);
-  const currentSavedViewSnapshot = useCallback(() => ({
-    filters: {
-      ...filters,
-      media_type: savedViewScope,
-      search: searchInput.trim(),
-      resolution: resolutionInput,
-      platform: platformInput,
-      publisher: publisherInput
+  const persistSavedLibraryViews = useCallback(
+    (nextViews) => {
+      const normalized = nextViews.map((record) => normalizeSavedLibraryViewRecord(record, savedViewScope)).filter(Boolean);
+      setSavedLibraryViews(normalized);
+      writeSavedLibraryViews(savedViewScope, normalized);
+      return normalized;
     },
-    viewMode,
-    collectionMode,
-    comicView,
-    comicSeries
-  }), [collectionMode, comicSeries, comicView, filters, platformInput, publisherInput, resolutionInput, savedViewScope, searchInput, viewMode]);
-  const applySavedLibraryView = useCallback((view) => {
-    const snapshot = view?.snapshot || {};
-    const nextFilters = {
-      media_type: savedViewScope,
-      search: String(snapshot.filters?.search || ''),
-      resolution: String(snapshot.filters?.resolution || 'all'),
-      platform: String(snapshot.filters?.platform || 'all'),
-      publisher: String(snapshot.filters?.publisher || 'all'),
-      review_filter: normalizeReviewFilter(snapshot.filters?.review_filter),
-      sortBy: String(snapshot.filters?.sortBy || (savedViewScope === 'comic_book' ? 'comic_issue' : 'title')),
-      sortDir: String(snapshot.filters?.sortDir || '').toLowerCase() === 'desc' ? 'desc' : 'asc'
-    };
-    setSearchInput(nextFilters.search);
-    setDebouncedSearchInput(nextFilters.search);
-    setResolutionInput(nextFilters.resolution);
-    setPlatformInput(nextFilters.platform);
-    setPublisherInput(nextFilters.publisher);
-    setFilters(nextFilters);
-    setViewMode(snapshot.viewMode === 'list' ? 'list' : 'cards');
-    if (supportsCollections) setCollectionMode(snapshot.collectionMode === 'collections' ? 'collections' : 'all');
-    if (savedViewScope === 'comic_book') {
-      setComicView(['issues', 'series', 'series_issues'].includes(snapshot.comicView) ? snapshot.comicView : 'issues');
-      setComicSeries(String(snapshot.comicSeries || 'all'));
-    }
-    setActiveSavedViewId(view.id);
-    setPage(1);
-    onToast?.(`Applied saved view: ${view.name}`);
-  }, [onToast, savedViewScope, supportsCollections]);
-  const saveCurrentLibraryView = useCallback(async (name) => {
-    const current = savedLibraryViews.find((view) => view.id === activeSavedViewId);
-    const trimmedName = String(name || '').trim();
-    if (!trimmedName) return;
-    const now = new Date().toISOString();
-    const snapshot = currentSavedViewSnapshot();
-    if (savedViewsStorageMode === 'server' && apiCall) {
-      try {
-        const payload = {
-          name: trimmedName,
-          media_type: savedViewScope,
-          snapshot
-        };
-        const response = current?.storage === 'server'
-          ? await apiCall('put', `/libraries/saved-views/${current.id}`, payload)
-          : await apiCall('post', '/libraries/saved-views', payload);
-        const saved = normalizeSavedLibraryViewRecord(response.view, savedViewScope);
-        if (saved) {
-          setSavedLibraryViews((views) => [saved, ...views.filter((view) => view.id !== saved.id)].slice(0, 100));
-          setActiveSavedViewId(saved.id);
-          onToast?.(`${current ? 'Updated' : 'Saved'} view: ${saved.name}`);
-          return;
-        }
-      } catch (saveError) {
-        onToast?.(`${formatApiError(saveError, 'Saved view could not sync')}; saved in this browser`);
-        setSavedViewsStorageMode('local');
+    [savedViewScope]
+  );
+  const currentSavedViewSnapshot = useCallback(
+    () => ({
+      filters: {
+        ...filters,
+        media_type: savedViewScope,
+        search: searchInput.trim(),
+        resolution: resolutionInput,
+        platform: platformInput,
+        publisher: publisherInput
+      },
+      viewMode,
+      collectionMode,
+      comicView,
+      comicSeries
+    }),
+    [collectionMode, comicSeries, comicView, filters, platformInput, publisherInput, resolutionInput, savedViewScope, searchInput, viewMode]
+  );
+  const applySavedLibraryView = useCallback(
+    (view) => {
+      const snapshot = view?.snapshot || {};
+      const nextFilters = {
+        media_type: savedViewScope,
+        search: String(snapshot.filters?.search || ''),
+        resolution: String(snapshot.filters?.resolution || 'all'),
+        platform: String(snapshot.filters?.platform || 'all'),
+        publisher: String(snapshot.filters?.publisher || 'all'),
+        review_filter: normalizeReviewFilter(snapshot.filters?.review_filter),
+        sortBy: String(snapshot.filters?.sortBy || (savedViewScope === 'comic_book' ? 'comic_issue' : 'title')),
+        sortDir: String(snapshot.filters?.sortDir || '').toLowerCase() === 'desc' ? 'desc' : 'asc'
+      };
+      setSearchInput(nextFilters.search);
+      setDebouncedSearchInput(nextFilters.search);
+      setResolutionInput(nextFilters.resolution);
+      setPlatformInput(nextFilters.platform);
+      setPublisherInput(nextFilters.publisher);
+      setFilters(nextFilters);
+      setViewMode(snapshot.viewMode === 'list' ? 'list' : 'cards');
+      if (supportsCollections) setCollectionMode(snapshot.collectionMode === 'collections' ? 'collections' : 'all');
+      if (savedViewScope === 'comic_book') {
+        setComicView(['issues', 'series', 'series_issues'].includes(snapshot.comicView) ? snapshot.comicView : 'issues');
+        setComicSeries(String(snapshot.comicSeries || 'all'));
       }
-    }
-    const nextRecord = {
-      id: current?.id || `library-view-${Date.now().toString(36)}`,
-      name: trimmedName,
-      scope: savedViewScope,
-      snapshot,
-      updatedAt: now,
-      storage: 'local'
-    };
-    const remaining = savedLibraryViews.filter((view) => view.id !== nextRecord.id);
-    const nextViews = persistSavedLibraryViews([nextRecord, ...remaining]);
-    setActiveSavedViewId(nextRecord.id);
-    onToast?.(`${current ? 'Updated' : 'Saved'} view: ${nextRecord.name}`);
-    if (nextViews.length > 20) {
-      persistSavedLibraryViews(nextViews.slice(0, 20));
-    }
-  }, [activeSavedViewId, apiCall, currentSavedViewSnapshot, persistSavedLibraryViews, savedLibraryViews, savedViewScope, savedViewsStorageMode, onToast]);
+      setActiveSavedViewId(view.id);
+      setPage(1);
+      onToast?.(`Applied saved view: ${view.name}`);
+    },
+    [onToast, savedViewScope, supportsCollections]
+  );
+  const saveCurrentLibraryView = useCallback(
+    async (name) => {
+      const current = savedLibraryViews.find((view) => view.id === activeSavedViewId);
+      const trimmedName = String(name || '').trim();
+      if (!trimmedName) return;
+      const now = new Date().toISOString();
+      const snapshot = currentSavedViewSnapshot();
+      if (savedViewsStorageMode === 'server' && apiCall) {
+        try {
+          const payload = {
+            name: trimmedName,
+            media_type: savedViewScope,
+            snapshot
+          };
+          const response =
+            current?.storage === 'server'
+              ? await apiCall('put', `/libraries/saved-views/${current.id}`, payload)
+              : await apiCall('post', '/libraries/saved-views', payload);
+          const saved = normalizeSavedLibraryViewRecord(response.view, savedViewScope);
+          if (saved) {
+            setSavedLibraryViews((views) => [saved, ...views.filter((view) => view.id !== saved.id)].slice(0, 100));
+            setActiveSavedViewId(saved.id);
+            onToast?.(`${current ? 'Updated' : 'Saved'} view: ${saved.name}`);
+            return;
+          }
+        } catch (saveError) {
+          onToast?.(`${formatApiError(saveError, 'Saved view could not sync')}; saved in this browser`);
+          setSavedViewsStorageMode('local');
+        }
+      }
+      const nextRecord = {
+        id: current?.id || `library-view-${Date.now().toString(36)}`,
+        name: trimmedName,
+        scope: savedViewScope,
+        snapshot,
+        updatedAt: now,
+        storage: 'local'
+      };
+      const remaining = savedLibraryViews.filter((view) => view.id !== nextRecord.id);
+      const nextViews = persistSavedLibraryViews([nextRecord, ...remaining]);
+      setActiveSavedViewId(nextRecord.id);
+      onToast?.(`${current ? 'Updated' : 'Saved'} view: ${nextRecord.name}`);
+      if (nextViews.length > 20) {
+        persistSavedLibraryViews(nextViews.slice(0, 20));
+      }
+    },
+    [
+      activeSavedViewId,
+      apiCall,
+      currentSavedViewSnapshot,
+      persistSavedLibraryViews,
+      savedLibraryViews,
+      savedViewScope,
+      savedViewsStorageMode,
+      onToast
+    ]
+  );
   const deleteActiveSavedLibraryView = useCallback(async () => {
     const current = savedLibraryViews.find((view) => view.id === activeSavedViewId);
     if (!current) return;
@@ -4672,11 +5342,14 @@ export default function LibraryView({
     setActiveSavedViewId('');
     onToast?.(`Deleted saved view: ${current.name}`);
   }, [activeSavedViewId, apiCall, onToast, persistSavedLibraryViews, savedLibraryViews]);
-  const submitSavedViewDialog = useCallback(async (event) => {
-    event.preventDefault();
-    await saveCurrentLibraryView(savedViewNameDraft);
-    closeSavedViewDialog();
-  }, [closeSavedViewDialog, saveCurrentLibraryView, savedViewNameDraft]);
+  const submitSavedViewDialog = useCallback(
+    async (event) => {
+      event.preventDefault();
+      await saveCurrentLibraryView(savedViewNameDraft);
+      closeSavedViewDialog();
+    },
+    [closeSavedViewDialog, saveCurrentLibraryView, savedViewNameDraft]
+  );
   const confirmDeleteSavedViewDialog = useCallback(async () => {
     await deleteActiveSavedLibraryView();
     closeSavedViewDialog();
@@ -4770,10 +5443,43 @@ export default function LibraryView({
     setPage(1);
   }, [debouncedSearchInput]);
 
+  const mediaQueryKey = useMemo(
+    () =>
+      JSON.stringify({
+        page: requestPage,
+        limit: requestLimit,
+        filters
+      }),
+    [filters, requestLimit, requestPage]
+  );
+  const [settledMediaQueryKey, setSettledMediaQueryKey] = useState('');
+
   useEffect(() => {
     if (isCollectionMode || (isComicsLibrary && (comicView === 'series' || useComicSeriesIssueQuery))) return;
-    onRefresh({ page: requestPage, limit: requestLimit, ...filters });
-  }, [comicView, filters, isCollectionMode, isComicsLibrary, onRefresh, page, pageSize, requestLimit, requestPage, useComicSeriesIssueQuery]);
+    let active = true;
+    const requestSeq = ++mediaViewRequestSeqRef.current;
+    (async () => {
+      const applied = await onRefresh({ page: requestPage, limit: requestLimit, ...filters });
+      if (active && requestSeq === mediaViewRequestSeqRef.current && applied !== false) {
+        setSettledMediaQueryKey(mediaQueryKey);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [
+    comicView,
+    filters,
+    isCollectionMode,
+    isComicsLibrary,
+    mediaQueryKey,
+    onRefresh,
+    page,
+    pageSize,
+    requestLimit,
+    requestPage,
+    useComicSeriesIssueQuery
+  ]);
 
   useEffect(() => {
     if (!forcedMediaType) return;
@@ -4794,7 +5500,10 @@ export default function LibraryView({
     setPlatformInput('all');
     setPublisherInput('all');
     setCollectionMode('all');
+    collectionRequestSeqRef.current += 1;
     setCollectionRows([]);
+    setCollectionPagination({ page: 1, limit: 50, total: 0, totalPages: 1, hasMore: false });
+    setSettledCollectionQueryKey('');
     setCollectionError('');
     setComicSeriesRows([]);
     setComicSeriesError('');
@@ -4806,29 +5515,32 @@ export default function LibraryView({
     }
   }, [forcedMediaType, normalizedReviewFilter]);
 
-  const refreshComicSeries = useCallback(async (targetPage = page) => {
-    if (!isComicsLibrary) return;
-    setComicSeriesLoading(true);
-    setComicSeriesError('');
-    try {
-      const params = new URLSearchParams();
-      params.set('page', String(targetPage));
-      params.set('limit', String(pageSize));
-      if (debouncedSearchInput) params.set('search', debouncedSearchInput);
-      if (publisherInput && publisherInput !== 'all') params.set('publisher', publisherInput);
-      const payload = await apiCall('get', `/media/comic-series?${params.toString()}`);
-      setComicSeriesRows(Array.isArray(payload?.items) ? payload.items : []);
-      const nextPagination = payload?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
-      setComicSeriesPagination({
-        ...nextPagination,
-        hasMore: Number(nextPagination.page || 1) < Number(nextPagination.totalPages || 1)
-      });
-    } catch (err) {
-      setComicSeriesError(err?.response?.data?.error || 'Failed to load comic series');
-    } finally {
-      setComicSeriesLoading(false);
-    }
-  }, [apiCall, debouncedSearchInput, isComicsLibrary, page, pageSize, publisherInput]);
+  const refreshComicSeries = useCallback(
+    async (targetPage = page) => {
+      if (!isComicsLibrary) return;
+      setComicSeriesLoading(true);
+      setComicSeriesError('');
+      try {
+        const params = new URLSearchParams();
+        params.set('page', String(targetPage));
+        params.set('limit', String(pageSize));
+        if (debouncedSearchInput) params.set('search', debouncedSearchInput);
+        if (publisherInput && publisherInput !== 'all') params.set('publisher', publisherInput);
+        const payload = await apiCall('get', `/media/comic-series?${params.toString()}`);
+        setComicSeriesRows(Array.isArray(payload?.items) ? payload.items : []);
+        const nextPagination = payload?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
+        setComicSeriesPagination({
+          ...nextPagination,
+          hasMore: Number(nextPagination.page || 1) < Number(nextPagination.totalPages || 1)
+        });
+      } catch (err) {
+        setComicSeriesError(err?.response?.data?.error || 'Failed to load comic series');
+      } finally {
+        setComicSeriesLoading(false);
+      }
+    },
+    [apiCall, debouncedSearchInput, isComicsLibrary, page, pageSize, publisherInput]
+  );
 
   useEffect(() => {
     if (!isComicsLibrary || comicView !== 'series') return undefined;
@@ -4842,30 +5554,33 @@ export default function LibraryView({
     };
   }, [comicView, isComicsLibrary, page, refreshComicSeries]);
 
-  const refreshComicSeriesIssues = useCallback(async (targetPage = page) => {
-    if (!isComicsLibrary || comicSeries === 'all') return;
-    setComicSeriesIssueLoading(true);
-    setComicSeriesIssueError('');
-    try {
-      const params = new URLSearchParams();
-      params.set('series', comicSeries);
-      params.set('page', String(targetPage));
-      params.set('limit', String(pageSize));
-      if (debouncedSearchInput) params.set('search', debouncedSearchInput);
-      if (publisherInput && publisherInput !== 'all') params.set('publisher', publisherInput);
-      const payload = await apiCall('get', `/media/comic-series/issues?${params.toString()}`);
-      setComicSeriesIssueRows(Array.isArray(payload?.items) ? payload.items : []);
-      const nextPagination = payload?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
-      setComicSeriesIssuePagination({
-        ...nextPagination,
-        hasMore: Number(nextPagination.page || 1) < Number(nextPagination.totalPages || 1)
-      });
-    } catch (err) {
-      setComicSeriesIssueError(err?.response?.data?.error || 'Failed to load comic issues for series');
-    } finally {
-      setComicSeriesIssueLoading(false);
-    }
-  }, [apiCall, comicSeries, debouncedSearchInput, isComicsLibrary, page, pageSize, publisherInput]);
+  const refreshComicSeriesIssues = useCallback(
+    async (targetPage = page) => {
+      if (!isComicsLibrary || comicSeries === 'all') return;
+      setComicSeriesIssueLoading(true);
+      setComicSeriesIssueError('');
+      try {
+        const params = new URLSearchParams();
+        params.set('series', comicSeries);
+        params.set('page', String(targetPage));
+        params.set('limit', String(pageSize));
+        if (debouncedSearchInput) params.set('search', debouncedSearchInput);
+        if (publisherInput && publisherInput !== 'all') params.set('publisher', publisherInput);
+        const payload = await apiCall('get', `/media/comic-series/issues?${params.toString()}`);
+        setComicSeriesIssueRows(Array.isArray(payload?.items) ? payload.items : []);
+        const nextPagination = payload?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
+        setComicSeriesIssuePagination({
+          ...nextPagination,
+          hasMore: Number(nextPagination.page || 1) < Number(nextPagination.totalPages || 1)
+        });
+      } catch (err) {
+        setComicSeriesIssueError(err?.response?.data?.error || 'Failed to load comic issues for series');
+      } finally {
+        setComicSeriesIssueLoading(false);
+      }
+    },
+    [apiCall, comicSeries, debouncedSearchInput, isComicsLibrary, page, pageSize, publisherInput]
+  );
 
   useEffect(() => {
     if (!useComicSeriesIssueQuery) return undefined;
@@ -4879,29 +5594,55 @@ export default function LibraryView({
     };
   }, [page, refreshComicSeriesIssues, useComicSeriesIssueQuery]);
 
-  const refreshCollections = useCallback(async (targetPage = page) => {
-    if (!supportsCollections) return;
-    setCollectionLoading(true);
-    setCollectionError('');
-    try {
-      const params = new URLSearchParams();
-      params.set('media_type', forcedMediaType || 'movie');
-      params.set('page', String(targetPage));
-      params.set('limit', String(pageSize));
-      if (debouncedSearchInput) params.set('search', debouncedSearchInput);
-      const payload = await apiCall('get', `/media/collections?${params.toString()}`);
-      setCollectionRows(Array.isArray(payload?.items) ? payload.items : []);
-      const nextPagination = payload?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
-      setCollectionPagination({
-        ...nextPagination,
-        hasMore: Number(nextPagination.page || 1) < Number(nextPagination.totalPages || 1)
+  const refreshCollections = useCallback(
+    async (targetPage = page) => {
+      if (!supportsCollections) return;
+      const requestSeq = ++collectionRequestSeqRef.current;
+      const queryKey = JSON.stringify({
+        mediaType: forcedMediaType || 'movie',
+        page: targetPage,
+        limit: pageSize,
+        search: debouncedSearchInput
       });
-    } catch (err) {
-      setCollectionError(err?.response?.data?.error || 'Failed to load collections');
-    } finally {
-      setCollectionLoading(false);
-    }
-  }, [apiCall, debouncedSearchInput, forcedMediaType, page, pageSize, supportsCollections]);
+      setCollectionLoading(true);
+      setCollectionError('');
+      try {
+        const params = new URLSearchParams();
+        params.set('media_type', forcedMediaType || 'movie');
+        params.set('page', String(targetPage));
+        params.set('limit', String(pageSize));
+        if (debouncedSearchInput) params.set('search', debouncedSearchInput);
+        const payload = await apiCall('get', `/media/collections?${params.toString()}`);
+        if (requestSeq !== collectionRequestSeqRef.current) return false;
+        setCollectionRows(Array.isArray(payload?.items) ? payload.items : []);
+        const nextPagination = payload?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
+        setCollectionPagination({
+          ...nextPagination,
+          hasMore: Number(nextPagination.page || 1) < Number(nextPagination.totalPages || 1)
+        });
+        setSettledCollectionQueryKey(queryKey);
+        return true;
+      } catch (err) {
+        if (requestSeq !== collectionRequestSeqRef.current) return false;
+        setCollectionError(err?.response?.data?.error || 'Failed to load collections');
+        return false;
+      } finally {
+        if (requestSeq === collectionRequestSeqRef.current) setCollectionLoading(false);
+      }
+    },
+    [apiCall, debouncedSearchInput, forcedMediaType, page, pageSize, supportsCollections]
+  );
+
+  const collectionQueryKey = useMemo(
+    () =>
+      JSON.stringify({
+        mediaType: forcedMediaType || 'movie',
+        page,
+        limit: pageSize,
+        search: debouncedSearchInput
+      }),
+    [debouncedSearchInput, forcedMediaType, page, pageSize]
+  );
 
   useEffect(() => {
     if (!supportsCollections) return undefined;
@@ -4928,12 +5669,15 @@ export default function LibraryView({
     setDetail((d) => (d && d.id === id ? { ...d, user_rating: rating } : d));
   };
 
-  const refreshDetailItem = useCallback(async (mediaId) => {
-    const fresh = await apiCall('get', `/media/${mediaId}`);
-    setDetail((current) => (current && Number(current.id) === Number(mediaId) ? fresh : current));
-    onRefresh({ page: requestPage, limit: requestLimit, ...filters });
-    return fresh;
-  }, [apiCall, filters, onRefresh, requestLimit, requestPage]);
+  const refreshDetailItem = useCallback(
+    async (mediaId) => {
+      const fresh = await apiCall('get', `/media/${mediaId}`);
+      setDetail((current) => (current && Number(current.id) === Number(mediaId) ? fresh : current));
+      onRefresh({ page: requestPage, limit: requestLimit, ...filters });
+      return fresh;
+    },
+    [apiCall, filters, onRefresh, requestLimit, requestPage]
+  );
 
   useEffect(() => {
     if (focusTarget?.entityType !== 'media' || !focusTarget?.entityId) return undefined;
@@ -4955,13 +5699,45 @@ export default function LibraryView({
     };
   }, [apiCall, focusTarget?.createdAt, focusTarget?.entityId, focusTarget?.entityType, focusTarget?.title]);
 
+  const filtersPending = useMemo(() => {
+    const normalizedSearchInput = searchInput.trim();
+    return (
+      normalizedSearchInput !== debouncedSearchInput ||
+      debouncedSearchInput !== (filters.search || '') ||
+      resolutionInput !== filters.resolution ||
+      platformInput !== filters.platform ||
+      publisherInput !== filters.publisher
+    );
+  }, [
+    debouncedSearchInput,
+    filters.platform,
+    filters.publisher,
+    filters.resolution,
+    filters.search,
+    platformInput,
+    publisherInput,
+    resolutionInput,
+    searchInput
+  ]);
+  const mediaCountSettled = !loading && !filtersPending && settledMediaQueryKey === mediaQueryKey;
+  const collectionCountSettled = !collectionLoading && settledCollectionQueryKey === collectionQueryKey;
   const displayedTotal = isCollectionMode
-    ? (collectionPagination?.total ?? collectionRows.length)
-    : (isComicsLibrary && comicView === 'series')
+    ? getLibraryDisplayedTotal({
+        collectionMode: true,
+        collectionTotal: collectionPagination?.total ?? collectionRows.length,
+        collectionsSettled: collectionCountSettled
+      })
+    : isComicsLibrary && comicView === 'series'
       ? (comicSeriesPagination?.total ?? comicSeriesRows.length)
-    : useComicSeriesIssueQuery
-      ? (comicSeriesIssuePagination?.total ?? comicSeriesIssueRows.length)
-    : ((pagination?.total ?? mediaItems.length) + (supportsCollections ? collectionRows.length : 0));
+      : useComicSeriesIssueQuery
+        ? (comicSeriesIssuePagination?.total ?? comicSeriesIssueRows.length)
+        : getLibraryDisplayedTotal({
+            supportsCollections,
+            mediaTotal: pagination?.total ?? mediaItems.length,
+            collectionTotal: collectionPagination?.total ?? collectionRows.length,
+            mediaSettled: mediaCountSettled,
+            collectionsSettled: collectionCountSettled
+          });
   const selectionScopeLabel = useMemo(() => {
     switch (forcedMediaType) {
       case 'movie':
@@ -4986,9 +5762,7 @@ export default function LibraryView({
       const key = getComicSeriesName(item);
       map.set(key, (map.get(key) || 0) + 1);
     }
-    return [...map.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([name, count]) => ({ name, count }));
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([name, count]) => ({ name, count }));
   }, [mediaItems]);
 
   const comicSeriesSummaries = useMemo(() => {
@@ -5060,7 +5834,10 @@ export default function LibraryView({
 
   const inlineCards = useMemo(() => {
     if (!supportsCollections || isCollectionMode || isComicsLibrary || viewMode !== 'cards') return null;
-    const toSortTitle = (value) => String(value || '').trim().toLowerCase();
+    const toSortTitle = (value) =>
+      String(value || '')
+        .trim()
+        .toLowerCase();
     const mixed = [
       ...collectionRows.map((collection) => ({
         kind: 'collection',
@@ -5095,21 +5872,22 @@ export default function LibraryView({
         items: visibleItems,
         cardEntries: renderedCardEntries,
         seriesSummaries: comicSeriesSummaries,
-        totalPages: comicView === 'series'
-          ? (comicSeriesPagination?.totalPages || 1)
-          : useComicSeriesIssueQuery
-            ? (comicSeriesIssuePagination?.totalPages || 1)
-          : (pagination?.totalPages || 1),
-        hasMore: comicView === 'series'
-          ? (comicSeriesPagination?.hasMore || false)
-          : useComicSeriesIssueQuery
-            ? (comicSeriesIssuePagination?.hasMore || false)
-          : (pagination?.hasMore || false)
+        totalPages:
+          comicView === 'series'
+            ? comicSeriesPagination?.totalPages || 1
+            : useComicSeriesIssueQuery
+              ? comicSeriesIssuePagination?.totalPages || 1
+              : pagination?.totalPages || 1,
+        hasMore:
+          comicView === 'series'
+            ? comicSeriesPagination?.hasMore || false
+            : useComicSeriesIssueQuery
+              ? comicSeriesIssuePagination?.hasMore || false
+              : pagination?.hasMore || false
       };
     }
-    const sourceLength = comicView === 'series'
-      ? comicSeriesSummaries.length
-      : (viewMode === 'cards' ? renderedCardEntries.length : visibleItems.length);
+    const sourceLength =
+      comicView === 'series' ? comicSeriesSummaries.length : viewMode === 'cards' ? renderedCardEntries.length : visibleItems.length;
     const totalPages = sourceLength > 0 ? Math.max(1, Math.ceil(sourceLength / pageSize)) : 1;
     const clampedPage = Math.min(page, totalPages);
     const start = (clampedPage - 1) * pageSize;
@@ -5121,36 +5899,38 @@ export default function LibraryView({
       totalPages,
       hasMore: clampedPage < totalPages
     };
-  }, [comicSeriesIssuePagination?.hasMore, comicSeriesIssuePagination?.totalPages, comicSeriesPagination?.hasMore, comicSeriesPagination?.totalPages, comicSeriesSummaries, comicView, isComicsLibrary, page, pageSize, pagination?.hasMore, pagination?.totalPages, renderedCardEntries, useComicFullFetch, useComicSeriesIssueQuery, viewMode, visibleItems]);
+  }, [
+    comicSeriesIssuePagination?.hasMore,
+    comicSeriesIssuePagination?.totalPages,
+    comicSeriesPagination?.hasMore,
+    comicSeriesPagination?.totalPages,
+    comicSeriesSummaries,
+    comicView,
+    isComicsLibrary,
+    page,
+    pageSize,
+    pagination?.hasMore,
+    pagination?.totalPages,
+    renderedCardEntries,
+    useComicFullFetch,
+    useComicSeriesIssueQuery,
+    viewMode,
+    visibleItems
+  ]);
 
   const displayedVisibleItems = isComicsLibrary ? comicPagedState.items : visibleItems;
   const displayedCardEntries = isComicsLibrary ? comicPagedState.cardEntries : renderedCardEntries;
   const displayedComicSeriesSummaries = isComicsLibrary ? comicPagedState.seriesSummaries : comicSeriesSummaries;
   const footerTotalPages = isCollectionMode
-    ? (collectionPagination?.totalPages || 1)
-    : (isComicsLibrary ? comicPagedState.totalPages : (pagination?.totalPages || 1));
+    ? collectionPagination?.totalPages || 1
+    : isComicsLibrary
+      ? comicPagedState.totalPages
+      : pagination?.totalPages || 1;
   const footerHasMore = isCollectionMode
     ? Boolean(collectionPagination?.hasMore)
-    : (isComicsLibrary ? comicPagedState.hasMore : Boolean(pagination?.hasMore));
-  const filtersPending = useMemo(() => {
-    const normalizedSearchInput = searchInput.trim();
-    return normalizedSearchInput !== debouncedSearchInput
-      || debouncedSearchInput !== (filters.search || '')
-      || resolutionInput !== filters.resolution
-      || platformInput !== filters.platform
-      || publisherInput !== filters.publisher;
-  }, [
-    debouncedSearchInput,
-    filters.platform,
-    filters.publisher,
-    filters.resolution,
-    filters.search,
-    platformInput,
-    publisherInput,
-    resolutionInput,
-    searchInput
-  ]);
-
+    : isComicsLibrary
+      ? comicPagedState.hasMore
+      : Boolean(pagination?.hasMore);
   useEffect(() => {
     if (!isComicsLibrary) return;
     if (page > comicPagedState.totalPages) {
@@ -5159,6 +5939,26 @@ export default function LibraryView({
       setPage(comicPagedState.totalPages);
     }
   }, [comicPagedState.totalPages, isComicsLibrary, page]);
+
+  useEffect(() => {
+    if (isComicsLibrary) return;
+    const sourceSettled = isCollectionMode ? collectionCountSettled : mediaCountSettled;
+    if (!sourceSettled) return;
+    const totalPages = Math.max(1, Number(isCollectionMode ? collectionPagination?.totalPages : pagination?.totalPages) || 1);
+    if (page > totalPages) {
+      // Server-backed library views clamp after deletion or a shrinking result set.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPage(totalPages);
+    }
+  }, [
+    collectionCountSettled,
+    collectionPagination?.totalPages,
+    isCollectionMode,
+    isComicsLibrary,
+    mediaCountSettled,
+    page,
+    pagination?.totalPages
+  ]);
 
   const visibleSelectableIds = useMemo(() => {
     if (isCollectionMode || (isComicsLibrary && comicView === 'series')) return [];
@@ -5182,9 +5982,7 @@ export default function LibraryView({
     return Number(pagination?.total ?? mediaItems.length ?? 0);
   }, [comicView, isCollectionMode, isComicsLibrary, mediaItems.length, pagination?.total, useComicFullFetch, visibleItems.length]);
   const allMatchingSelected = selectableResultTotal > 0 && selectedIds.length === selectableResultTotal;
-  const showSelectAllMatchingPrompt = allVisibleSelected
-    && selectableResultTotal > visibleSelectableIds.length
-    && !allMatchingSelected;
+  const showSelectAllMatchingPrompt = allVisibleSelected && selectableResultTotal > visibleSelectableIds.length && !allMatchingSelected;
   const canSelectVisiblePage = visibleSelectableIds.length > 0 && !allVisibleSelected;
   const showSelectionControls = !isCollectionMode && !(isComicsLibrary && comicView === 'series');
   const showSelectionActionRow = showSelectionControls && selectedIds.length > 0;
@@ -5196,49 +5994,42 @@ export default function LibraryView({
   }, []);
   const comicSeriesViewActive = isComicsLibrary && comicView === 'series';
   const comicSeriesIssuesViewActive = isComicsLibrary && comicView === 'series_issues' && useComicSeriesIssueQuery;
-  const activeMediaError = comicSeriesViewActive
-    ? comicSeriesError
-    : comicSeriesIssuesViewActive
-      ? comicSeriesIssueError
-      : error;
-  const activeMediaLoading = comicSeriesViewActive
-    ? comicSeriesLoading
-    : comicSeriesIssuesViewActive
-      ? comicSeriesIssueLoading
-      : loading;
+  const activeMediaError = comicSeriesViewActive ? comicSeriesError : comicSeriesIssuesViewActive ? comicSeriesIssueError : error;
+  const activeMediaLoading = comicSeriesViewActive ? comicSeriesLoading : comicSeriesIssuesViewActive ? comicSeriesIssueLoading : loading;
   const activeMediaResultCount = comicSeriesViewActive
     ? comicSeriesRows.length
     : comicSeriesIssuesViewActive
       ? comicSeriesIssueRows.length
       : mediaItems.length;
 
-  const toggleSelectedId = useCallback((idRaw, event = null) => {
-    const id = Number(idRaw);
-    if (!Number.isFinite(id) || id <= 0) return;
-    const shiftKey = Boolean(event?.shiftKey || shiftPressedRef.current || selectionGestureRef.current);
-    const anchorIdBeforeToggle = selectionAnchorIdRef.current;
-    selectionGestureRef.current = false;
-    setSelectedIds((prev) => {
-      const prevSet = new Set(prev.map((entry) => Number(entry)));
-      const anchorId = Number(anchorIdBeforeToggle);
-      const anchorIndex = visibleSelectableIds.indexOf(anchorId);
-      const targetIndex = visibleSelectableIds.indexOf(id);
-      if (shiftKey && anchorIdBeforeToggle !== null) {
-        if (anchorIndex !== -1 && targetIndex !== -1) {
-          const [start, end] = anchorIndex <= targetIndex
-            ? [anchorIndex, targetIndex]
-            : [targetIndex, anchorIndex];
-          const next = new Set(prevSet);
-          visibleSelectableIds.slice(start, end + 1).forEach((entryId) => next.add(entryId));
-          return [...next];
+  const toggleSelectedId = useCallback(
+    (idRaw, event = null) => {
+      const id = Number(idRaw);
+      if (!Number.isFinite(id) || id <= 0) return;
+      const shiftKey = Boolean(event?.shiftKey || shiftPressedRef.current || selectionGestureRef.current);
+      const anchorIdBeforeToggle = selectionAnchorIdRef.current;
+      selectionGestureRef.current = false;
+      setSelectedIds((prev) => {
+        const prevSet = new Set(prev.map((entry) => Number(entry)));
+        const anchorId = Number(anchorIdBeforeToggle);
+        const anchorIndex = visibleSelectableIds.indexOf(anchorId);
+        const targetIndex = visibleSelectableIds.indexOf(id);
+        if (shiftKey && anchorIdBeforeToggle !== null) {
+          if (anchorIndex !== -1 && targetIndex !== -1) {
+            const [start, end] = anchorIndex <= targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
+            const next = new Set(prevSet);
+            visibleSelectableIds.slice(start, end + 1).forEach((entryId) => next.add(entryId));
+            return [...next];
+          }
         }
-      }
-      if (prevSet.has(id)) prevSet.delete(id);
-      else prevSet.add(id);
-      return [...prevSet];
-    });
-    selectionAnchorIdRef.current = id;
-  }, [visibleSelectableIds]);
+        if (prevSet.has(id)) prevSet.delete(id);
+        else prevSet.add(id);
+        return [...prevSet];
+      });
+      selectionAnchorIdRef.current = id;
+    },
+    [visibleSelectableIds]
+  );
 
   const handleSelectAllVisible = useCallback(() => {
     setSelectedIds((prev) => {
@@ -5256,9 +6047,7 @@ export default function LibraryView({
     setSelectingAllMatching(true);
     try {
       if (useComicFullFetch) {
-        const allIds = visibleItems
-          .map((item) => Number(item.id))
-          .filter((id) => Number.isFinite(id) && id > 0);
+        const allIds = visibleItems.map((item) => Number(item.id)).filter((id) => Number.isFinite(id) && id > 0);
         setSelectedIds([...new Set(allIds)]);
         selectionAnchorIdRef.current = allIds.length > 0 ? allIds[allIds.length - 1] : null;
         return;
@@ -5344,7 +6133,9 @@ export default function LibraryView({
   const handleBulkDelete = useCallback(async () => {
     const targetIds = [...selectedIds];
     if (!targetIds.length || !onBulkDelete) return;
-    const confirmed = window.confirm(`Delete ${targetIds.length} selected item${targetIds.length === 1 ? '' : 's'}? This cannot be undone.`);
+    const confirmed = window.confirm(
+      `Delete ${targetIds.length} selected item${targetIds.length === 1 ? '' : 's'}? This cannot be undone.`
+    );
     if (!confirmed) return;
     const { deletedIds = [], failedIds = [] } = await onBulkDelete(targetIds);
     if (deletedIds.some((id) => Number(detail?.id) === Number(id))) setDetail(null);
@@ -5355,32 +6146,53 @@ export default function LibraryView({
 
   const activeEdit = editing || null;
   const isEditingMode = Boolean(activeEdit);
-  const convertCollectionToTitles = useCallback(async (collection) => {
-    if (!collection?.id) return;
-    if (!window.confirm('Convert this collection to individual titles and remove the collection?')) return;
-    await apiCall('post', `/media/collections/${collection.id}/convert-to-individual`, {});
-    await refreshCollections(1);
-    setPage(1);
-    onRefresh({ page: requestPage, limit: requestLimit, ...filters });
-  }, [apiCall, filters, onRefresh, refreshCollections, requestLimit, requestPage]);
+  const convertCollectionToTitles = useCallback(
+    async (collection) => {
+      if (!collection?.id) return;
+      if (!window.confirm('Convert this collection to individual titles and remove the collection?')) return;
+      await apiCall('post', `/media/collections/${collection.id}/convert-to-individual`, {});
+      await refreshCollections(1);
+      setPage(1);
+      onRefresh({ page: requestPage, limit: requestLimit, ...filters });
+    },
+    [apiCall, filters, onRefresh, refreshCollections, requestLimit, requestPage]
+  );
   const renderMediaForm = () => (
     <MediaForm
       title={isEditingMode ? 'Edit Media' : 'Add to Library'}
-      initial={isEditingMode ? {
-        ...DEFAULT_MEDIA_FORM,
-        ...activeEdit,
-        cast: activeEdit.cast || activeEdit.cast_members || '',
-        release_date: normalizeDateInput(activeEdit.release_date),
-        signed_on: normalizeDateInput(activeEdit.signed_on)
-      } : addFormInitial}
+      initial={
+        isEditingMode
+          ? {
+              ...DEFAULT_MEDIA_FORM,
+              ...activeEdit,
+              cast: activeEdit.cast || activeEdit.cast_members || '',
+              release_date: normalizeDateInput(activeEdit.release_date),
+              signed_on: normalizeDateInput(activeEdit.signed_on)
+            }
+          : addFormInitial
+      }
       apiCall={apiCall}
-      onCancel={() => { setAdding(false); setEditing(null); }}
-      onDelete={isEditingMode ? () => { onDelete(activeEdit.id); setEditing(null); } : undefined}
-      onConvertToCollection={isEditingMode ? async () => {
-        await apiCall('post', `/media/${activeEdit.id}/convert-to-collection`, {});
+      onCancel={() => {
+        setAdding(false);
         setEditing(null);
-        onRefresh({ page: requestPage, limit: requestLimit, ...filters });
-      } : undefined}
+      }}
+      onDelete={
+        isEditingMode
+          ? () => {
+              onDelete(activeEdit.id);
+              setEditing(null);
+            }
+          : undefined
+      }
+      onConvertToCollection={
+        isEditingMode
+          ? async () => {
+              await apiCall('post', `/media/${activeEdit.id}/convert-to-collection`, {});
+              setEditing(null);
+              onRefresh({ page: requestPage, limit: requestLimit, ...filters });
+            }
+          : undefined
+      }
       onSave={async (payload) => {
         if (isEditingMode) {
           const updated = await onEdit(activeEdit.id, payload);
@@ -5401,110 +6213,119 @@ export default function LibraryView({
         searchValue={searchInput}
         onSearchChange={setSearchInput}
         searchPlaceholder="Search title, creator, or identifier…"
-        filters={shouldShowLibraryFilterMenu ? (
-          <FilterMenu
-            ariaLabel={`Filter ${title}`}
-            summary={savedViewFilterSummary}
-            activeCount={savedViewFilterActiveCount}
-            onClear={savedViewFilterActiveCount ? clearLibraryFilters : null}
-            Icons={Icons}
-          >
-            {hasSavedViewFilterControls ? (
-              <div className="space-y-1">
-                <div className="px-1 text-xs font-medium text-dim">Saved views</div>
-                {savedLibraryViews.length > 0 ? (
-                  <div className="space-y-1" role="listbox" aria-label="Saved library views">
-                    {savedLibraryViews.map((view) => {
-                      const selected = view.id === activeSavedViewId;
-                      return (
-                        <button
-                          key={view.id}
-                          type="button"
-                          className={cx(
-                            'flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm transition-colors hover:bg-raised hover:text-ink',
-                            selected ? 'bg-raised text-ink' : 'text-dim'
-                          )}
-                          role="option"
-                          aria-selected={selected}
-                          onClick={() => applySavedLibraryView(view)}
-                        >
-                          <span className="min-w-0 flex-1 truncate">{view.name}</span>
-                          {selected ? <Icons.Check size={16} /> : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="px-1 text-xs text-ghost">No saved views for this library type.</p>
-                )}
-                {(canSaveCurrentLibraryView || activeSavedViewId) ? (
-                  <div className="space-y-1 border-t border-edge pt-2">
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm text-dim transition-colors hover:bg-raised hover:text-ink"
-                      onClick={openSaveLibraryViewDialog}
-                    >
-                      <Icons.Star />
-                      <span>{activeSavedViewId ? 'Update saved view' : 'Save current view'}</span>
-                    </button>
-                    {activeSavedViewId ? (
+        filters={
+          shouldShowLibraryFilterMenu ? (
+            <FilterMenu
+              ariaLabel={`Filter ${title}`}
+              summary={savedViewFilterSummary}
+              activeCount={savedViewFilterActiveCount}
+              onClear={savedViewFilterActiveCount ? clearLibraryFilters : null}
+              Icons={Icons}
+            >
+              {hasSavedViewFilterControls ? (
+                <div className="space-y-1">
+                  <div className="px-1 text-xs font-medium text-dim">Saved views</div>
+                  {savedLibraryViews.length > 0 ? (
+                    <div className="space-y-1" role="listbox" aria-label="Saved library views">
+                      {savedLibraryViews.map((view) => {
+                        const selected = view.id === activeSavedViewId;
+                        return (
+                          <button
+                            key={view.id}
+                            type="button"
+                            className={cx(
+                              'flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm transition-colors hover:bg-raised hover:text-ink',
+                              selected ? 'bg-raised text-ink' : 'text-dim'
+                            )}
+                            role="option"
+                            aria-selected={selected}
+                            onClick={() => applySavedLibraryView(view)}
+                          >
+                            <span className="min-w-0 flex-1 truncate">{view.name}</span>
+                            {selected ? <Icons.Check size={16} /> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="px-1 text-xs text-ghost">No saved views for this library type.</p>
+                  )}
+                  {canSaveCurrentLibraryView || activeSavedViewId ? (
+                    <div className="space-y-1 border-t border-edge pt-2">
                       <button
                         type="button"
-                        className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm text-err/90 transition-colors hover:bg-err/10 hover:text-err"
-                        onClick={openDeleteSavedViewDialog}
+                        className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm text-dim transition-colors hover:bg-raised hover:text-ink"
+                        onClick={openSaveLibraryViewDialog}
                       >
-                        <Icons.Trash />
-                        <span>Delete saved view</span>
+                        <Icons.Star />
+                        <span>{activeSavedViewId ? 'Update saved view' : 'Save current view'}</span>
                       </button>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            {quickFilterConfig ? (
-              <label className="block">
-                <span className="mb-1 block text-xs text-ghost">{quickFilterConfig.label}</span>
-                <select
-                  className="select h-9 w-full"
-                  value={quickFilterConfig.value}
-                  aria-label={quickFilterConfig.label}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (quickFilterConfig.key === 'resolution') {
-                      setResolutionInput(value);
-                      setFilters((f) => ({ ...f, resolution: value }));
-                    } else if (quickFilterConfig.key === 'platform') {
-                      setPlatformInput(value);
-                      setFilters((f) => ({ ...f, platform: value }));
-                    } else if (quickFilterConfig.key === 'publisher') {
-                      setPublisherInput(value);
-                      setFilters((f) => ({ ...f, publisher: value }));
-                    }
-                    setPage(1);
-                  }}
-                >
-                  {quickFilterConfig.options.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            {filters.review_filter ? (
-              <div className="rounded-md border border-edge bg-surface/60 px-3 py-2 text-xs">
-                <div className="text-ghost">Review</div>
-                <div className="mt-1 flex items-center justify-between gap-3">
-                  <span className="min-w-0 truncate text-ink">{activeReviewFilterLabel}</span>
-                  <button type="button" className="btn-ghost btn-sm" onClick={clearReviewFilter}>Clear</button>
+                      {activeSavedViewId ? (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm text-err/90 transition-colors hover:bg-err/10 hover:text-err"
+                          onClick={openDeleteSavedViewDialog}
+                        >
+                          <Icons.Trash />
+                          <span>Delete saved view</span>
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
-              </div>
-            ) : null}
-          </FilterMenu>
-        ) : null}
+              ) : null}
+              {quickFilterConfig ? (
+                <label className="block">
+                  <span className="mb-1 block text-xs text-ghost">{quickFilterConfig.label}</span>
+                  <select
+                    className="select h-9 w-full"
+                    value={quickFilterConfig.value}
+                    aria-label={quickFilterConfig.label}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (quickFilterConfig.key === 'resolution') {
+                        setResolutionInput(value);
+                        setFilters((f) => ({ ...f, resolution: value }));
+                      } else if (quickFilterConfig.key === 'platform') {
+                        setPlatformInput(value);
+                        setFilters((f) => ({ ...f, platform: value }));
+                      } else if (quickFilterConfig.key === 'publisher') {
+                        setPublisherInput(value);
+                        setFilters((f) => ({ ...f, publisher: value }));
+                      }
+                      setPage(1);
+                    }}
+                  >
+                    {quickFilterConfig.options.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {filters.review_filter ? (
+                <div className="rounded-md border border-edge bg-surface/60 px-3 py-2 text-xs">
+                  <div className="text-ghost">Review</div>
+                  <div className="mt-1 flex items-center justify-between gap-3">
+                    <span className="min-w-0 truncate text-ink">{activeReviewFilterLabel}</span>
+                    <button type="button" className="btn-ghost btn-sm" onClick={clearReviewFilter}>
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </FilterMenu>
+          ) : null
+        }
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         viewAriaLabel="Library view mode"
         sortDirection={filters.sortDir}
-        onToggleSort={() => { setFilters((f) => ({ ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' })); setPage(1); }}
+        onToggleSort={() => {
+          setFilters((f) => ({ ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' }));
+          setPage(1);
+        }}
         onAdd={() => setAdding(true)}
         addLabel="Add"
         addAriaLabel="Add media"
@@ -5515,114 +6336,135 @@ export default function LibraryView({
         toolbarTestId="library-mobile-toolbar"
         searchClassName="sm:w-72"
       />
-      {(filters.review_filter || hasResultsTabs || showSelectionActionRow) ? (
+      {filters.review_filter || hasResultsTabs || showSelectionActionRow ? (
         <div className="shrink-0 border-b border-edge bg-void/95 px-3 py-2 sm:px-6">
-        {filters.review_filter ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-edge bg-raised/25 px-3 py-2 text-sm">
-            <div className="min-w-0">
-              <span className="font-medium text-ink">{activeReviewFilterLabel}</span>
-              <span className="text-ghost"> across all library types</span>
+          {filters.review_filter ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-edge bg-raised/25 px-3 py-2 text-sm">
+              <div className="min-w-0">
+                <span className="font-medium text-ink">{activeReviewFilterLabel}</span>
+                <span className="text-ghost"> across all library types</span>
+              </div>
+              <button type="button" className="btn-secondary btn-sm" onClick={clearReviewFilter}>
+                Clear
+              </button>
             </div>
-            <button type="button" className="btn-secondary btn-sm" onClick={clearReviewFilter}>
-              Clear
-            </button>
-          </div>
-        ) : null}
-        {(hasResultsTabs || showSelectionActionRow) && (
-          <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex min-w-0 flex-wrap items-center gap-3">
-              {supportsCollections && (
-                <SectionTabs
-                  tabs={[
-                    { id: 'all', label: forcedMediaType === 'game' ? 'All Games' : 'All Movies' },
-                    { id: 'collections', label: forcedMediaType === 'game' ? 'Game Collections' : 'Movie Collections' }
-                  ]}
-                  activeId={collectionMode}
-                  onChange={(nextMode) => { setCollectionMode(nextMode); setPage(1); }}
-                  semantics="buttons"
-                  ariaLabel="Collection views"
-                  className="w-fit"
-                />
-              )}
-              {isComicsLibrary && (
-                <>
+          ) : null}
+          {(hasResultsTabs || showSelectionActionRow) && (
+            <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
+                {supportsCollections && (
                   <SectionTabs
                     tabs={[
-                      { id: 'issues', label: 'All Issues' },
-                      { id: 'series', label: 'Series' },
-                      { id: 'series_issues', label: 'Series Issues' }
+                      { id: 'all', label: forcedMediaType === 'game' ? 'All Games' : 'All Movies' },
+                      { id: 'collections', label: forcedMediaType === 'game' ? 'Game Collections' : 'Movie Collections' }
                     ]}
-                    activeId={comicView}
-                    onChange={(nextView) => { setComicView(nextView); setPage(1); }}
+                    activeId={collectionMode}
+                    onChange={(nextMode) => {
+                      setCollectionMode(nextMode);
+                      setPage(1);
+                    }}
                     semantics="buttons"
-                    ariaLabel="Comic views"
+                    ariaLabel="Collection views"
                     className="w-fit"
                   />
-                  {comicView === 'series_issues' && (
-                    <select className="select min-w-[220px]" value={comicSeries} onChange={(e) => { setComicSeries(e.target.value); setPage(1); }}>
-                      <option value="all">All series</option>
-                      {comicSeriesOptions.map((series) => (
-                        <option key={series.name} value={series.name}>{series.name} ({series.count})</option>
-                      ))}
-                    </select>
+                )}
+                {isComicsLibrary && (
+                  <>
+                    <SectionTabs
+                      tabs={[
+                        { id: 'issues', label: 'All Issues' },
+                        { id: 'series', label: 'Series' },
+                        { id: 'series_issues', label: 'Series Issues' }
+                      ]}
+                      activeId={comicView}
+                      onChange={(nextView) => {
+                        setComicView(nextView);
+                        setPage(1);
+                      }}
+                      semantics="buttons"
+                      ariaLabel="Comic views"
+                      className="w-fit"
+                    />
+                    {comicView === 'series_issues' && (
+                      <select
+                        className="select min-w-[220px]"
+                        value={comicSeries}
+                        onChange={(e) => {
+                          setComicSeries(e.target.value);
+                          setPage(1);
+                        }}
+                      >
+                        <option value="all">All series</option>
+                        {comicSeriesOptions.map((series) => (
+                          <option key={series.name} value={series.name}>
+                            {series.name} ({series.count})
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </>
+                )}
+              </div>
+              {showSelectionActionRow && (
+                <div className="hidden flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:flex lg:justify-end">
+                  <span className="font-medium text-ink">{selectedIds.length} selected</span>
+                  {canSelectVisiblePage ? (
+                    <button
+                      type="button"
+                      onClick={handleSelectAllVisible}
+                      disabled={selectionControlsPending}
+                      className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50"
+                    >
+                      {`Select page (${visibleSelectableIds.length})`}
+                    </button>
+                  ) : null}
+                  {showSelectAllMatchingPrompt && (
+                    <button
+                      type="button"
+                      onClick={handleSelectAllMatching}
+                      disabled={selectionControlsPending || selectingAllMatching}
+                      className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50"
+                    >
+                      {selectingAllMatching
+                        ? `Selecting ${selectionScopeLabel}…`
+                        : `Select all ${selectableResultTotal} ${selectionScopeLabel}`}
+                    </button>
                   )}
-                </>
+                  {allMatchingSelected && selectableResultTotal > visibleSelectableIds.length ? (
+                    <span className="text-dim">{`All ${selectableResultTotal} ${selectionScopeLabel} selected`}</span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={handleClearSelection}
+                    className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBulkDelete}
+                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-err/90 transition-colors hover:bg-err/10 hover:text-err"
+                    aria-label={`Delete ${selectedIds.length} selected`}
+                  >
+                    <Icons.Trash />
+                    Delete
+                  </button>
+                </div>
               )}
             </div>
-            {showSelectionActionRow && (
-              <div className="hidden flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:flex lg:justify-end">
-                <span className="font-medium text-ink">{selectedIds.length} selected</span>
-                {canSelectVisiblePage ? (
-                  <button
-                    type="button"
-                    onClick={handleSelectAllVisible}
-                    disabled={selectionControlsPending}
-                    className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50"
-                  >
-                    {`Select page (${visibleSelectableIds.length})`}
-                  </button>
-                ) : null}
-                {showSelectAllMatchingPrompt && (
-                  <button
-                    type="button"
-                    onClick={handleSelectAllMatching}
-                    disabled={selectionControlsPending || selectingAllMatching}
-                    className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline disabled:cursor-default disabled:no-underline disabled:opacity-50"
-                  >
-                    {selectingAllMatching ? `Selecting ${selectionScopeLabel}…` : `Select all ${selectableResultTotal} ${selectionScopeLabel}`}
-                  </button>
-                )}
-                {allMatchingSelected && selectableResultTotal > visibleSelectableIds.length ? (
-                  <span className="text-dim">{`All ${selectableResultTotal} ${selectionScopeLabel} selected`}</span>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={handleClearSelection}
-                  className="inline-flex items-center text-xs text-dim underline-offset-4 hover:text-ink hover:underline"
-                >
-                  Clear
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBulkDelete}
-                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-err/90 transition-colors hover:bg-err/10 hover:text-err"
-                  aria-label={`Delete ${selectedIds.length} selected`}
-                >
-                  <Icons.Trash />
-                  Delete
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
       ) : null}
 
       <div className="flex-1 overflow-y-auto scroll-area p-4 sm:p-6" onScroll={handleContentScroll}>
         {isCollectionMode ? (
           <>
             {collectionError && <p className="text-sm text-err mb-4">{collectionError}</p>}
-            {collectionLoading && <div className="flex items-center justify-center py-20"><Spinner size={32} /></div>}
+            {collectionLoading && (
+              <div className="flex items-center justify-center py-20">
+                <Spinner size={32} />
+              </div>
+            )}
             {!collectionLoading && collectionRows.length === 0 && (
               <EmptyState
                 icon={<Icons.List />}
@@ -5648,101 +6490,142 @@ export default function LibraryView({
         ) : (
           <>
             {activeMediaError && <p className="text-sm text-err mb-4">{activeMediaError}</p>}
-            {activeMediaLoading && <div className="flex items-center justify-center py-20"><Spinner size={32} /></div>}
+            {activeMediaLoading && (
+              <div className="flex items-center justify-center py-20">
+                <Spinner size={32} />
+              </div>
+            )}
             {!activeMediaLoading && activeMediaResultCount === 0 && (
-          <EmptyState
-            icon={<Icons.Film />}
-            title={comicSeriesViewActive ? 'No series found' : 'No items found'}
-            subtitle={filters.search || filters.resolution !== 'all' || filters.platform !== 'all' || filters.publisher !== 'all'
-              ? 'Try adjusting your filters'
-              : (comicSeriesViewActive ? 'No comic series are available for this library yet' : 'Add your first title to get started')}
-            action={!filters.search && filters.resolution === 'all' && filters.platform === 'all' && filters.publisher === 'all' && <button onClick={() => setAdding(true)} className="btn-primary"><Icons.Plus />Add Media</button>}
-          />
-        )}
+              <EmptyState
+                icon={<Icons.Film />}
+                title={comicSeriesViewActive ? 'No series found' : 'No items found'}
+                subtitle={
+                  filters.search || filters.resolution !== 'all' || filters.platform !== 'all' || filters.publisher !== 'all'
+                    ? 'Try adjusting your filters'
+                    : comicSeriesViewActive
+                      ? 'No comic series are available for this library yet'
+                      : 'Add your first title to get started'
+                }
+                action={
+                  !filters.search &&
+                  filters.resolution === 'all' &&
+                  filters.platform === 'all' &&
+                  filters.publisher === 'all' && (
+                    <button onClick={() => setAdding(true)} className="btn-primary">
+                      <Icons.Plus />
+                      Add Media
+                    </button>
+                  )
+                }
+              />
+            )}
 
-        {!activeMediaLoading && isComicsLibrary && comicView === 'series' && displayedComicSeriesSummaries.length > 0 && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
-            {displayedComicSeriesSummaries.map((series) => (
-              <button
-                key={series.name}
-                onClick={() => { setComicSeries(series.name); setComicView('series_issues'); setPage(1); }}
-                className="text-left card p-4 hover:border-muted transition-colors"
-              >
-                <div className="space-y-3">
-                  <div className="w-full" style={{ aspectRatio: '2/3' }}>
-                    <div className="poster rounded-md w-full h-full">
-                      {posterUrl(series.poster_path)
-                        ? <img src={posterUrl(series.poster_path)} alt={series.name} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                        : <div className="absolute inset-0 flex items-center justify-center text-ghost"><Icons.Library /></div>}
+            {!activeMediaLoading && isComicsLibrary && comicView === 'series' && displayedComicSeriesSummaries.length > 0 && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
+                {displayedComicSeriesSummaries.map((series) => (
+                  <button
+                    key={series.name}
+                    onClick={() => {
+                      setComicSeries(series.name);
+                      setComicView('series_issues');
+                      setPage(1);
+                    }}
+                    className="text-left card p-4 hover:border-muted transition-colors"
+                  >
+                    <div className="space-y-3">
+                      <div className="w-full" style={{ aspectRatio: '2/3' }}>
+                        <div className="poster rounded-md w-full h-full">
+                          {posterUrl(series.poster_path) ? (
+                            <img
+                              src={posterUrl(series.poster_path)}
+                              alt={series.name}
+                              className="absolute inset-0 w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center text-ghost">
+                              <Icons.Library />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-ink line-clamp-2">{series.name}</p>
+                        <p className="text-xs text-ghost mt-1">
+                          {series.count} issue{series.count === 1 ? '' : 's'}
+                        </p>
+                        <p className="text-xs text-ghost">
+                          {series.yearMin || series.yearMax
+                            ? series.yearMin === series.yearMax
+                              ? series.yearMin
+                              : `${series.yearMin || '—'} - ${series.yearMax || '—'}`
+                            : 'Year unknown'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-medium text-ink line-clamp-2">{series.name}</p>
-                    <p className="text-xs text-ghost mt-1">{series.count} issue{series.count === 1 ? '' : 's'}</p>
-                    <p className="text-xs text-ghost">
-                      {(series.yearMin || series.yearMax)
-                        ? (series.yearMin === series.yearMax ? series.yearMin : `${series.yearMin || '—'} - ${series.yearMax || '—'}`)
-                        : 'Year unknown'}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
+                  </button>
+                ))}
+              </div>
+            )}
 
-        {!loading && viewMode === 'cards' && !isCollectionMode && !(isComicsLibrary && comicView === 'series') && displayedCardEntries.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            {displayedCardEntries.map((entry) => (
-              entry.kind === 'collection'
-                ? (
-                  <CollectionCard
-                    key={entry.id}
-                    item={entry.item}
-                    supportsHover={supportsHover}
-                    onOpen={(row) => setViewingCollectionId(row.id)}
-                    onEdit={(id) => setEditingCollectionId(id)}
-                    onConvert={convertCollectionToTitles}
-                  />
-                )
-                : (
-                  <MediaCard
-                    key={entry.id}
-                    item={entry.item}
-                    onOpen={() => setDetail(entry.item)}
-                    onEdit={() => setEditing(entry.item)}
-                    onDelete={(id) => { if (window.confirm('Delete this item?')) onDelete(id); }}
+            {!loading &&
+              viewMode === 'cards' &&
+              !isCollectionMode &&
+              !(isComicsLibrary && comicView === 'series') &&
+              displayedCardEntries.length > 0 && (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                  {displayedCardEntries.map((entry) =>
+                    entry.kind === 'collection' ? (
+                      <CollectionCard
+                        key={entry.id}
+                        item={entry.item}
+                        supportsHover={supportsHover}
+                        onOpen={(row) => setViewingCollectionId(row.id)}
+                        onEdit={(id) => setEditingCollectionId(id)}
+                        onConvert={convertCollectionToTitles}
+                      />
+                    ) : (
+                      <MediaCard
+                        key={entry.id}
+                        item={entry.item}
+                        onOpen={() => setDetail(entry.item)}
+                        onEdit={() => setEditing(entry.item)}
+                        onDelete={(id) => {
+                          if (window.confirm('Delete this item?')) onDelete(id);
+                        }}
+                        onRating={rate}
+                        supportsHover={supportsHover}
+                        selectionEnabled={true}
+                        selected={selectedIdSet.has(Number(entry.item.id))}
+                        onSelectionGesture={noteSelectionGesture}
+                        onToggleSelect={toggleSelectedId}
+                      />
+                    )
+                  )}
+                </div>
+              )}
+
+            {!loading && viewMode === 'list' && displayedVisibleItems.length > 0 && !(isComicsLibrary && comicView === 'series') && (
+              <div className="space-y-2.5">
+                {displayedVisibleItems.map((item) => (
+                  <MediaListRow
+                    key={item.id}
+                    item={item}
+                    onOpen={() => setDetail(item)}
+                    onEdit={() => setEditing(item)}
+                    onDelete={(id) => {
+                      if (window.confirm('Delete this item?')) onDelete(id);
+                    }}
                     onRating={rate}
                     supportsHover={supportsHover}
                     selectionEnabled={true}
-                    selected={selectedIdSet.has(Number(entry.item.id))}
+                    selected={selectedIdSet.has(Number(item.id))}
                     onSelectionGesture={noteSelectionGesture}
                     onToggleSelect={toggleSelectedId}
                   />
-                )
-            ))}
-          </div>
-        )}
-
-        {!loading && viewMode === 'list' && displayedVisibleItems.length > 0 && !(isComicsLibrary && comicView === 'series') && (
-          <div className="space-y-2.5">
-            {displayedVisibleItems.map((item) => (
-              <MediaListRow
-                key={item.id}
-                item={item}
-                onOpen={() => setDetail(item)}
-                onEdit={() => setEditing(item)}
-                onDelete={(id) => { if (window.confirm('Delete this item?')) onDelete(id); }}
-                onRating={rate}
-                supportsHover={supportsHover}
-                selectionEnabled={true}
-                selected={selectedIdSet.has(Number(item.id))}
-                onSelectionGesture={noteSelectionGesture}
-                onToggleSelect={toggleSelectedId}
-              />
-            ))}
-          </div>
-        )}
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -5757,7 +6640,10 @@ export default function LibraryView({
         className="px-4 sm:px-6"
         onPrevious={() => setPage((p) => Math.max(1, p - 1))}
         onNext={() => setPage((p) => p + 1)}
-        onPageSizeChange={(value) => { setPageSize(value); setPage(1); }}
+        onPageSizeChange={(value) => {
+          setPageSize(value);
+          setPage(1);
+        }}
       />
 
       {savedViewDialogMode ? (
@@ -5794,7 +6680,9 @@ export default function LibraryView({
                 />
               </label>
               <div className="mt-4 flex justify-end gap-2">
-                <button type="button" className="btn-secondary" onClick={closeSavedViewDialog}>Cancel</button>
+                <button type="button" className="btn-secondary" onClick={closeSavedViewDialog}>
+                  Cancel
+                </button>
                 <button type="submit" className="btn-primary" disabled={!savedViewNameDraft.trim()}>
                   {activeSavedViewId ? 'Update' : 'Save'}
                 </button>
@@ -5808,18 +6696,22 @@ export default function LibraryView({
               aria-labelledby="delete-saved-view-title"
             >
               <div className="mb-3 flex items-center gap-3">
-                <h2 id="delete-saved-view-title" className="text-base font-semibold text-ink">Delete saved view</h2>
+                <h2 id="delete-saved-view-title" className="text-base font-semibold text-ink">
+                  Delete saved view
+                </h2>
                 <div className="flex-1" />
                 <button type="button" className="btn-icon h-8 w-8" onClick={closeSavedViewDialog} aria-label="Close saved view dialog">
                   <Icons.X />
                 </button>
               </div>
-              <p className="text-sm text-dim">
-                Delete {activeSavedLibraryView ? `"${activeSavedLibraryView.name}"` : 'this saved view'}?
-              </p>
+              <p className="text-sm text-dim">Delete {activeSavedLibraryView ? `"${activeSavedLibraryView.name}"` : 'this saved view'}?</p>
               <div className="mt-4 flex justify-end gap-2">
-                <button type="button" className="btn-secondary" onClick={closeSavedViewDialog}>Cancel</button>
-                <button type="button" className="btn-danger" onClick={confirmDeleteSavedViewDialog}>Delete</button>
+                <button type="button" className="btn-secondary" onClick={closeSavedViewDialog}>
+                  Cancel
+                </button>
+                <button type="button" className="btn-danger" onClick={confirmDeleteSavedViewDialog}>
+                  Delete
+                </button>
               </div>
             </div>
           )}
@@ -5830,8 +6722,14 @@ export default function LibraryView({
         <MediaDetail
           item={detail}
           onClose={() => setDetail(null)}
-          onEdit={(item) => { setDetail(null); setEditing(item); }}
-          onDelete={(id) => { onDelete(id); setDetail(null); }}
+          onEdit={(item) => {
+            setDetail(null);
+            setEditing(item);
+          }}
+          onDelete={(id) => {
+            onDelete(id);
+            setDetail(null);
+          }}
           onRating={rate}
           apiCall={apiCall}
           onValuationUpdated={refreshDetailItem}
@@ -5873,11 +6771,12 @@ export default function LibraryView({
           {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
           <div
             className="absolute inset-0 bg-void/72"
-            onClick={() => { setAdding(false); setEditing(null); }}
+            onClick={() => {
+              setAdding(false);
+              setEditing(null);
+            }}
           />
-          <div className="ml-auto h-full w-full max-w-[40rem] bg-abyss border-l border-edge shadow-card relative">
-            {renderMediaForm()}
-          </div>
+          <div className="ml-auto h-full w-full max-w-[40rem] bg-abyss border-l border-edge shadow-card relative">{renderMediaForm()}</div>
         </div>
       )}
     </div>

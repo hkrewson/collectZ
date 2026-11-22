@@ -2,7 +2,17 @@
 /* global document, window */
 const fs = require('fs');
 const { test, expect, request: playwrightRequest } = require('@playwright/test');
-const { AUTH_STATE_PATH, createFreshUserCredentials, createAuthenticatedRequestContext, createRequestContextFromStorageState, ensureAuthenticatedAdminStorageState, fetchCsrfToken, patchWithCsrf, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
+const {
+  AUTH_STATE_PATH,
+  createFreshUserCredentials,
+  createAuthenticatedRequestContext,
+  createRequestContextFromStorageState,
+  ensureAuthenticatedAdminStorageState,
+  fetchCsrfToken,
+  patchWithCsrf,
+  postWithCsrf,
+  requestWithCsrf
+} = require('../helpers/auth');
 const { getWorkspaceIntegrationSettings, updateWorkspaceIntegrationSettings } = require('../helpers/integrations');
 const { deleteMediaByExactTitle, findExactMediaByTitle } = require('../helpers/media');
 
@@ -11,9 +21,7 @@ const PLAYWRIGHT_E2E_BYPASS_TOKEN = String(process.env.PLAYWRIGHT_E2E_BYPASS_TOK
 const LIBRARY_SEARCH_PLACEHOLDER = 'Search title, creator, or identifier…';
 
 function buildBypassHeaders() {
-  return PLAYWRIGHT_E2E_BYPASS_TOKEN
-    ? { 'x-playwright-e2e-bypass': PLAYWRIGHT_E2E_BYPASS_TOKEN }
-    : undefined;
+  return PLAYWRIGHT_E2E_BYPASS_TOKEN ? { 'x-playwright-e2e-bypass': PLAYWRIGHT_E2E_BYPASS_TOKEN } : undefined;
 }
 
 async function createSavedAdminRequestContext() {
@@ -30,9 +38,7 @@ async function createSavedAdminRequestContext() {
 }
 
 async function addSavedAdminCookies(page, requestContext = null) {
-  const storageState = requestContext
-    ? await requestContext.storageState()
-    : JSON.parse(fs.readFileSync(AUTH_STATE_PATH, 'utf8'));
+  const storageState = requestContext ? await requestContext.storageState() : JSON.parse(fs.readFileSync(AUTH_STATE_PATH, 'utf8'));
   await page.context().addCookies(storageState.cookies || []);
 }
 
@@ -43,6 +49,112 @@ function getLibrarySearchInput(page) {
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('library multi-format browser regressions', () => {
+  test('movie aggregate count stays authoritative through deletion and stale collection responses', async ({ page }) => {
+    const credentials = await createFreshUserCredentials({ role: 'admin', noCache: true });
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const suffix = Date.now();
+    const title = `Playwright Aggregate Delete ${suffix}`;
+    const collectionTitle = `Playwright Aggregate Collection ${suffix}`;
+    const staleSearch = `Playwright Stale Collection ${suffix}`;
+    let collectionId = null;
+
+    try {
+      const titleResponse = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title,
+          media_type: 'movie',
+          owned_formats: ['digital']
+        },
+        201
+      );
+      const titleRow = await titleResponse.json();
+      expect(Number(titleRow?.id || 0)).toBeGreaterThan(0);
+
+      const collectionSourceResponse = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title: collectionTitle,
+          media_type: 'movie',
+          owned_formats: ['digital']
+        },
+        201
+      );
+      const collectionSource = await collectionSourceResponse.json();
+      const convertResponse = await postWithCsrf(requestContext, `/api/media/${collectionSource.id}/convert-to-collection`, {}, 200);
+      const converted = await convertResponse.json();
+      collectionId = Number(converted?.collection_id || 0) || null;
+      expect(collectionId).toBeTruthy();
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/dashboard?tab=library-movies');
+
+      const moviesHeading = page.getByRole('heading', { name: 'Movies', exact: true });
+      const totalBadge = moviesHeading.locator('..').locator('.badge').first();
+      await expect(totalBadge).toHaveText('2');
+
+      const resultCard = page
+        .locator('article')
+        .filter({
+          has: page.getByText(title, { exact: true })
+        })
+        .first();
+      await expect(resultCard).toBeVisible();
+      await resultCard.click();
+
+      page.once('dialog', (dialog) => dialog.accept());
+      const deleteResponsePromise = page.waitForResponse(
+        (response) => response.url().endsWith(`/api/media/${titleRow.id}`) && response.request().method() === 'DELETE'
+      );
+      await page.getByTestId('media-detail-delete-button').click();
+      expect((await deleteResponsePromise).ok()).toBeTruthy();
+      await expect(totalBadge).toHaveText('1');
+
+      await page.reload();
+      await expect(totalBadge).toHaveText('1');
+
+      let delayedCollectionResponseCompleted = false;
+      await page.route('**/api/media/collections?**', async (route) => {
+        const requestUrl = new URL(route.request().url());
+        if (requestUrl.searchParams.get('search') !== staleSearch) {
+          await route.continue();
+          return;
+        }
+        const response = await route.fetch();
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        delayedCollectionResponseCompleted = true;
+        await route.fulfill({ response });
+      });
+
+      const staleRequestPromise = page.waitForRequest((request) => {
+        const requestUrl = new URL(request.url());
+        return requestUrl.pathname === '/api/media/collections' && requestUrl.searchParams.get('search') === staleSearch;
+      });
+      const searchInput = getLibrarySearchInput(page);
+      await searchInput.fill(staleSearch);
+      await staleRequestPromise;
+      await searchInput.fill('');
+      await expect(totalBadge).toHaveText('1');
+      await expect.poll(() => delayedCollectionResponseCompleted).toBe(true);
+      await expect(totalBadge).toHaveText('1');
+      await page.unroute('**/api/media/collections?**');
+
+      await searchInput.fill(title);
+      await expect(totalBadge).toHaveText('0');
+      await expect(page.getByText(title, { exact: true })).toHaveCount(0);
+    } finally {
+      if (collectionId) {
+        await postWithCsrf(requestContext, `/api/media/collections/${collectionId}/convert-to-individual`, {}, 200).catch(() => {});
+      }
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await deleteMediaByExactTitle(requestContext, collectionTitle).catch(() => {});
+      await requestContext.dispose();
+    }
+  });
+
   test('media can keep multiple signatures while projecting one primary legacy signer', async () => {
     const credentials = await createFreshUserCredentials({ role: 'admin', noCache: true });
     const requestContext = await createAuthenticatedRequestContext(credentials);
@@ -52,28 +164,38 @@ test.describe('library multi-format browser regressions', () => {
     await deleteMediaByExactTitle(requestContext, title).catch(() => {});
 
     try {
-      const createResponse = await postWithCsrf(requestContext, '/api/media', {
-        title,
-        media_type: 'book',
-        format: 'Hardcover',
-        owned_formats: ['hardcover'],
-        signed_by: 'Primary Playwright Author',
-        signed_role: 'author',
-        signed_on: '2026-04-26',
-        signed_at: 'Original Signing Table'
-      }, 201);
+      const createResponse = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title,
+          media_type: 'book',
+          format: 'Hardcover',
+          owned_formats: ['hardcover'],
+          signed_by: 'Primary Playwright Author',
+          signed_role: 'author',
+          signed_on: '2026-04-26',
+          signed_at: 'Original Signing Table'
+        },
+        201
+      );
       const created = await createResponse.json();
       mediaId = Number(created?.id || 0) || null;
       expect(mediaId).toBeTruthy();
       expect(created.signatures).toHaveLength(1);
       expect(created.signed_by).toBe('Primary Playwright Author');
 
-      const secondaryResponse = await postWithCsrf(requestContext, `/api/media/${mediaId}/signatures`, {
-        signer_name: 'Secondary Playwright Cast',
-        signer_role: 'cast',
-        signed_on: '2026-04-27',
-        signed_at: 'Second Signing Table'
-      }, 201);
+      const secondaryResponse = await postWithCsrf(
+        requestContext,
+        `/api/media/${mediaId}/signatures`,
+        {
+          signer_name: 'Secondary Playwright Cast',
+          signer_role: 'cast',
+          signed_on: '2026-04-27',
+          signed_at: 'Second Signing Table'
+        },
+        201
+      );
       const secondary = await secondaryResponse.json();
       expect(secondary.signatures).toHaveLength(2);
       expect(secondary.media.signed_by).toBe('Primary Playwright Author');
@@ -115,21 +237,33 @@ test.describe('library multi-format browser regressions', () => {
       const secondProof = await secondProofResponse.json();
       expect(secondProof.signature.proofs).toHaveLength(2);
       const extraProof = secondProof.signature.proofs.find((entry) => !entry.is_primary);
-      const metadataResponse = await patchWithCsrf(requestContext, `/api/media/${mediaId}/signatures/${secondary.signature.id}/proofs/${extraProof.id}`, {
-        proof_type: 'artist_post',
-        label: 'Publisher post',
-        notes: 'Publisher post confirming the signature.'
-      });
+      const metadataResponse = await patchWithCsrf(
+        requestContext,
+        `/api/media/${mediaId}/signatures/${secondary.signature.id}/proofs/${extraProof.id}`,
+        {
+          proof_type: 'artist_post',
+          label: 'Publisher post',
+          notes: 'Publisher post confirming the signature.'
+        }
+      );
       expect(metadataResponse.ok()).toBeTruthy();
       const metadata = await metadataResponse.json();
       expect(metadata.proof.proof_type).toBe('artist_post');
       expect(metadata.proof.label).toBe('Publisher post');
-      const removeOneProofResponse = await requestWithCsrf(requestContext, 'DELETE', `/api/media/${mediaId}/signatures/${secondary.signature.id}/proofs/${extraProof.id}`);
+      const removeOneProofResponse = await requestWithCsrf(
+        requestContext,
+        'DELETE',
+        `/api/media/${mediaId}/signatures/${secondary.signature.id}/proofs/${extraProof.id}`
+      );
       expect(removeOneProofResponse.ok()).toBeTruthy();
       const removedOneProof = await removeOneProofResponse.json();
       expect(removedOneProof.signature.proofs).toHaveLength(1);
 
-      const promoteResponse = await requestWithCsrf(requestContext, 'POST', `/api/media/${mediaId}/signatures/${secondary.signature.id}/primary`);
+      const promoteResponse = await requestWithCsrf(
+        requestContext,
+        'POST',
+        `/api/media/${mediaId}/signatures/${secondary.signature.id}/primary`
+      );
       expect(promoteResponse.ok()).toBeTruthy();
       const promoted = await promoteResponse.json();
       expect(promoted.media.signed_by).toBe('Secondary Playwright Cast');
@@ -142,7 +276,11 @@ test.describe('library multi-format browser regressions', () => {
       expect(detail.signatures).toHaveLength(2);
       expect(detail.signed_by).toBe('Secondary Playwright Cast');
 
-      const removeProofResponse = await requestWithCsrf(requestContext, 'DELETE', `/api/media/${mediaId}/signatures/${secondary.signature.id}/proof`);
+      const removeProofResponse = await requestWithCsrf(
+        requestContext,
+        'DELETE',
+        `/api/media/${mediaId}/signatures/${secondary.signature.id}/proof`
+      );
       expect(removeProofResponse.ok()).toBeTruthy();
       const proofRemoved = await removeProofResponse.json();
       expect(proofRemoved.removed).toBe(true);
@@ -169,14 +307,19 @@ test.describe('library multi-format browser regressions', () => {
     await deleteMediaByExactTitle(requestContext, title).catch(() => {});
 
     try {
-      const createResponse = await postWithCsrf(requestContext, '/api/media', {
-        title,
-        overview,
-        media_type: 'game',
-        format: 'Disc',
-        owned_formats: ['disc'],
-        year: 2024
-      }, 201);
+      const createResponse = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title,
+          overview,
+          media_type: 'game',
+          format: 'Disc',
+          owned_formats: ['disc'],
+          year: 2024
+        },
+        201
+      );
       const created = await createResponse.json();
       mediaId = Number(created?.id || 0) || null;
       expect(mediaId).toBeTruthy();
@@ -187,14 +330,19 @@ test.describe('library multi-format browser regressions', () => {
       const dueAt = new Date(today);
       dueAt.setDate(today.getDate() - 1);
 
-      await postWithCsrf(requestContext, `/api/media/${mediaId}/loans`, {
-        borrower_name: 'Ted',
-        borrower_email: 'ted@example.com',
-        loaned_at: loanedAt.toISOString().slice(0, 10),
-        due_at: dueAt.toISOString().slice(0, 10),
-        loan_format: 'Disc',
-        notes: 'Playwright reminder regression loan'
-      }, 201);
+      await postWithCsrf(
+        requestContext,
+        `/api/media/${mediaId}/loans`,
+        {
+          borrower_name: 'Ted',
+          borrower_email: 'ted@example.com',
+          loaned_at: loanedAt.toISOString().slice(0, 10),
+          due_at: dueAt.toISOString().slice(0, 10),
+          loan_format: 'Disc',
+          notes: 'Playwright reminder regression loan'
+        },
+        201
+      );
 
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
@@ -202,9 +350,12 @@ test.describe('library multi-format browser regressions', () => {
 
       const searchInput = getLibrarySearchInput(page);
       await searchInput.fill(title);
-      const resultCard = page.locator('article').filter({
-        has: page.getByText(title, { exact: true })
-      }).first();
+      const resultCard = page
+        .locator('article')
+        .filter({
+          has: page.getByText(title, { exact: true })
+        })
+        .first();
       await expect(resultCard).toBeVisible();
       await resultCard.click();
 
@@ -219,10 +370,9 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByText(overview, { exact: true })).toBeVisible();
 
       const reminderButton = page.getByRole('button', { name: 'Send Reminder', exact: true });
-      const reminderResponsePromise = page.waitForResponse((response) => (
-        /\/api\/media\/loans\/\d+\/reminder$/.test(response.url())
-          && response.request().method() === 'POST'
-      ));
+      const reminderResponsePromise = page.waitForResponse(
+        (response) => /\/api\/media\/loans\/\d+\/reminder$/.test(response.url()) && response.request().method() === 'POST'
+      );
       await reminderButton.click();
       const reminderResponse = await reminderResponsePromise;
 
@@ -252,23 +402,31 @@ test.describe('library multi-format browser regressions', () => {
     await deleteMediaByExactTitle(requestContext, title).catch(() => {});
 
     try {
-      await postWithCsrf(requestContext, '/api/media', {
-        title,
-        media_type: 'comic_book',
-        format: 'Comic Book',
-        owned_formats: ['paper'],
-        poster_path: '/uploads/playwright-cover-backdrop.png',
-        backdrop_path: ''
-      }, 201);
+      await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title,
+          media_type: 'comic_book',
+          format: 'Comic Book',
+          owned_formats: ['paper'],
+          poster_path: '/uploads/playwright-cover-backdrop.png',
+          backdrop_path: ''
+        },
+        201
+      );
 
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/library/comics');
 
       await getLibrarySearchInput(page).fill(title);
-      const resultCard = page.locator('article').filter({
-        has: page.getByText(title, { exact: true })
-      }).first();
+      const resultCard = page
+        .locator('article')
+        .filter({
+          has: page.getByText(title, { exact: true })
+        })
+        .first();
       await expect(resultCard).toBeVisible();
       await resultCard.locator('.poster').click();
 
@@ -300,19 +458,24 @@ test.describe('library multi-format browser regressions', () => {
     await deleteMediaByExactTitle(requestContext, title).catch(() => {});
 
     try {
-      const createResponse = await postWithCsrf(requestContext, '/api/media', {
-        title,
-        media_type: 'movie',
-        format: 'Digital',
-        owned_formats: ['digital'],
-        user_rating: 8,
-        year: 2026,
-        type_details: {
-          provider_name: 'plex',
-          provider_item_id: 'playwright-plex-writeback'
+      const createResponse = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title,
+          media_type: 'movie',
+          format: 'Digital',
+          owned_formats: ['digital'],
+          user_rating: 8,
+          year: 2026,
+          type_details: {
+            provider_name: 'plex',
+            provider_item_id: 'playwright-plex-writeback'
+          },
+          import_source: 'plex'
         },
-        import_source: 'plex'
-      }, 201);
+        201
+      );
       const created = await createResponse.json();
       mediaId = Number(created?.id || 0) || null;
       expect(mediaId).toBeTruthy();
@@ -352,9 +515,12 @@ test.describe('library multi-format browser regressions', () => {
       await page.goto('/dashboard?tab=library-movies');
 
       await getLibrarySearchInput(page).fill(title);
-      const resultCard = page.locator('article').filter({
-        has: page.getByText(title, { exact: true })
-      }).first();
+      const resultCard = page
+        .locator('article')
+        .filter({
+          has: page.getByText(title, { exact: true })
+        })
+        .first();
       await expect(resultCard).toBeVisible();
       await resultCard.click();
 
@@ -388,11 +554,16 @@ test.describe('library multi-format browser regressions', () => {
     await deleteMediaByExactTitle(requestContext, title).catch(() => {});
 
     try {
-      await postWithCsrf(requestContext, '/api/media', {
-        title,
-        media_type: 'movie',
-        owned_formats: ['digital']
-      }, 201);
+      await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title,
+          media_type: 'movie',
+          owned_formats: ['digital']
+        },
+        201
+      );
 
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
@@ -401,9 +572,12 @@ test.describe('library multi-format browser regressions', () => {
       const searchInput = getLibrarySearchInput(page);
       await searchInput.fill(title);
 
-      const resultCard = page.locator('article').filter({
-        has: page.getByText(title, { exact: true })
-      }).first();
+      const resultCard = page
+        .locator('article')
+        .filter({
+          has: page.getByText(title, { exact: true })
+        })
+        .first();
 
       await expect(resultCard).toBeVisible();
       await resultCard.hover();
@@ -425,17 +599,27 @@ test.describe('library multi-format browser regressions', () => {
     await deleteMediaByExactTitle(requestContext, title).catch(() => {});
 
     try {
-      const createResponse = await postWithCsrf(requestContext, '/api/media', {
-        title,
-        media_type: 'game',
-        owned_formats: ['digital']
-      }, 201);
+      const createResponse = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title,
+          media_type: 'game',
+          owned_formats: ['digital']
+        },
+        201
+      );
       const created = await createResponse.json();
 
-      const refreshResponse = await postWithCsrf(requestContext, `/api/media/${created.id}/valuation-refresh`, {
-        async: false,
-        mode: 'fixture'
-      }, 200);
+      const refreshResponse = await postWithCsrf(
+        requestContext,
+        `/api/media/${created.id}/valuation-refresh`,
+        {
+          async: false,
+          mode: 'fixture'
+        },
+        200
+      );
       const refreshPayload = await refreshResponse.json();
       expect(refreshPayload.matched).toBeTruthy();
       expect(refreshPayload.valuation?.mid).toBeGreaterThan(0);
@@ -446,9 +630,12 @@ test.describe('library multi-format browser regressions', () => {
 
       const searchInput = getLibrarySearchInput(page);
       await searchInput.fill(title);
-      const resultCard = page.locator('article').filter({
-        has: page.getByText(title, { exact: true })
-      }).first();
+      const resultCard = page
+        .locator('article')
+        .filter({
+          has: page.getByText(title, { exact: true })
+        })
+        .first();
       await expect(resultCard).toBeVisible();
       await resultCard.click();
 
@@ -480,10 +667,9 @@ test.describe('library multi-format browser regressions', () => {
       await page.getByRole('button', { name: 'DVD', exact: true }).click();
       await page.getByRole('button', { name: 'Digital', exact: true }).click();
 
-      const createResponsePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/media')
-          && response.request().method() === 'POST'
-      ));
+      const createResponsePromise = page.waitForResponse(
+        (response) => response.url().includes('/api/media') && response.request().method() === 'POST'
+      );
       await page.getByRole('button', { name: 'Save', exact: true }).click();
       const createResponse = await createResponsePromise;
       expect(createResponse.status()).toBe(201);
@@ -492,9 +678,12 @@ test.describe('library multi-format browser regressions', () => {
       expect(createdPayload.format).toBe('Blu-ray');
 
       await page.goto('/dashboard?tab=library-movies');
-      const resultCard = page.locator('article').filter({
-        has: page.getByText(title, { exact: true })
-      }).first();
+      const resultCard = page
+        .locator('article')
+        .filter({
+          has: page.getByText(title, { exact: true })
+        })
+        .first();
       await expect(resultCard).toBeVisible();
       await resultCard.click();
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
@@ -504,10 +693,9 @@ test.describe('library multi-format browser regressions', () => {
       await page.getByRole('button', { name: 'Blu-ray', exact: true }).click();
       await page.getByRole('button', { name: '4K UHD', exact: true }).click();
 
-      const editResponsePromise = page.waitForResponse((response) => (
-        /\/api\/media\/\d+$/.test(response.url())
-          && response.request().method() === 'PATCH'
-      ));
+      const editResponsePromise = page.waitForResponse(
+        (response) => /\/api\/media\/\d+$/.test(response.url()) && response.request().method() === 'PATCH'
+      );
       await page.getByRole('button', { name: 'Save', exact: true }).click();
       const editResponse = await editResponsePromise;
       expect(editResponse.status()).toBe(200);
@@ -540,16 +728,17 @@ test.describe('library multi-format browser regressions', () => {
 
       await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
       const metrics = await page.evaluate(() => {
-        const visibleControls = Array.from(document.querySelectorAll('input:not([type="hidden"]), select, textarea'))
-          .filter((element) => {
-            const rect = element.getBoundingClientRect();
-            return rect.width > 0 && rect.height > 0;
-          });
+        const visibleControls = Array.from(document.querySelectorAll('input:not([type="hidden"]), select, textarea')).filter((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        });
         return {
           innerWidth: window.innerWidth,
           documentWidth: document.documentElement.scrollWidth,
           bodyWidth: document.body.scrollWidth,
-          minControlFontSize: Math.min(...visibleControls.map((element) => Number.parseFloat(window.getComputedStyle(element).fontSize) || 0))
+          minControlFontSize: Math.min(
+            ...visibleControls.map((element) => Number.parseFloat(window.getComputedStyle(element).fontSize) || 0)
+          )
         };
       });
 
@@ -566,31 +755,42 @@ test.describe('library multi-format browser regressions', () => {
     const requestContext = await createAuthenticatedRequestContext(credentials);
     const longTitle = `Playwright Long Overview ${Date.now()}`;
     const shortTitle = `Playwright Short Overview ${Date.now()}`;
-    const longOverview = Array.from({ length: 18 }, (_, index) => (
-      `Long drawer overview sentence ${index + 1} keeps practical details from being pushed too far down the drawer.`
-    )).join(' ');
+    const longOverview = Array.from(
+      { length: 18 },
+      (_, index) => `Long drawer overview sentence ${index + 1} keeps practical details from being pushed too far down the drawer.`
+    ).join(' ');
     const shortOverview = 'Short drawer overview stays fully visible without extra controls.';
 
     await deleteMediaByExactTitle(requestContext, longTitle).catch(() => {});
     await deleteMediaByExactTitle(requestContext, shortTitle).catch(() => {});
 
     try {
-      await postWithCsrf(requestContext, '/api/media', {
-        title: longTitle,
-        overview: longOverview,
-        media_type: 'movie',
-        format: 'Blu-ray',
-        owned_formats: ['bluray'],
-        year: 2026
-      }, 201);
-      await postWithCsrf(requestContext, '/api/media', {
-        title: shortTitle,
-        overview: shortOverview,
-        media_type: 'movie',
-        format: 'Blu-ray',
-        owned_formats: ['bluray'],
-        year: 2026
-      }, 201);
+      await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title: longTitle,
+          overview: longOverview,
+          media_type: 'movie',
+          format: 'Blu-ray',
+          owned_formats: ['bluray'],
+          year: 2026
+        },
+        201
+      );
+      await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title: shortTitle,
+          overview: shortOverview,
+          media_type: 'movie',
+          format: 'Blu-ray',
+          owned_formats: ['bluray'],
+          year: 2026
+        },
+        201
+      );
 
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
@@ -598,9 +798,12 @@ test.describe('library multi-format browser regressions', () => {
 
       const searchInput = getLibrarySearchInput(page);
       await searchInput.fill(longTitle);
-      const longResultCard = page.locator('article').filter({
-        has: page.getByText(longTitle, { exact: true })
-      }).first();
+      const longResultCard = page
+        .locator('article')
+        .filter({
+          has: page.getByText(longTitle, { exact: true })
+        })
+        .first();
       await expect(longResultCard).toBeVisible();
       await longResultCard.click();
 
@@ -618,9 +821,12 @@ test.describe('library multi-format browser regressions', () => {
       await page.goto('/dashboard?tab=library-movies');
       const nextSearchInput = getLibrarySearchInput(page);
       await nextSearchInput.fill(shortTitle);
-      const shortResultCard = page.locator('article').filter({
-        has: page.getByText(shortTitle, { exact: true })
-      }).first();
+      const shortResultCard = page
+        .locator('article')
+        .filter({
+          has: page.getByText(shortTitle, { exact: true })
+        })
+        .first();
       await expect(shortResultCard).toBeVisible();
       await shortResultCard.click();
 
@@ -643,24 +849,32 @@ test.describe('library multi-format browser regressions', () => {
     await deleteMediaByExactTitle(requestContext, title).catch(() => {});
 
     try {
-      await postWithCsrf(requestContext, '/api/media', {
-        title,
-        media_type: 'book',
-        format: 'Hardcover',
-        owned_formats: ['hardcover'],
-        type_details: {
-          author: 'Edition Test Author'
-        }
-      }, 201);
+      await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title,
+          media_type: 'book',
+          format: 'Hardcover',
+          owned_formats: ['hardcover'],
+          type_details: {
+            author: 'Edition Test Author'
+          }
+        },
+        201
+      );
 
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
       await page.goto('/dashboard?tab=library-books');
       await getLibrarySearchInput(page).fill(title);
 
-      const resultCard = page.locator('article').filter({
-        has: page.getByText(title, { exact: true })
-      }).first();
+      const resultCard = page
+        .locator('article')
+        .filter({
+          has: page.getByText(title, { exact: true })
+        })
+        .first();
       await expect(resultCard).toBeVisible();
       await resultCard.click();
 
@@ -674,11 +888,12 @@ test.describe('library multi-format browser regressions', () => {
       await editionSection.getByRole('textbox', { name: 'Number' }).fill('42');
       await editionSection.getByRole('textbox', { name: 'Run' }).fill('500');
 
-      const saveResponsePromise = page.waitForResponse((response) => (
-        response.url().includes(`/api/collectible-traits/media/`)
-          && response.url().includes('/edition_variant')
-          && response.request().method() === 'PUT'
-      ));
+      const saveResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes(`/api/collectible-traits/media/`) &&
+          response.url().includes('/edition_variant') &&
+          response.request().method() === 'PUT'
+      );
       await editionSection.getByRole('button', { name: 'Save' }).click();
       const saveResponse = await saveResponsePromise;
       expect(saveResponse.status()).toBe(200);
@@ -702,12 +917,17 @@ test.describe('library multi-format browser regressions', () => {
     const title = `Playwright Universal Search Seed ${Date.now()}`;
 
     try {
-      await postWithCsrf(requestContext, '/api/media', {
-        title,
-        media_type: 'movie',
-        owned_formats: ['digital'],
-        year: 2024
-      }, 201);
+      await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title,
+          media_type: 'movie',
+          owned_formats: ['digital'],
+          year: 2024
+        },
+        201
+      );
 
       await addSavedAdminCookies(page, requestContext);
       await page.goto('/dashboard?tab=library-movies');
@@ -740,15 +960,20 @@ test.describe('library multi-format browser regressions', () => {
     await deleteMediaByExactTitle(requestContext, title).catch(() => {});
 
     try {
-      await postWithCsrf(requestContext, '/api/media', {
-        title,
-        media_type: 'movie',
-        owned_formats: ['digital'],
-        year: 2022,
-        overview: 'Populated movie for edit search summary',
-        genre: 'Drama',
-        upc: '4006381333931'
-      }, 201);
+      await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title,
+          media_type: 'movie',
+          owned_formats: ['digital'],
+          year: 2022,
+          overview: 'Populated movie for edit search summary',
+          genre: 'Drama',
+          upc: '4006381333931'
+        },
+        201
+      );
 
       await addSavedAdminCookies(page, requestContext);
       await page.goto('/dashboard?tab=library-movies');
@@ -759,9 +984,12 @@ test.describe('library multi-format browser regressions', () => {
       const searchInput = getLibrarySearchInput(page);
       await searchInput.fill(title);
       await expect(searchInput).toHaveValue(title);
-      const resultCard = page.locator('article').filter({
-        has: page.getByText(title, { exact: true })
-      }).first();
+      const resultCard = page
+        .locator('article')
+        .filter({
+          has: page.getByText(title, { exact: true })
+        })
+        .first();
       await expect(resultCard).toBeVisible();
       await resultCard.click();
       await page.getByRole('button', { name: 'Edit', exact: true }).click();
@@ -865,14 +1093,12 @@ test.describe('library multi-format browser regressions', () => {
       await addMediaButton.click();
 
       await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
-      const titleResponsePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/media/search-tmdb')
-          && response.request().method() === 'POST'
-      ));
-      const identifierResponsePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/media/lookup-upc')
-          && response.request().method() === 'POST'
-      ));
+      const titleResponsePromise = page.waitForResponse(
+        (response) => response.url().includes('/api/media/search-tmdb') && response.request().method() === 'POST'
+      );
+      const identifierResponsePromise = page.waitForResponse(
+        (response) => response.url().includes('/api/media/lookup-upc') && response.request().method() === 'POST'
+      );
       await page.getByPlaceholder('Movie title').fill(title);
       await page.getByPlaceholder('012345678901').fill(upc);
       const [titleResponse, identifierResponse] = await Promise.all([titleResponsePromise, identifierResponsePromise]);
@@ -881,12 +1107,18 @@ test.describe('library multi-format browser regressions', () => {
       expect(sawTitleLookup).toBeTruthy();
       expect(sawIdentifierLookup).toBeTruthy();
 
-      const mergedResult = page.locator('button').filter({ has: page.getByText(title, { exact: true }) }).first();
+      const mergedResult = page
+        .locator('button')
+        .filter({ has: page.getByText(title, { exact: true }) })
+        .first();
       await expect(mergedResult).toBeVisible();
       await expect(mergedResult.getByText('Title', { exact: true })).toBeVisible();
       await expect(mergedResult.getByText('Identifier', { exact: true })).toBeVisible();
 
-      const identifierOnlyResult = page.locator('button').filter({ has: page.getByText(alternateTitle, { exact: true }) }).first();
+      const identifierOnlyResult = page
+        .locator('button')
+        .filter({ has: page.getByText(alternateTitle, { exact: true }) })
+        .first();
       await expect(identifierOnlyResult).toBeVisible();
       await expect(identifierOnlyResult.getByText('Identifier', { exact: true })).toBeVisible();
       await expect(identifierOnlyResult.getByText('Title', { exact: true })).toHaveCount(0);
@@ -907,13 +1139,18 @@ test.describe('library multi-format browser regressions', () => {
 
     try {
       for (let index = 0; index < titles.length; index += 1) {
-        await postWithCsrf(requestContext, '/api/media', {
-          title: titles[index],
-          media_type: 'comic_book',
-          owned_formats: ['paper'],
-          comic_series: seriesName,
-          comic_issue_number: String(index + 1)
-        }, 201);
+        await postWithCsrf(
+          requestContext,
+          '/api/media',
+          {
+            title: titles[index],
+            media_type: 'comic_book',
+            owned_formats: ['paper'],
+            comic_series: seriesName,
+            comic_issue_number: String(index + 1)
+          },
+          201
+        );
       }
 
       const storageState = await requestContext.storageState();
@@ -921,7 +1158,11 @@ test.describe('library multi-format browser regressions', () => {
       await page.goto('/library/comics');
 
       await expect(page.locator('article').filter({ hasText: titles[29] }).first()).toBeVisible();
-      await page.locator('select').filter({ has: page.locator('option[value="25"]') }).last().selectOption('25');
+      await page
+        .locator('select')
+        .filter({ has: page.locator('option[value="25"]') })
+        .last()
+        .selectOption('25');
       await expect(page.getByText('Page 1 / 2', { exact: true })).toBeVisible();
       await expect(page.getByLabel('Previous page')).toBeVisible();
       await expect(page.getByLabel('Next page')).toBeVisible();
@@ -932,7 +1173,11 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByText('Page 2 / 2', { exact: true })).toBeVisible();
       await expect(page.locator('article').filter({ hasText: titles[29] }).first()).toBeVisible();
 
-      await page.locator('select').filter({ has: page.locator('option[value="100"]') }).last().selectOption('100');
+      await page
+        .locator('select')
+        .filter({ has: page.locator('option[value="100"]') })
+        .last()
+        .selectOption('100');
       await expect(page.getByText('Page 2 / 2', { exact: true })).toHaveCount(0);
       await expect(page.getByLabel('Previous page')).toHaveCount(0);
       await expect(page.getByLabel('Next page')).toHaveCount(0);
@@ -956,12 +1201,17 @@ test.describe('library multi-format browser regressions', () => {
     let followUpLookupCount = 0;
 
     try {
-      await postWithCsrf(requestContext, '/api/media', {
-        title: seedTitle,
-        media_type: 'movie',
-        owned_formats: ['digital'],
-        year: 2024
-      }, 201);
+      await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title: seedTitle,
+          media_type: 'movie',
+          owned_formats: ['digital'],
+          year: 2024
+        },
+        201
+      );
 
       await page.route('**/api/media/search-tmdb', async (route) => {
         const payload = route.request().postDataJSON();
@@ -1054,20 +1304,22 @@ test.describe('library multi-format browser regressions', () => {
       await page.getByRole('button', { name: /Add/ }).first().click();
 
       await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
-      const titleResponsePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/media/search-tmdb')
-          && response.request().method() === 'POST'
-      ));
-      const identifierResponsePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/media/lookup-upc')
-          && response.request().method() === 'POST'
-      ));
+      const titleResponsePromise = page.waitForResponse(
+        (response) => response.url().includes('/api/media/search-tmdb') && response.request().method() === 'POST'
+      );
+      const identifierResponsePromise = page.waitForResponse(
+        (response) => response.url().includes('/api/media/lookup-upc') && response.request().method() === 'POST'
+      );
       await page.getByPlaceholder('Movie title').fill(title);
       await page.getByPlaceholder('012345678901').fill(upc);
       await Promise.all([titleResponsePromise, identifierResponsePromise]);
       await expect(page.getByText(alternateTitle, { exact: true })).toBeVisible();
 
-      await page.locator('button').filter({ has: page.getByText(alternateTitle, { exact: true }) }).first().click();
+      await page
+        .locator('button')
+        .filter({ has: page.getByText(alternateTitle, { exact: true }) })
+        .first()
+        .click();
       await expect.poll(() => followUpLookupCount).toBe(1);
       expect(initialTitleLookupCount).toBe(1);
       expect(followUpLookupCount).toBe(1);
@@ -1095,21 +1347,22 @@ test.describe('library multi-format browser regressions', () => {
     const requestContext = await createAuthenticatedRequestContext(credentials);
     const batchId = Date.now();
     const searchPrefix = `Playwright Shift Range ${batchId}`;
-    const titles = [
-      `${searchPrefix} A`,
-      `${searchPrefix} B`,
-      `${searchPrefix} C`
-    ];
+    const titles = [`${searchPrefix} A`, `${searchPrefix} B`, `${searchPrefix} C`];
 
     await Promise.all(titles.map((title) => deleteMediaByExactTitle(requestContext, title).catch(() => {})));
 
     try {
       for (const title of titles) {
-        await postWithCsrf(requestContext, '/api/media', {
-          title,
-          media_type: 'movie',
-          owned_formats: ['digital']
-        }, 201);
+        await postWithCsrf(
+          requestContext,
+          '/api/media',
+          {
+            title,
+            media_type: 'movie',
+            owned_formats: ['digital']
+          },
+          201
+        );
       }
 
       const storageState = await requestContext.storageState();
@@ -1150,11 +1403,16 @@ test.describe('library multi-format browser regressions', () => {
 
     try {
       for (const title of titles) {
-        await postWithCsrf(requestContext, '/api/media', {
-          title,
-          media_type: 'movie',
-          owned_formats: ['digital']
-        }, 201);
+        await postWithCsrf(
+          requestContext,
+          '/api/media',
+          {
+            title,
+            media_type: 'movie',
+            owned_formats: ['digital']
+          },
+          201
+        );
       }
 
       const storageState = await requestContext.storageState();
@@ -1171,7 +1429,7 @@ test.describe('library multi-format browser regressions', () => {
 
       const selectPageButton = page.getByRole('button', { name: /^Select page \(\d+\)$/ });
       await expect(selectPageButton).toBeVisible();
-      const selectPageLabel = await selectPageButton.getAttribute('aria-label') || await selectPageButton.textContent();
+      const selectPageLabel = (await selectPageButton.getAttribute('aria-label')) || (await selectPageButton.textContent());
       const visibleCountMatch = String(selectPageLabel || '').match(/Select page \((\d+)\)/);
       const visibleCount = Number(visibleCountMatch?.[1] || 0);
       await selectPageButton.click();

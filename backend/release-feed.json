@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.29.1",
+      "version": "3.29.1",
+      "date": "2026-11-22",
+      "status": null,
+      "summary": "Makes Movies and Games heading counts authoritative and immediately consistent after deletion while preserving collection cards in their aggregate library views.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Aggregate Movies and Games counts now add the server-reported media total to the server-reported collection total instead of counting only collection rows loaded on the current page.",
+            "The heading count is withheld while its required media and collection result generations are unsettled, avoiding transient mixed-search totals.",
+            "Collection requests use sequencing so a slower response from an older search cannot overwrite the active result set or count.",
+            "Successful single deletion now updates media total, total pages, current page, and `hasMore` with the same shared pagination logic used by bulk deletion.",
+            "Server-backed Library pages clamp when deletion or filtering removes the final result from the last page.",
+            "Focused unit and browser coverage proves aggregate count composition, immediate deletion delta, reload persistence, stale-response rejection, and exact-title absence."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.29.0",
       "version": "3.29.0",
       "date": "2026-11-21",
@@ -184,28 +204,6 @@
             "Protect every new workspace-owned identity table with RLS from its first migration and route identity operations through authorized transactions.",
             "Add adapter-owned settings, credential, and external-id normalization contracts plus the `resolve`, `attach`, `listForMedia`, `deactivate`, and transactional `reassign` identity interface.",
             "Record the identity decision and rejected alternatives in `docs/adr/0001-canonical-object-and-provider-identity.md`."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.27.0",
-      "version": "3.27.0",
-      "date": "2026-11-07",
-      "status": null,
-      "summary": "Database workflows can now use one tested transaction executor for connection acquisition, isolation selection, commit, rollback, failed-rollback disposal, bounded retry, and sanitized diagnostics.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Add `executeTransaction(pool, work, options)` as the common database transaction interface.",
-            "Limit isolation selection to PostgreSQL `READ COMMITTED`, `REPEATABLE READ`, and `SERIALIZABLE` modes.",
-            "Keep retry disabled by default and permit at most two explicitly requested retries, only for serialization failures and deadlocks.",
-            "Discard connections after failed `BEGIN` or failed rollback so uncertain transaction state cannot return to the pool.",
-            "Emit optional timing/outcome diagnostics without SQL, parameters, error messages, or credentials; diagnostic sink failures cannot alter transaction results.",
-            "Rebuild authorized saved-view scoped transactions on the executor without moving authorization into the executor.",
-            "Adopt the interface for feature-flag default persistence as the first low-risk database-only workflow.",
-            "Add interface tests for success, work/query/commit failure, rollback failure, disposal, isolation, bounded retries, and diagnostic sanitization."
           ]
         }
       ]

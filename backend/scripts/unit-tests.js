@@ -4699,7 +4699,7 @@ results.push(run('LibraryView renders Kavita launch actions without treating the
 }));
 
 results.push(run('LibraryView renders compact lookup thumbnails for provider search matches', () => {
-  assert.ok(libraryViewSource.includes('const resolveLookupThumbnailPath = (match) => ('));
+  assert.match(libraryViewSource, /const resolveLookupThumbnailPath\s*=\s*\(match\)\s*=>/);
   assert.ok(libraryViewSource.includes("aria-label=\"Search result thumbnail\""));
   assert.ok(libraryViewSource.includes('const thumbnailSrc = posterUrl(resolveLookupThumbnailPath(m));'));
   assert.ok(libraryViewSource.includes("className=\"relative mt-0.5 h-16 w-11 shrink-0 overflow-hidden rounded-[4px] border border-edge/70 bg-panel\""));
@@ -4857,7 +4857,10 @@ results.push(run('drawer optional metadata primitives render compact rows with a
   assert.ok(!appPrimitivesSource.includes('Record COA, receipt, witnessed, or source details when evidence exists.'));
   assert.ok(!libraryViewSource.includes('Record when this title leaves the shelf and when it should come back.'));
   assert.ok(!drawerMetadataSource.includes('Link box sets, bundle pieces, companion records, or event-acquired items without duplicating records.'));
-  assert.ok(libraryViewSource.includes('const drawerMetadataRecords = showLoanFocusedView ? [] : buildObjectDrawerMetadataRecords({'));
+  assert.match(
+    libraryViewSource,
+    /const drawerMetadataRecords\s*=\s*showLoanFocusedView\s*\?\s*\[\]\s*:\s*buildObjectDrawerMetadataRecords\(\{/
+  );
   assert.ok(libraryViewSource.includes("ownerType: 'media'"));
   assert.ok(libraryViewSource.includes('includeEdition: true'));
   assert.ok(drawerMetadataSource.includes('id: DRAWER_METADATA_IDS.edition'));
