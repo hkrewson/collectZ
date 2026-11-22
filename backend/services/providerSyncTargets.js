@@ -1,6 +1,7 @@
 'use strict';
 
 const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
+const { createDurableJobStore } = require('./durableJobs');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -126,21 +127,55 @@ function createProviderSyncTargetStore({ pool } = {}) {
     });
   }
 
-  async function markEnqueued({ spaceId, actorId, targetId, at = new Date() } = {}) {
+  async function enqueueDue({ spaceId, actorId, targetId, providerType, at = new Date(), buildJob } = {}) {
     const normalizedTargetId = uuid(targetId, 'Provider sync target');
+    const normalizedProvider = String(providerType || '').trim().toLowerCase();
+    if (!/^[a-z][a-z0-9_-]{1,79}$/.test(normalizedProvider)) throw new TypeError('Provider type is invalid');
+    if (typeof buildJob !== 'function') throw new TypeError('Provider sync job builder is required');
     return scoped(spaceId, actorId, async (client) => {
-      const result = await client.query(
+      const targetResult = await client.query(
+        `SELECT t.*, l.name AS library_name, c.provider_type
+           FROM provider_sync_targets t
+           JOIN libraries l ON l.space_id = t.space_id AND l.id = t.library_id
+           JOIN provider_connections c ON c.space_id = t.space_id AND c.id = t.provider_connection_id
+          WHERE t.space_id = $1
+            AND t.id = $2
+            AND t.enabled = true
+            AND c.provider_type = $3
+            AND c.status = 'active'
+            AND (t.last_enqueued_at IS NULL OR t.last_enqueued_at + (t.interval_minutes * INTERVAL '1 minute') <= $4::timestamptz)
+          FOR UPDATE OF t`,
+        [spaceId, normalizedTargetId, normalizedProvider, at]
+      );
+      const targetRow = targetResult.rows[0];
+      if (!targetRow) return Object.freeze({ status: 'not_due', target: null, job: null });
+      const lockedTarget = shape(targetRow, { now: at });
+
+      const durableJob = await createDurableJobStore(client).enqueue({
+        ...buildJob(lockedTarget),
+        provider: normalizedProvider,
+        createdBy: actorId,
+        spaceId: Number(targetRow.space_id),
+        libraryId: Number(targetRow.library_id),
+        providerConnectionId: targetRow.provider_connection_id
+      });
+      const updated = await client.query(
         `UPDATE provider_sync_targets
             SET last_enqueued_at = $3, updated_by = $4
           WHERE space_id = $1 AND id = $2
           RETURNING *`,
         [spaceId, normalizedTargetId, at, actorId]
       );
-      return shape(result.rows[0]);
+      if (!updated.rows[0]) throw new Error('Provider sync target disappeared during atomic enqueue');
+      return Object.freeze({
+        status: durableJob.created ? 'enqueued' : 'reused',
+        target: shape({ ...updated.rows[0], library_name: targetRow.library_name, provider_type: targetRow.provider_type }, { now: at }),
+        job: durableJob
+      });
     });
   }
 
-  return Object.freeze({ list, configureSingle, listDue, markEnqueued });
+  return Object.freeze({ list, configureSingle, listDue, enqueueDue });
 }
 
 module.exports = { createProviderSyncTargetStore, intervalMinutes, shape };

@@ -507,6 +507,7 @@ const cwaAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../scri
 const cwaImportIdentitySource = fs.readFileSync(require.resolve('../services/cwaImportIdentity'), 'utf8');
 const bookOrbitAuthoritativeImportSmokeSource = fs.readFileSync(require.resolve('../scripts/bookorbit-authoritative-import-smoke'), 'utf8');
 const bookOrbitImportIdentitySource = fs.readFileSync(require.resolve('../services/bookOrbitImportIdentity'), 'utf8');
+const providerSyncTargetsSource = fs.readFileSync(require.resolve('../services/providerSyncTargets'), 'utf8');
 const kavitaImportIdentitySource = fs.readFileSync(require.resolve('../services/kavitaImportIdentity'), 'utf8');
 const plexAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-authoritative-sync-smoke'), 'utf8');
 const plexImportIdentitySource = fs.readFileSync(require.resolve('../services/plexImportIdentity'), 'utf8');
@@ -5549,6 +5550,10 @@ results.push(run('bookOrbit connection and import routes use the multi-instance 
   assert.ok(mediaRoutesSource.includes("jobType: 'bookorbit_sync'"));
   assert.ok(mediaRoutesSource.includes('startBookOrbitDurableWorker'));
   assert.ok(mediaRoutesSource.includes('runBookOrbitSyncSchedulerOnce'));
+  assert.ok(mediaRoutesSource.includes('enqueueScheduledBookOrbitTarget'));
+  assert.ok(providerSyncTargetsSource.includes('FOR UPDATE OF t'));
+  assert.ok(providerSyncTargetsSource.includes('createDurableJobStore(client).enqueue'));
+  assert.ok(!providerSyncTargetsSource.includes('markEnqueued'));
   assert.ok(mediaRoutesSource.includes("router.get('/bookorbit-cover/:connectionId/:bookId'"));
   assert.ok(mediaRoutesSource.includes("COALESCE(series_stats.series_memberships, '[]'::jsonb) AS series_memberships"));
   assert.ok(mediaRoutesSource.includes("external_id_normalized = $3"));
@@ -5558,6 +5563,8 @@ results.push(run('bookOrbit connection and import routes use the multi-instance 
   assert.ok(migrationsSource.includes('Add provider series records and media memberships'));
   assert.ok(initSqlSource.includes("(136, 'Add provider series records and media memberships')"));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('comicSeriesOrderingPreserved'));
+  assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('target_xid'));
+  assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('job_xid'));
 }));
 
 results.push(run('durable operator readback exposes only sanitized workspace-safe lifecycle fields', () => {

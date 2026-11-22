@@ -9,6 +9,7 @@ const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const { setCanonicalFieldControl } = require('../services/canonicalMediaFieldControls');
+const { createProviderSyncTargetStore } = require('../services/providerSyncTargets');
 const { createScopedSmokeUser } = require('./helpers/scopedSmokeUser');
 const mediaRouter = require('../routes/media');
 
@@ -436,6 +437,95 @@ async function main() {
     assert.equal(transitionedAudit?.provider_type_transition?.action, 'refresh');
     assert.equal(transitionedAudit?.provider_type_transition?.from, 'book');
     assert.equal(transitionedAudit?.provider_type_transition?.to, 'comic_book');
+    const atomicTargetStore = createProviderSyncTargetStore({ pool });
+    await assert.rejects(
+      atomicTargetStore.enqueueDue({
+        spaceId,
+        actorId: userId,
+        targetId: scheduledTarget.target.id,
+        providerType: 'bookorbit',
+        buildJob: () => ({})
+      }),
+      /jobType must use a stable lowercase identifier/
+    );
+    const failedEnqueueState = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+      const targetState = await db.query(
+        'SELECT last_enqueued_at FROM provider_sync_targets WHERE space_id = $1 AND id = $2',
+        [spaceId, scheduledTarget.target.id]
+      );
+      const jobState = await db.query(
+        `SELECT COUNT(*)::int AS count FROM sync_jobs
+          WHERE space_id = $1 AND provider_connection_id = $2 AND job_type = 'bookorbit_sync'`,
+        [spaceId, firstConnectionId]
+      );
+      return { target: targetState.rows[0], jobCount: Number(jobState.rows[0]?.count || 0) };
+    });
+    assert.equal(failedEnqueueState.target?.last_enqueued_at, null);
+    assert.equal(failedEnqueueState.jobCount, 0);
+
+    const atomicProbeKey = `bookorbit-sync:atomic-smoke:${crypto.randomUUID()}`;
+    const atomicProbe = await atomicTargetStore.enqueueDue({
+      spaceId,
+      actorId: userId,
+      targetId: scheduledTarget.target.id,
+      providerType: 'bookorbit',
+      buildJob: () => ({
+        jobType: 'bookorbit_sync',
+        maxAttempts: 3,
+        idempotencyKey: atomicProbeKey,
+        availableAt: new Date(Date.now() + 60 * 60 * 1000),
+        targetRef: { reason: 'atomic_smoke' },
+        progress: { total: 0, processed: 0 }
+      })
+    });
+    assert.equal(atomicProbe.status, 'enqueued');
+    const atomicWriteState = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+      const result = await db.query(
+        `SELECT t.xmin::text AS target_xid, j.xmin::text AS job_xid
+           FROM provider_sync_targets t
+           JOIN sync_jobs j ON j.id = $3
+          WHERE t.space_id = $1 AND t.id = $2`,
+        [spaceId, scheduledTarget.target.id, atomicProbe.job.id]
+      );
+      await db.query('DELETE FROM sync_jobs WHERE id = $1', [atomicProbe.job.id]);
+      await db.query(
+        'UPDATE provider_sync_targets SET last_enqueued_at = NULL WHERE space_id = $1 AND id = $2',
+        [spaceId, scheduledTarget.target.id]
+      );
+      return result.rows[0];
+    });
+    assert.equal(atomicWriteState?.target_xid, atomicWriteState?.job_xid);
+    const concurrentAt = new Date();
+    const concurrentKey = `bookorbit-sync:concurrent-smoke:${crypto.randomUUID()}`;
+    const concurrentSpec = {
+      spaceId,
+      actorId: userId,
+      targetId: scheduledTarget.target.id,
+      providerType: 'bookorbit',
+      at: concurrentAt,
+      buildJob: () => ({
+        jobType: 'bookorbit_sync',
+        maxAttempts: 3,
+        idempotencyKey: concurrentKey,
+        availableAt: new Date(Date.now() + 60 * 60 * 1000),
+        targetRef: { reason: 'concurrent_smoke' },
+        progress: { total: 0, processed: 0 }
+      })
+    };
+    const concurrentResults = await Promise.all([
+      atomicTargetStore.enqueueDue(concurrentSpec),
+      atomicTargetStore.enqueueDue(concurrentSpec)
+    ]);
+    assert.deepEqual(concurrentResults.map((result) => result.status).sort(), ['enqueued', 'not_due']);
+    await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+      const jobs = await db.query('SELECT id FROM sync_jobs WHERE space_id = $1 AND idempotency_key = $2', [spaceId, concurrentKey]);
+      assert.equal(jobs.rowCount, 1);
+      await db.query('DELETE FROM sync_jobs WHERE id = $1', [jobs.rows[0].id]);
+      await db.query(
+        'UPDATE provider_sync_targets SET last_enqueued_at = NULL WHERE space_id = $1 AND id = $2',
+        [spaceId, scheduledTarget.target.id]
+      );
+    });
     const scheduled = await mediaRouter.runBookOrbitSyncSchedulerOnce({ spaceId });
     assert.equal(scheduled.targetCount, 1);
     assert.equal(scheduled.jobsQueued, 1);
@@ -603,6 +693,7 @@ async function main() {
       typeTransition: 'book-to-comic-same-canonical',
       durableScheduledSync: 'one-leased-attempt',
       stableRelationalSyncTarget: true,
+      atomicScheduledEnqueue: 'rollback-shared-transaction-and-concurrency-proven',
       scheduledCadenceDeduplicated: true,
       comicSeriesOrderingPreserved: true,
       nativeMetadataEnrichment: 'provider-ids-preserved',

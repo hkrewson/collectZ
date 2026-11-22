@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.29.2",
+      "version": "3.29.2",
+      "date": "2026-11-22",
+      "status": null,
+      "summary": "Makes scheduled BookOrbit target advancement and durable job creation one atomic workspace-authorized operation.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Scheduled provider enqueue now locks and rechecks the due target inside the owning transaction.",
+            "The same transaction creates or reuses the durable job and advances the target's `last_enqueued_at` timestamp.",
+            "Workspace, library, provider connection, provider type, and actor ownership are derived from the locked target and authorized scheduler context rather than copied from the caller.",
+            "A concurrent or repeated sweep sees the target as no longer due after the first committed enqueue and cannot create a second job for the cadence window.",
+            "The BookOrbit authoritative import smoke proves failed-enqueue rollback, same-transaction writes, concurrent-sweep exclusion, successful worker processing, cadence reuse, and secret-free payloads."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.29.1",
       "version": "3.29.1",
       "date": "2026-11-22",
@@ -182,28 +201,6 @@
             "Updated Nodemailer from `10.2.1` to `10.3.1` and AWS SDK S3 from `3.1156.0` to `3.1162.0`.",
             "Updated frontend esbuild from `0.28.1` to `0.28.2` without changing Vite, Vitest, React, Tailwind, or ZXing.",
             "Kept the existing security overrides until the installed graph proves they are no longer required."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.27.1",
-      "version": "3.27.1",
-      "date": "2026-11-08",
-      "status": null,
-      "summary": "Canonical media objects now have immutable collectZ UUIDs, while provider identifiers live in a separate, workspace-safe registry scoped to stable provider connections.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Add a collectZ-generated `media.public_id` UUID without replacing the existing numeric primary key or internal foreign keys.",
-            "Add multi-instance `provider_connections` with stable UUID identity, explicit active/disabled/archived lifecycle, validated provider settings, and separately stored encrypted credential payloads.",
-            "Add provider-connection-scoped external media identities with raw and normalized values, concrete canonical media targets, first/last-seen timestamps, safe source URLs, active/deactivated history, and append-only lifecycle events.",
-            "Enforce active identity uniqueness by workspace, provider connection, identity kind, and normalized external id, allowing two installations of the same provider to use the same local id safely.",
-            "Add database-enforced workspace consistency between media and libraries and between external identities, provider connections, and media targets.",
-            "Protect every new workspace-owned identity table with RLS from its first migration and route identity operations through authorized transactions.",
-            "Add adapter-owned settings, credential, and external-id normalization contracts plus the `resolve`, `attach`, `listForMedia`, `deactivate`, and transactional `reassign` identity interface.",
-            "Record the identity decision and rejected alternatives in `docs/adr/0001-canonical-object-and-provider-identity.md`."
           ]
         }
       ]

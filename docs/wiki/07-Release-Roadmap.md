@@ -4,14 +4,50 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` migration-chain authority milestone are complete. `3.29.1` is the active Library aggregate-count and delete-state consistency milestone.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` migration-chain authority milestone are complete. `3.29.2` is the active atomic provider-schedule enqueue milestone.
 
 ---
+
+## 3.29.2 — Atomic Provider Schedule Enqueue
+
+**Goal:** Make scheduled provider target advancement and durable job creation one atomic workspace-authorized operation so a crash, concurrent scheduler sweep, or enqueue failure cannot leave cadence state and queued work inconsistent.
+**Status:** Complete locally as a release candidate. Implementation, version alignment, release-note/feed generation, canonical runtime verification, and database-backed atomic enqueue coverage are complete; hosted certification requires an authorized push.
+
+### Selected scope
+
+- Adopt the existing `sync_jobs` durable queue as the transactional enqueue record rather than adding another broker or outbox table.
+- Add one provider-target module interface that locks and rechecks the due target, creates or reuses its idempotent job, and advances `last_enqueued_at` in the same authorized database transaction.
+- Make target ownership authoritative for the job workspace, library, provider connection, provider type, and actor instead of accepting those fields from scheduler call sites.
+- Migrate the scheduled BookOrbit workflow to the atomic interface while leaving manual BookOrbit enqueue behavior unchanged.
+- Preserve current sanitized scheduler summaries and idempotent cadence behavior.
+- Add database-backed evidence for rollback on enqueue failure, same-transaction job/target writes, normal processing, and cadence reuse.
+
+### Acceptance criteria
+
+- A failed job insert leaves `provider_sync_targets.last_enqueued_at` unchanged and creates no durable job.
+- A successful scheduled enqueue writes the target advancement and durable job in the same PostgreSQL transaction.
+- Concurrent or repeated sweeps cannot create duplicate jobs or advance the target twice for one due cadence window.
+- The created job derives its workspace, library, connection, provider, and actor ownership from the locked target and authorized scheduler actor.
+- Existing scheduled BookOrbit processing still reaches a successful terminal job and retains secret-free target payloads and summaries.
+- The canonical stack, BookOrbit authoritative import smoke, backend unit suite, and release checks pass without a new schema object or migration.
+
+### 3.29.2 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.29.2 — Atomic Provider Schedule Enqueue`, locked due-state recheck, same-transaction durable enqueue/target advancement, scheduled BookOrbit adoption, and version closeout.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, and `docs/releases/v3.29.2.md`.
+- **Verified facts:** `providerSyncTargets.enqueueDue` now locks and rechecks one active due target, derives durable-job ownership from that row and the authorized actor, creates or reuses the job through the existing durable-job store, and advances `last_enqueued_at` before the same transaction commits. Scheduled BookOrbit uses this interface; manual enqueue remains unchanged. No route shape, schema object, migration, or retained-data contract changed.
+- **Runtime verification used:** Backend and frontend were rebuilt and recreated in place in the canonical `collectz-private` stack on port `3201`. Health reports application, frontend, backend, and build version `3.29.2`; authenticated Help > Releases readback serves `3.29.2` first. The in-container BookOrbit authoritative import smoke proved failed-enqueue rollback, matching PostgreSQL transaction IDs for the target and job writes, concurrent sweep exclusion with exactly one job, successful worker settlement, cadence reuse, and credential-free persisted payloads.
+- **CI/checks run:** JavaScript syntax checks; backend unit/source suite locally and in the production image (`388` assertions plus `57` Node tests); frontend unit tests (`7/7`); OpenAPI locally and in the production image; frontend production build; package/app version sync; release-note/feed validation; local CI prepare; changed-file frontend quality; backend/frontend production dependency audits with zero blocking vulnerabilities; diff hygiene; canonical health and Help > Releases; and the BookOrbit authoritative import smoke. The standard local release gate passed `13/14`; only the separately authorized stale observability artifact failed release preflight.
+- **Files changed:** Provider sync target atomic enqueue module; scheduled BookOrbit route adoption; database-backed smoke and source-contract coverage; roadmap/backlog promotion; synchronized `3.29.2` metadata; release note/feed; and refreshed local preflight evidence.
+- **Blocked/unverified:** `artifacts/observability-evidence/observability-release-evidence.json` remains stale and requires separately authorized logging stacks and volumes. The canonical development stack intentionally uses non-secure local cookie settings, so CI-shaped secure-cookie Compose proof remains hosted. The full local release profile is not run because its Core runtime path creates a parallel Compose project, prohibited by repository policy. Local gitleaks, CodeQL, Trivy/SBOM, Core RBAC/browser/runtime, publication, release preflight, and auto-tag require hosted confirmation after an authorized push.
+- **Risks or follow-ups:** Other mutation-plus-enqueue workflows remain backlog work and should use a separate outbox table only when their owning transaction cannot insert the durable job directly. The generic atomic interface is currently adopted by one scheduled provider workflow; broader standardization still requires another materially different adopter.
+- **What remains in the milestone:** Push only with user authorization, then confirm the complete hosted gate set, image publication, and annotated `v3.29.2` creation from `main`.
+- **Recommended commit message:** `Release 3.29.2 with atomic provider schedule enqueue`.
 
 ## 3.29.1 — Library Aggregate Count and Delete-State Consistency
 
 **Goal:** Make Movies and Games heading counts deterministic and immediately consistent with successful single-item deletion while preserving collection cards in the aggregate library views.
-**Status:** Complete locally as a release candidate. Implementation, version alignment, release-note/feed generation, canonical runtime verification, and focused browser coverage are complete; hosted certification requires an authorized push.
+**Status:** Complete. Build and Publish Images run `45038873981` and CodeQL run `45038873960` passed for closeout commit `0fb23743`; annotated tag `v3.29.1` points to that commit.
 
 ### Selected scope
 
@@ -40,9 +76,10 @@ The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, a
 - **Runtime verification used:** Backend and frontend were rebuilt and recreated in place in the canonical `collectz-private` stack on port `3201`. Health reports application, frontend, backend, and build version `3.29.1`; authenticated Help > Releases readback serves `3.29.1` first; in-container OpenAPI and backend source/unit coverage pass. The full Library multi-format browser spec passed `19/19` against the canonical stack, including a real collection/title fixture that proved count `2 -> 1`, reload persistence, rejection of an older delayed collection response, and exact-title absence after deletion.
 - **CI/checks run:** Frontend unit tests (`7/7`); changed-path ESLint and Prettier with zero findings; production frontend build; backend unit/source suite locally and in the production image (`388` assertions plus `57` Node tests); OpenAPI; package/app version sync; release-note/feed validation; local CI prepare; backend/frontend production dependency audits with zero blocking vulnerabilities; diff hygiene; canonical health and Help > Releases readback; focused browser regression and the complete Library multi-format browser spec (`19/19`). The standard local release gate passed `13/14`; only the pre-existing stale observability artifact failed release preflight.
 - **Files changed:** Shared Library pagination/count helpers and unit coverage; Library result-generation, aggregate-count, page-clamp, and accessible delete-button behavior; media hook single/bulk deletion pagination; focused browser regression; resilient source-contract assertions after required formatting; mechanically formatted touched legacy frontend/browser files to satisfy the current changed-file gate; roadmap/backlog promotion; synchronized `3.29.1` metadata; release note/feed; and refreshed local preflight evidence.
-- **Blocked/unverified:** `artifacts/observability-evidence/observability-release-evidence.json` still certifies `3.28.2`; regenerating it creates and resets separate logging stacks and volumes and requires explicit authorization under repository policy. Local CodeQL remains blocked by its CLI/query-pack compatibility issue; local gitleaks and Trivy/SBOM are unavailable; and Core runtime/browser/RBAC smoke may not create a parallel local project. Hosted migration-check, compose smoke, Core RBAC/browser/runtime, dependency scan, secret scan, image security/SBOM, release preflight, CodeQL, publication, and auto-tag must certify the closeout commit after an authorized push. The existing control-plane runtime authority evidence remains valid at migration `144`; this frontend-only slice does not change that contract.
-- **Risks or follow-ups:** Whole-file formatting of the touched legacy frontend and browser files creates a larger textual diff, so the complete Library browser suite and hosted source/browser gates are required confirmation. The badge intentionally disappears while sources are unsettled instead of displaying a stale partial total.
-- **What remains in the milestone:** Push only with user authorization, then confirm the complete hosted gate set, image publication, and annotated `v3.29.1` creation from `main`. Refresh observability evidence only if the user separately authorizes its additional logging stacks and volumes.
+- **Hosted certification:** Build and Publish Images run `45038873981` passed prepare, migration check, frontend quality, dependency and secret scans, Compose smoke, Core RBAC/browser/runtime regressions, backend/frontend image publication, image security/SBOM, release preflight, and auto-tag. CodeQL run `45038873960` passed. Annotated tag `v3.29.1` resolves to closeout commit `0fb23743`.
+- **Blocked/unverified:** No tagged-CI release gate remains blocked. `artifacts/observability-evidence/observability-release-evidence.json` still certifies `3.28.2`; its local generator creates and resets separate logging stacks and volumes and remains a separately authorized rehearsal rather than a tagged-CI gate.
+- **Risks or follow-ups:** The badge intentionally disappears while sources are unsettled instead of displaying a stale partial total. Whole-file formatting of the touched legacy frontend and browser files produced a larger textual diff, now covered by successful hosted frontend-quality and Core browser gates.
+- **What remains in the milestone:** Nothing. Hosted certification, image publication, release preflight, CodeQL, and annotated `v3.29.1` creation completed from `main`.
 - **Recommended commit message:** `Release 3.29.1 with authoritative Library counts and deletion consistency`.
 
 ## 3.29.0 — Migration-Chain Fresh Installation Authority

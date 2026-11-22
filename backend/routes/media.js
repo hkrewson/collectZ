@@ -14296,6 +14296,32 @@ async function enqueueBookOrbitDurableJob({
   });
 }
 
+async function enqueueScheduledBookOrbitTarget({ actorId, spaceId, target, at = new Date() }) {
+  return providerSyncTargets.enqueueDue({
+    spaceId,
+    actorId,
+    targetId: target.id,
+    providerType: 'bookorbit',
+    at,
+    buildJob: (lockedTarget) => ({
+      jobType: 'bookorbit_sync',
+      maxAttempts: 3,
+      idempotencyKey: bookOrbitIdempotencyKey({
+        reason: 'scheduled',
+        targetId: lockedTarget.id,
+        intervalMinutes: lockedTarget.intervalMinutes
+      }),
+      targetRef: {
+        maxPages: null,
+        valuationMode: 'live',
+        reason: 'scheduled',
+        targetId: lockedTarget.id
+      },
+      progress: bookOrbitJobProgress()
+    })
+  });
+}
+
 async function executeBookOrbitDurableJob(job, context) {
   const actor = await loadPlexReconciliationJobActor(job);
   if (!actor) {
@@ -14376,21 +14402,13 @@ async function runBookOrbitSyncSchedulerOnce({ reason = 'scheduled', spaceId: re
     for (const target of targets) {
       summary.targetCount += 1;
       try {
-        const job = await enqueueBookOrbitDurableJob({
+        const enqueueResult = await enqueueScheduledBookOrbitTarget({
           actorId: actor.id,
-          scopeContext: { spaceId, libraryId: target.libraryId },
-          connectionId: target.providerConnectionId,
-          reason: 'scheduled',
-          targetId: target.id,
-          intervalMinutes: target.intervalMinutes
-        });
-        if (job.created) summary.jobsQueued += 1;
-        else summary.jobsReused += 1;
-        await providerSyncTargets.markEnqueued({
           spaceId,
-          actorId: actor.id,
-          targetId: target.id
+          target
         });
+        if (enqueueResult.status === 'enqueued') summary.jobsQueued += 1;
+        if (enqueueResult.status === 'reused') summary.jobsReused += 1;
       } catch (error) {
         summary.errors += 1;
         logError('BookOrbit scheduled sync enqueue failed', error);
@@ -17148,6 +17166,7 @@ router.startBookOrbitDurableWorker = startBookOrbitDurableWorker;
 router.startValuationRefreshDurableWorker = startValuationRefreshDurableWorker;
 router.startBookOrbitSyncScheduler = startBookOrbitSyncScheduler;
 router.runBookOrbitSyncSchedulerOnce = runBookOrbitSyncSchedulerOnce;
+router.enqueueScheduledBookOrbitTarget = enqueueScheduledBookOrbitTarget;
 router.getBookOrbitSyncSchedulerState = () => ({ ...bookOrbitSyncSchedulerState });
 router.startPlexReconciliationDurableWorker = startPlexReconciliationDurableWorker;
 router.runPlexReconciliationDurableWorkerOnce = async () => {
