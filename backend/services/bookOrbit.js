@@ -170,6 +170,18 @@ function normalizeBookOrbitProviderIds(value) {
   }).filter(([, externalId]) => externalId));
 }
 
+function normalizeBookOrbitMetadataSource(value, providerIdsValue) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const rawProvider = boundedText(source.provider, 80);
+  const provider = BOOKORBIT_NATIVE_PROVIDER_KEYS.find(
+    (candidate) => candidate.toLowerCase() === String(rawProvider || '').toLowerCase()
+  ) || null;
+  const providerItemId = boundedText(source.providerItemId, 512);
+  const providerIds = normalizeBookOrbitProviderIds(providerIdsValue);
+  if (!provider || !providerItemId || providerIds[provider] !== providerItemId) return null;
+  return Object.freeze({ provider, providerItemId });
+}
+
 function normalizeBookOrbitSeriesMemberships(detail = {}) {
   const comic = detail.comicMetadata && typeof detail.comicMetadata === 'object'
     ? detail.comicMetadata
@@ -238,6 +250,7 @@ function mergeBookOrbitNativeDetail(row = {}, detail = {}, options = {}) {
     ? buildBookOrbitCoverProxyPath(options.connectionId, detailId, cover.version)
     : null;
   const providerIds = normalizeBookOrbitProviderIds(detail.providerIds);
+  const metadataSource = normalizeBookOrbitMetadataSource(detail.metadataSource, detail.providerIds);
   const comic = detail.comicMetadata && typeof detail.comicMetadata === 'object'
     ? detail.comicMetadata
     : {};
@@ -266,6 +279,8 @@ function mergeBookOrbitNativeDetail(row = {}, detail = {}, options = {}) {
       bookorbit_story_arcs: joinedText(comic.storyArcs),
       bookorbit_book_id: String(detailId),
       bookorbit_native_metadata: 'available',
+      bookorbit_metadata_source_provider: metadataSource?.provider || null,
+      bookorbit_metadata_source_item_id: metadataSource?.providerItemId || null,
       bookorbit_cover_version: cover?.version || null,
       bookorbit_cover_source: cover?.source || null,
       bookorbit_cover_updated_at: cover?.updatedAt || null,
@@ -422,6 +437,7 @@ async function enrichBookOrbitRowsWithNativeMetadata(rows = [], config = {}, opt
     enriched: 0,
     fallback: 0,
     providerIdentifierRows: 0,
+    metadataSourceRows: 0,
     membershipRows: 0,
     coverRows: 0
   };
@@ -444,6 +460,9 @@ async function enrichBookOrbitRowsWithNativeMetadata(rows = [], config = {}, opt
         if (result.rows[index].poster_path?.startsWith('/api/media/bookorbit-cover/')) result.coverRows += 1;
         if (Object.keys(normalizeBookOrbitProviderIds(detail.providerIds)).length > 0) {
           result.providerIdentifierRows += 1;
+        }
+        if (normalizeBookOrbitMetadataSource(detail.metadataSource, detail.providerIds)) {
+          result.metadataSourceRows += 1;
         }
       } catch {
         result.fallback += 1;
@@ -484,6 +503,7 @@ module.exports = {
   bookOrbitBookId,
   normalizeBookOrbitEntry,
   normalizeBookOrbitProviderIds,
+  normalizeBookOrbitMetadataSource,
   normalizeBookOrbitSeriesMemberships,
   normalizeBookOrbitCover,
   mergeBookOrbitNativeDetail,

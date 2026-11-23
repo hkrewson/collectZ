@@ -999,8 +999,29 @@ function MediaDetail({
     const facts = observation?.facts && typeof observation.facts === 'object' ? observation.facts : {};
     const identity = facts.identity && typeof facts.identity === 'object' ? facts.identity : {};
     const identifiers = facts.providerIdentifiers && typeof facts.providerIdentifiers === 'object' ? facts.providerIdentifiers : {};
+    const metadataSource = facts.metadataSource && typeof facts.metadataSource === 'object' ? facts.metadataSource : {};
     const kavita = facts.kavita && typeof facts.kavita === 'object' ? facts.kavita : {};
+    const metadataProviderLabels = {
+      amazon: 'Amazon',
+      audible: 'Audible',
+      comicvine: 'ComicVine',
+      goodreads: 'Goodreads',
+      google: 'Google',
+      hardcover: 'Hardcover',
+      itunes: 'iTunes',
+      kobo: 'Kobo',
+      librofm: 'Libro.fm',
+      lubimyczytac: 'Lubimyczytac',
+      openLibrary: 'Open Library',
+      ranobedb: 'RanobeDB',
+      aladin: 'Aladin'
+    };
+    const metadataProvider = String(metadataSource.provider || '').trim();
+    const metadataProviderItemId = String(metadataSource.providerItemId || '').trim();
     const values = [
+      metadataProvider && metadataProviderItemId
+        ? `Metadata source: ${metadataProviderLabels[metadataProvider] || metadataProvider} #${metadataProviderItemId}`
+        : null,
       identity.externalId ? `Provider ID ${identity.externalId}` : null,
       kavita?.series?.name ? `Series ${kavita.series.name}` : null,
       kavita?.chapter?.number ? `Chapter ${kavita.chapter.number}` : null,

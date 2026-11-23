@@ -99,6 +99,7 @@ async function main() {
           { seriesId: 421, seriesName: 'Foundation Crossover', seriesIndex: '1', displayOrder: 1, expectedBookCount: 2 }
         ],
         providerIds: { comicvine: '90042', goodreads: '80042' },
+        metadataSource: { provider: 'comicvine', providerItemId: '90042' },
         comicMetadata: { issueNumber: '2', volumeName: 'Volume One', pencillers: ['Native Artist'] },
         coverMedia: ['ebook'],
         coverSource: 'custom',
@@ -217,10 +218,13 @@ async function main() {
     assert.equal(native.enriched, 1);
     assert.equal(native.fallback, 1);
     assert.equal(native.providerIdentifierRows, 1);
+    assert.equal(native.metadataSourceRows, 1);
     assert.equal(native.membershipRows, 2);
     assert.equal(native.coverRows, 1);
     assert.equal(native.rows[0].type_details.bookorbit_book_id, '42');
     assert.equal(native.rows[0].type_details.bookorbit_comicvine_id, '90042');
+    assert.equal(native.rows[0].type_details.bookorbit_metadata_source_provider, 'comicvine');
+    assert.equal(native.rows[0].type_details.bookorbit_metadata_source_item_id, '90042');
     assert.equal(native.rows[0].type_details.provider_name, 'bookorbit');
     assert.equal(native.rows[0].bookorbit_series_memberships.length, 2);
     assert.equal(native.rows[0].bookorbit_series_memberships[1].providerSeriesId, '421');

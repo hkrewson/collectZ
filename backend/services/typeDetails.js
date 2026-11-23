@@ -1,6 +1,8 @@
 const BOOKORBIT_NATIVE_TYPE_DETAIL_KEYS = [
   'bookorbit_book_id',
   'bookorbit_native_metadata',
+  'bookorbit_metadata_source_provider',
+  'bookorbit_metadata_source_item_id',
   'bookorbit_google_id',
   'bookorbit_goodreads_id',
   'bookorbit_amazon_id',

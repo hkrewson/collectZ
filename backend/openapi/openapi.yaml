@@ -1205,7 +1205,11 @@
           "sourceKind": { "type": "string" },
           "schemaVersion": { "type": "integer", "minimum": 1 },
           "fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-          "facts": { "type": "object", "additionalProperties": true },
+          "facts": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Provider-specific normalized facts. BookOrbit native observations may include metadataSource.provider and metadataSource.providerItemId only when BookOrbit explicitly reports a pair consistent with providerIdentifiers."
+          },
           "sourceUpdatedAt": { "type": ["string", "null"], "format": "date-time" },
           "observedAt": { "type": "string", "format": "date-time" }
         },

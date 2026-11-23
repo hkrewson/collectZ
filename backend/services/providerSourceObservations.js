@@ -309,6 +309,11 @@ function buildBookOrbitSourceObservation(item = {}) {
           : Number(membership.expectedItemCount)
       }))
     : [];
+  const metadataSourceProvider = optionalFact(details.bookorbit_metadata_source_provider);
+  const metadataSourceItemId = optionalFact(details.bookorbit_metadata_source_item_id);
+  const metadataSource = metadataSourceProvider && metadataSourceItemId
+    ? { provider: metadataSourceProvider, providerItemId: metadataSourceItemId }
+    : null;
   return Object.freeze({
     sourceKind: native ? 'bookorbit_native' : 'bookorbit_opds',
     sourceUpdatedAt: details.source_updated_at || null,
@@ -331,6 +336,7 @@ function buildBookOrbitSourceObservation(item = {}) {
         issueNumber: optionalFact(details.issue_number)
       },
       providerIdentifiers: providerIds,
+      metadataSource,
       seriesMemberships: memberships,
       cover: {
         version: optionalFact(details.bookorbit_cover_version),

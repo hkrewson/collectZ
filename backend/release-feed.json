@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.29.6",
+      "version": "3.29.6",
+      "date": "2026-11-23",
+      "status": null,
+      "summary": "Preserves the upstream metadata provider explicitly selected by BookOrbit, together with that provider's record id, without guessing from the other identifiers BookOrbit knows about.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added an optional BookOrbit native response contract at `metadataSource.provider` and `metadataSource.providerItemId`.",
+            "Accepts attribution only when both values are present, the provider is supported, and the selected id exactly matches the provider's entry in `providerIds`.",
+            "Keeps native metadata enrichment compatible when attribution is missing or inconsistent while refusing to claim a selected provider.",
+            "Preserves verified attribution in BookOrbit compatibility fields and immutable provider-observation facts.",
+            "Shows the selected metadata source separately from BookOrbit's complete provider-identifier list in Library Provider history.",
+            "Extended BookOrbit unit, transport, authoritative import, API contract, and browser coverage."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.29.5",
       "version": "3.29.5",
       "date": "2026-11-22",
@@ -179,27 +199,6 @@
             "Preserved BookOrbit OPDS series names and ordering, stable provider identity, acquisition and cover links, and lossless provider-owned book/comic classification changes without fabricating issue numbers.",
             "Added provider-neutral operator APIs and integration panels for recent job state, attempt counts, next eligibility, safe failure summaries, cadence status, and cooperative cancellation.",
             "Added canonical database, provider, ownership, migration, runtime-role, external-identity, RBAC, browser, and runtime-contract evidence for the durable lifecycle and its first two materially different adopters."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.27.5",
-      "version": "3.27.5",
-      "date": "2026-11-11",
-      "status": null,
-      "summary": "Moves Kavita series and chapter imports onto the authoritative Provider Connection and External Identity model, certifies historical CWA/Calibre and Kavita identity adoption, and introduces one deliberately small identity-payload contract shared by BookOrbit, CWA, and Kavita without flattening their provider-specific behavior.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a stable workspace binding for the existing Kavita configuration and retained its encrypted configuration as the compatibility source while migration evidence is gathered.",
-            "Reconciled Kavita series and chapter rows by workspace, Provider Connection, Identity Kind, and normalized numeric record id while keeping existing `kavita:series:{id}` and `kavita:chapter:{id}` compatibility values readable.",
-            "Preserved Kavita library, series, issue, volume/chapter, cover, launch, reader, progress, metadata-writeback, and Canonical Field precedence behavior through authoritative identity adoption.",
-            "Made historical CWA and Kavita adoption prefer their explicit integration binding when multiple same-provider connections exist; missing, inactive, conflicting, or ambiguous ownership remains unchanged for review.",
-            "Added rollback-only live-database certification for exact CWA book and Kavita series/chapter adoption, redacted diagnostics, idempotent reruns, ambiguity refusal, and retained-state restoration.",
-            "Extracted a two-operation digital-library identity-payload module used by BookOrbit, CWA, and Kavita for allowlisted Canonical Field construction and exact Compatibility Projection construction.",
-            "Documented intentional differences in provider identity syntax, connection models, link/cover handling, credential sources, BookOrbit type transitions, and Kavita reader/writeback behavior."
           ]
         }
       ]

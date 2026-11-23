@@ -47,6 +47,7 @@ const {
   buildBookOrbitEndpoint,
   bookOrbitBookId,
   normalizeBookOrbitEntry,
+  normalizeBookOrbitMetadataSource,
   mergeBookOrbitNativeDetail,
   prepareBookOrbitImportRows
 } = require('../services/bookOrbit');
@@ -5513,6 +5514,7 @@ results.push(run('bookOrbit native metadata preserves canonical identity and pro
       { seriesId: 263, seriesName: 'Groo Crossover', seriesIndex: '1', displayOrder: 1, expectedBookCount: 2 }
     ],
     providerIds: { comicvine: 315507, goodreads: '123777928' },
+    metadataSource: { provider: 'ComicVine', providerItemId: '315507' },
     comicMetadata: {
       issueNumber: '3',
       pencillers: ['Sergio Aragonés'],
@@ -5529,6 +5531,8 @@ results.push(run('bookOrbit native metadata preserves canonical identity and pro
   assert.equal(merged.type_details.bookorbit_book_id, '1264');
   assert.equal(merged.type_details.bookorbit_comicvine_id, '315507');
   assert.equal(merged.type_details.bookorbit_goodreads_id, '123777928');
+  assert.equal(merged.type_details.bookorbit_metadata_source_provider, 'comicvine');
+  assert.equal(merged.type_details.bookorbit_metadata_source_item_id, '315507');
   assert.equal(merged.type_details.issue_number, '3');
   assert.equal(merged.type_details.artist, 'Sergio Aragonés');
   assert.equal(merged.type_details.bookorbit_story_arcs, 'Death & Taxes');
@@ -5537,6 +5541,30 @@ results.push(run('bookOrbit native metadata preserves canonical identity and pro
   assert.equal(merged.bookorbit_series_memberships[0].expectedItemCount, 4);
   assert.match(merged.poster_path, /^\/api\/media\/bookorbit-cover\//);
   assert.equal(merged.type_details.bookorbit_cover_width, '986');
+  assert.deepStrictEqual(
+    normalizeBookOrbitMetadataSource(
+      { provider: 'comicvine', providerItemId: '315507' },
+      { comicvine: '315507' }
+    ),
+    { provider: 'comicvine', providerItemId: '315507' }
+  );
+  assert.equal(normalizeBookOrbitMetadataSource(null, { comicvine: '315507' }), null);
+  assert.equal(
+    normalizeBookOrbitMetadataSource(
+      { provider: 'comicvine', providerItemId: 'wrong-record' },
+      { comicvine: '315507' }
+    ),
+    null
+  );
+  const identifiersOnly = mergeBookOrbitNativeDetail({
+    type_details: { provider_item_id: 'urn:bookorbit:book:1264' }
+  }, {
+    id: 1264,
+    providerIds: { comicvine: '315507' }
+  });
+  assert.equal(identifiersOnly.type_details.bookorbit_comicvine_id, '315507');
+  assert.equal(identifiersOnly.type_details.bookorbit_metadata_source_provider, null);
+  assert.equal(identifiersOnly.type_details.bookorbit_metadata_source_item_id, null);
   assert.throws(
     () => mergeBookOrbitNativeDetail({ type_details: { provider_item_id: 'urn:bookorbit:book:1264' } }, { id: 1277 }),
     { code: 'BOOKORBIT_NATIVE_IDENTITY_MISMATCH' }
@@ -5760,11 +5788,17 @@ results.push(run('provider source observations are immutable, sanitized, and mig
       provider_item_id: 'urn:bookorbit:book:43',
       source_updated_at: '2026-11-13T00:43:41.757Z',
       bookorbit_native_metadata: 'available',
-      bookorbit_comicvine_id: '315507'
+      bookorbit_comicvine_id: '315507',
+      bookorbit_metadata_source_provider: 'comicvine',
+      bookorbit_metadata_source_item_id: '315507'
     }
   });
   assert.strictEqual(bookOrbitObservation.sourceKind, 'bookorbit_native');
   assert.strictEqual(bookOrbitObservation.facts.providerIdentifiers.comicvine, '315507');
+  assert.deepStrictEqual(bookOrbitObservation.facts.metadataSource, {
+    provider: 'comicvine',
+    providerItemId: '315507'
+  });
   const kavitaObservation = buildKavitaSourceObservation({
     title: 'Observed Kavita Issue',
     media_type: 'comic_book',
@@ -5831,8 +5865,11 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   assert.ok(openApiSource.includes('"/api/media/{id}/provider-observations"'));
   assert.ok(libraryViewSource.includes("`/media/${item.id}/provider-observations?limit=10`"));
   assert.ok(libraryViewSource.includes('Provider history'));
+  assert.ok(libraryViewSource.includes('Metadata source:'));
+  assert.ok(openApiSource.includes('metadataSource.providerItemId'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('immutableSourceObservations'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('providerObservationReadback'));
+  assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('explicitMetadataSource'));
   assert.ok(kavitaImportIdentitySource.includes('buildKavitaSourceObservation'));
   assert.ok(kavitaImportIdentitySource.includes('appendProviderSourceObservation'));
   assert.ok(kavitaImportSyncSmokeSource.includes('immutableSourceObservations'));

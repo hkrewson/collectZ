@@ -49,6 +49,7 @@ function buildBookOrbitCanonicalFields(item = {}) {
       'issue_number', 'volume', 'artist', 'inker', 'colorist',
       'provider_download_url', 'provider_series_url', 'source_updated_at',
       'bookorbit_book_id', 'bookorbit_native_metadata',
+      'bookorbit_metadata_source_provider', 'bookorbit_metadata_source_item_id',
       'bookorbit_google_id', 'bookorbit_goodreads_id', 'bookorbit_amazon_id',
       'bookorbit_hardcover_id', 'bookorbit_open_library_id', 'bookorbit_itunes_id',
       'bookorbit_audible_id', 'bookorbit_librofm_id', 'bookorbit_kobo_id',

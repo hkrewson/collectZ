@@ -46,7 +46,7 @@ Explicit non-goals for this program:
 **Type:** Runtime reliability architecture
 **Tags:** `jobs`, `integrations`, `providers`, `webhooks`, `imports`, `idempotency`, `workspace`
 **Priority:** `P1`
-**Status:** The relational job envelope, shared lifecycle module, Plex reconciliation, scheduled BookOrbit adoption, OPDS comic-series/index fidelity, classification-move proof, and unified safe operator readback/cancellation are implemented through `3.28.0`; rich normalized BookOrbit comic-series metadata shipped in `3.28.1`. Atomic scheduled BookOrbit target advancement and job creation shipped in `3.29.2`. The immutable source-observation foundation and BookOrbit adoption shipped in `3.29.3`, and the second materially different Kavita series/chapter adopter shipped in `3.29.4`. Safe workspace-authorized observation API/UI readback is promoted to `3.29.5`. Remaining backlog scope covers other mutation-plus-enqueue workflows, additional durable workflow and observation adopters, and later standardization beyond the two-provider observation proof.
+**Status:** The relational job envelope, shared lifecycle module, Plex reconciliation, scheduled BookOrbit adoption, OPDS comic-series/index fidelity, classification-move proof, and unified safe operator readback/cancellation are implemented through `3.28.0`; rich normalized BookOrbit comic-series metadata shipped in `3.28.1`. Atomic scheduled BookOrbit target advancement and job creation shipped in `3.29.2`. The immutable source-observation foundation and BookOrbit adoption shipped in `3.29.3`, the second materially different Kavita series/chapter adopter shipped in `3.29.4`, and safe workspace-authorized observation API/UI readback shipped in `3.29.5`. Explicit BookOrbit selected-metadata-provider attribution is promoted to `3.29.6`. Remaining backlog scope covers other mutation-plus-enqueue workflows, additional durable workflow and observation adopters, and later standardization beyond the two-provider observation proof.
 
 **Goal:** Standardize the safe mechanics of asynchronous and provider-driven work while preserving provider-specific matching and domain behavior.
 
@@ -57,7 +57,7 @@ Explicit non-goals for this program:
 
 **Scope**
 - Extend the atomic enqueue pattern proven by `3.29.2` only to other workflows where a committed database mutation must cause background work; use a separate outbox table only when the durable job row cannot be created in the owning transaction.
-- After the read-only observation projection selected for `3.29.5`, extend observation writes only to another workflow with a concrete provenance/rematching need; keep provider-specific schemas, matching, review, and apply behavior explicit.
+- After the explicit BookOrbit metadata-source provenance selected for `3.29.6`, extend observation writes only to another workflow with a concrete provenance/rematching need; keep provider-specific schemas, matching, review, and apply behavior explicit.
 - Require every adapter to declare supported source identities, idempotency rules, workspace ownership, rate-limit behavior, redacted diagnostics, and contract fixtures.
 - Migrate Plex webhook hints, watched/rating refresh, and additional provider/import workflows only after `3.28.0` proves the lifecycle with Plex reconciliation and BookOrbit.
 
@@ -118,7 +118,7 @@ Explicit non-goals for this program:
 **Type:** Strategic collection data-model program
 **Tags:** `identity`, `media`, `editions`, `copies`, `providers`, `provenance`, `imports`, `valuation`
 **Priority:** `P2`
-**Status:** Strategic backlog. Canonical UUID/external identity shipped through `3.27.x`; immutable source observations and two adopters shipped through `3.29.4`; safe observation API/UI readback is promoted to `3.29.5`. The remaining program still separates creative work, market release, owned object, automated conflict policy, and broader provenance.
+**Status:** Strategic backlog. Canonical UUID/external identity shipped through `3.27.x`; immutable source observations and two adopters shipped through `3.29.4`; safe observation API/UI readback shipped in `3.29.5`; explicit selected BookOrbit metadata provenance is promoted to `3.29.6`. The remaining program still separates creative work, market release, owned object, automated conflict policy, and broader provenance.
 
 **Goal:** Evolve collection identity so CollectZ can distinguish what a title/object is, which edition or release exists, which copy the user owns, and what an external provider observed without overwriting one concept with another.
 
@@ -129,7 +129,7 @@ Explicit non-goals for this program:
 
 **Scope**
 - Define explicit concepts and invariants for `work/title`, `edition/release`, `owned copy/item`, `source observation`, and typed relationship after the external-identity foundation proves compatibility with current media rows.
-- Preserve and safely project source observations with provider, observed timestamp, normalized facts, safe source reference, and provenance so later rematching does not require trusting the latest flattened row. The initial projection is selected for `3.29.5`; rematching remains backlog work.
+- Preserve and safely project source observations with provider, observed timestamp, normalized facts, safe source reference, and provenance so later rematching does not require trusting the latest flattened row. The initial projection shipped in `3.29.5`, and explicit BookOrbit selected-provider attribution is selected for `3.29.6`; rematching remains backlog work.
 - Define conflict/overwrite policy among manual data, reviewed imports, provider refreshes, locked fields, and newer observations.
 - Introduce remaining work/edition/copy and observation tables additively, populate them for selected new workflows, and provide compatibility projections for current APIs/UI.
 - Start with a workflow that materially needs the distinction, such as Blu-ray physical releases and owned copies, then prove the model with a different family such as books, games, or audio before generalizing.

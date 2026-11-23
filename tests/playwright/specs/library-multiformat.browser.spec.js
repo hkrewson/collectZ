@@ -490,6 +490,7 @@ test.describe('library multi-format browser regressions', () => {
                 fingerprint: 'a'.repeat(64),
                 facts: {
                   identity: { kind: 'book', externalId: 'urn:bookorbit:book:1264' },
+                  metadataSource: { provider: 'comicvine', providerItemId: '315507' },
                   providerIdentifiers: { comicvine: '315507' }
                 },
                 sourceUpdatedAt: '2026-11-22T12:00:00Z',
@@ -515,6 +516,7 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
       await expect(page.getByText('Provider history', { exact: true })).toBeVisible();
       await expect(page.getByText('BookOrbit Shelf', { exact: true })).toBeVisible();
+      await expect(page.getByText(/Metadata source: ComicVine #315507/i)).toBeVisible();
       await expect(page.getByText(/ComicVine: 315507/i)).toBeVisible();
       await expect(page.getByText(/Provider ID urn:bookorbit:book:1264/i)).toBeVisible();
     } finally {

@@ -157,6 +157,7 @@ async function startBookOrbitServer(instances) {
         seriesIndex: id === 43 ? '3' : '2',
         seriesMemberships,
         providerIds: id === 43 ? { comicvine: '315507', goodreads: '123777928' } : {},
+        metadataSource: id === 43 ? { provider: 'comicvine', providerItemId: '315507' } : null,
         comicMetadata: id === 43
           ? { issueNumber: '3', pencillers: ['Native Pencil Artist'], letterers: ['Native Letterer'] }
           : {},
@@ -327,7 +328,8 @@ async function main() {
     assert.deepEqual(tested.nativeMetadata, {
       configured: true,
       available: true,
-      providerIdentifiers: false
+      providerIdentifiers: false,
+      metadataSource: false
     });
 
     const rotatedPassword = crypto.randomBytes(24).toString('base64url');
@@ -382,6 +384,7 @@ async function main() {
       enriched: 4,
       fallback: 0,
       providerIdentifierRows: 1,
+      metadataSourceRows: 1,
       membershipRows: 5,
       coverRows: 4
     });
@@ -665,6 +668,8 @@ async function main() {
     assert.equal(comic?.type_details?.bookorbit_book_id, '43');
     assert.equal(comic?.type_details?.bookorbit_comicvine_id, '315507');
     assert.equal(comic?.type_details?.bookorbit_goodreads_id, '123777928');
+    assert.equal(comic?.type_details?.bookorbit_metadata_source_provider, 'comicvine');
+    assert.equal(comic?.type_details?.bookorbit_metadata_source_item_id, '315507');
     assert.equal(comic?.type_details?.issue_number, '3');
     assert.equal(comic?.type_details?.artist, 'Native Pencil Artist');
     assert.equal(comic?.type_details?.bookorbit_letterer, 'Native Letterer');
@@ -677,6 +682,8 @@ async function main() {
     assert.ok(comicObservations.every((row) => row.source_kind === 'bookorbit_native'));
     assert.ok(comicObservations.every((row) => row.observed_media_public_id === comic.public_id));
     assert.ok(comicObservations.every((row) => row.normalized_facts?.providerIdentifiers?.comicvine === '315507'));
+    assert.ok(comicObservations.every((row) => row.normalized_facts?.metadataSource?.provider === 'comicvine'));
+    assert.ok(comicObservations.every((row) => row.normalized_facts?.metadataSource?.providerItemId === '315507'));
     assert.ok(comicObservations.every((row) => row.normalized_facts?.seriesMemberships?.[0]?.name === 'Orbit Native Comics'));
     const serializedObservations = JSON.stringify(sourceObservationRows.rows);
     assert.equal(serializedObservations.includes(one.password), false);
@@ -709,6 +716,8 @@ async function main() {
     assert.ok(observationReadbackPageOne.observations.every((observation) => observation.providerConnection.providerType === 'bookorbit'));
     assert.ok(observationReadbackPageOne.observations.every((observation) => observation.identity.kind === 'book'));
     assert.ok(observationReadbackPageOne.observations.every((observation) => observation.facts?.providerIdentifiers?.comicvine === '315507'));
+    assert.ok(observationReadbackPageOne.observations.every((observation) => observation.facts?.metadataSource?.provider === 'comicvine'));
+    assert.ok(observationReadbackPageOne.observations.every((observation) => observation.facts?.metadataSource?.providerItemId === '315507'));
     assert.ok(observationReadbackPageOne.observations.every((observation) => /^[0-9a-f]{64}$/.test(observation.fingerprint)));
     assert.ok(observationReadbackPageTwo.observations.length >= 1);
     assert.equal(observationReadbackPageTwo.observations.some((observation) => observationReadbackPageOne.observations.some((first) => first.id === observation.id)), false);
@@ -787,6 +796,7 @@ async function main() {
       scheduledCadenceDeduplicated: true,
       comicSeriesOrderingPreserved: true,
       nativeMetadataEnrichment: 'provider-ids-preserved',
+      explicitMetadataSource: 'comicvine:315507-verified-without-inference',
       immutableSourceObservations: 'normalized-idempotent-append-only-and-rls-proven',
       providerObservationReadback: 'paginated-sanitized-and-workspace-authorized',
       normalizedSeriesMemberships: 'multi-series-retirement-proven',
