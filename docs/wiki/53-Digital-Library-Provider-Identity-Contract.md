@@ -51,6 +51,12 @@ Raw native/OPDS/API payloads, credentials, authorization headers, API keys, pass
 
 Observation idempotency derives from the import batch, external identity, source kind, and normalized content hash. Retrying the same durable or inline job with unchanged facts reuses its observation, while a later batch or changed facts appends a new immutable observation. Synchronous imports mint one batch identity per request. The ledger is historical evidence for later rematching and provenance decisions; it does not overwrite canonical fields, infer a selected upstream metadata provider, or introduce the broader work/edition/owned-copy model.
 
+### Workspace-authorized observation readback
+
+`GET /api/media/{id}/provider-observations` projects the immutable history only after the requested media row resolves inside the actor's active workspace/library scope. History follows the external identities currently attached to that canonical row, so identity reassignment or merge repair keeps its evidence with the identity. Results are newest-first and paginated.
+
+The public projection includes the observation UUID, safe Provider Connection id/type/label, identity kind and lifecycle state, canonical public UUID recorded at observation time, source kind, schema version, content fingerprint, normalized facts, provider source timestamp, and observation timestamp. It omits workspace implementation ids, actor ids, identity database ids, idempotency keys, connection endpoints/settings, credentials, authorization values, and raw provider payloads. The Library drawer consumes the same projection and shows only the newest bounded history; it does not select a canonical upstream metadata provider or alter current fields.
+
 ## Adoption and failure behavior
 
 Repeat sync resolves the authoritative relation before compatibility fields. A same-provider local id on another connection or workspace is a different identity. Manual, reviewed, locked, or differently sourced Canonical Fields remain protected by Canonical Field Controls.
@@ -63,6 +69,7 @@ Historical CWA and Kavita adoption prefers the stable integration binding. If no
 - `scripts/bookorbit-opds-transport-smoke.js` proves native authentication, identity matching, multi-series projection, cover transport limits, upstream identifier projection, and per-row OPDS fallback without storing a fixed credential.
 - `scripts/bookorbit-authoritative-import-smoke.js` proves ordered membership refresh/retirement, active-only media-detail readback, compatibility projection, authenticated cover proxying, canonical identity stability, normalized observation persistence, retry idempotency, append-only enforcement, RLS isolation, and credential-free facts.
 - `scripts/kavita-import-sync-smoke.js` proves series/chapter identity separation, chapter fan-out, same-batch observation reuse, later-batch history, canonical public-UUID linkage, workspace isolation, safe cover-proxy provenance, and absence of fixture credentials and direct server URLs. `scripts/cwa-authoritative-sync-smoke.js` retains its provider-specific runtime behavior without observation adoption.
+- The BookOrbit and Kavita runtime smokes both exercise paginated public observation readback, provider-specific facts, omitted sensitive/internal fields, and sibling-workspace non-disclosure.
 - `scripts/digital-library-identity-backfill-smoke.js` proves binding selection, ambiguity refusal, redaction, idempotency, and rollback restoration against live PostgreSQL and RLS.
 
-This contract does not introduce reading-progress convergence, metadata-writeback convergence, source-observation adoption for providers other than BookOrbit and Kavita, or a work/edition/copy model.
+This contract does not introduce automated observation conflict resolution/rematching, historical observation backfill, reading-progress convergence, metadata-writeback convergence, source-observation adoption for providers other than BookOrbit and Kavita, or a work/edition/copy model.

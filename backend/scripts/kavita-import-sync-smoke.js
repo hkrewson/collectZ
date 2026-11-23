@@ -1197,6 +1197,27 @@ async function main() {
     assert(!serializedObservations.includes(KAVITA_SMOKE_KEY), 'Kavita observation facts must not retain API keys');
     assert(!serializedObservations.includes(KAVITA_SMOKE_BEARER), 'Kavita observation facts must not retain bearer tokens');
     assert(!serializedObservations.includes(fake.baseUrl), 'Kavita observation facts must not retain direct server URLs');
+    const providerObservationReadback = await client.request(
+      `/api/media/${canonicalComic.id}/provider-observations?page=1&limit=3&space_id=${spaceId}&library_id=${libraryId}`,
+      { expectStatus: 200 }
+    );
+    assert(providerObservationReadback.data?.media?.id === canonicalComic.id, `Expected Kavita observation readback media identity, got ${JSON.stringify(providerObservationReadback.data)}`);
+    assert(providerObservationReadback.data?.pagination?.total >= 4, `Expected Kavita series observation history, got ${JSON.stringify(providerObservationReadback.data)}`);
+    assert(providerObservationReadback.data?.observations?.length === 3, `Expected bounded Kavita observation page, got ${JSON.stringify(providerObservationReadback.data)}`);
+    assert(providerObservationReadback.data.observations.every((observation) => observation.sourceKind === 'kavita_api'), 'Expected Kavita API source kind in public observation readback');
+    assert(providerObservationReadback.data.observations.every((observation) => observation.providerConnection.providerType === 'kavita'), 'Expected Kavita provider connection projection');
+    assert(providerObservationReadback.data.observations.every((observation) => observation.identity.kind === 'series'), 'Expected Kavita series identity projection');
+    const serializedReadback = JSON.stringify(providerObservationReadback.data);
+    assert(!serializedReadback.includes(KAVITA_SMOKE_KEY), 'Kavita public observation readback must not retain API keys');
+    assert(!serializedReadback.includes(KAVITA_SMOKE_BEARER), 'Kavita public observation readback must not retain bearer tokens');
+    assert(!serializedReadback.includes(fake.baseUrl), 'Kavita public observation readback must not retain direct server URLs');
+    assert(!serializedReadback.includes('idempotencyKey'), 'Kavita public observation readback must omit idempotency keys');
+    assert(!serializedReadback.includes('actorUserId'), 'Kavita public observation readback must omit actor ids');
+    assert(!serializedReadback.includes('spaceId'), 'Kavita public observation readback must omit workspace implementation ids');
+    await client.request(
+      `/api/media/${canonicalComic.id}/provider-observations?space_id=${secondSpaceId}&library_id=${secondLibraryId}`,
+      { expectStatus: 404 }
+    );
 
     console.log(JSON.stringify({
       provider: 'kavita',
@@ -1255,6 +1276,12 @@ async function main() {
         chapterObservations: chapterObservations.length,
         exactRetryReused: true,
         workspaceIsolation: siblingWorkspaceLeakCount === 0,
+        credentialFree: true
+      },
+      providerObservationReadback: {
+        total: providerObservationReadback.data.pagination.total,
+        pageSize: providerObservationReadback.data.observations.length,
+        workspaceIsolation: true,
         credentialFree: true
       },
       secretReturned: false

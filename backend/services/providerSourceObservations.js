@@ -107,6 +107,101 @@ function publicObservation(row, { created = false } = {}) {
   });
 }
 
+function publicObservationReadback(row) {
+  if (!row) return null;
+  return Object.freeze({
+    id: row.id,
+    providerConnection: Object.freeze({
+      id: row.provider_connection_id,
+      providerType: row.provider_type,
+      displayName: row.connection_display_name
+    }),
+    identity: Object.freeze({
+      kind: row.identity_kind,
+      active: Boolean(row.identity_active)
+    }),
+    observedMediaPublicId: row.observed_media_public_id,
+    sourceKind: row.source_kind,
+    schemaVersion: Number(row.schema_version),
+    fingerprint: row.content_hash,
+    facts: row.normalized_facts,
+    sourceUpdatedAt: row.source_updated_at,
+    observedAt: row.observed_at
+  });
+}
+
+async function listProviderSourceObservations(client, {
+  spaceId: spaceIdValue,
+  mediaId: mediaIdValue,
+  page: pageValue = 1,
+  limit: limitValue = 25
+} = {}) {
+  if (!client || typeof client.query !== 'function') {
+    throw new TypeError('Provider source observation readback requires a transaction client');
+  }
+  const spaceId = positiveInteger(spaceIdValue, 'Workspace');
+  const mediaId = positiveInteger(mediaIdValue, 'Canonical object');
+  const page = positiveInteger(pageValue, 'Provider observation page');
+  const limit = positiveInteger(limitValue, 'Provider observation limit');
+  if (limit > 100) throw new TypeError('Provider observation limit is invalid');
+  const offset = (page - 1) * limit;
+  if (!Number.isSafeInteger(offset)) throw new TypeError('Provider observation page is invalid');
+
+  const [countResult, rowsResult] = await Promise.all([
+    client.query(
+      `SELECT COUNT(*)::int AS total
+         FROM provider_source_observations pso
+         JOIN external_media_identities emi
+           ON emi.space_id = pso.space_id
+          AND emi.provider_connection_id = pso.provider_connection_id
+          AND emi.id = pso.external_identity_id
+        WHERE pso.space_id = $1
+          AND emi.media_id = $2`,
+      [spaceId, mediaId]
+    ),
+    client.query(
+      `SELECT pso.id,
+              pso.provider_connection_id,
+              pso.observed_media_public_id,
+              pso.source_kind,
+              pso.schema_version,
+              pso.content_hash,
+              pso.normalized_facts,
+              pso.source_updated_at,
+              pso.observed_at,
+              pc.provider_type,
+              pc.display_name AS connection_display_name,
+              emi.identity_kind,
+              emi.active AS identity_active
+         FROM provider_source_observations pso
+         JOIN external_media_identities emi
+           ON emi.space_id = pso.space_id
+          AND emi.provider_connection_id = pso.provider_connection_id
+          AND emi.id = pso.external_identity_id
+         JOIN provider_connections pc
+           ON pc.space_id = pso.space_id
+          AND pc.id = pso.provider_connection_id
+        WHERE pso.space_id = $1
+          AND emi.media_id = $2
+        ORDER BY pso.observed_at DESC, pso.id DESC
+        LIMIT $3 OFFSET $4`,
+      [spaceId, mediaId, limit, offset]
+    )
+  ]);
+  const total = Number(countResult.rows[0]?.total || 0);
+  const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
+  return Object.freeze({
+    observations: Object.freeze(rowsResult.rows.map(publicObservationReadback)),
+    pagination: Object.freeze({
+      page,
+      limit,
+      total,
+      totalPages,
+      hasMore: page < totalPages
+    })
+  });
+}
+
 async function appendProviderSourceObservation(client, {
   spaceId: spaceIdValue,
   providerConnectionId: connectionIdValue,
@@ -327,6 +422,8 @@ module.exports = {
   appendProviderSourceObservation,
   buildBookOrbitSourceObservation,
   buildKavitaSourceObservation,
+  listProviderSourceObservations,
   normalizeFacts,
-  publicObservation
+  publicObservation,
+  publicObservationReadback
 };

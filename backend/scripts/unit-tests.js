@@ -53,7 +53,8 @@ const {
 const {
   buildBookOrbitSourceObservation,
   buildKavitaSourceObservation,
-  normalizeFacts: normalizeProviderObservationFacts
+  normalizeFacts: normalizeProviderObservationFacts,
+  publicObservationReadback
 } = require('../services/providerSourceObservations');
 const {
   buildKavitaSeriesWebUrl,
@@ -5792,16 +5793,50 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   assert.strictEqual(kavitaObservation.facts.kavita.chapter.id, 9702);
   assert.strictEqual(kavitaObservation.facts.cover.proxyPath, '/api/media/kavita-chapter-cover/9702');
   assert.ok(!JSON.stringify(kavitaObservation.facts).includes('kavita.example.invalid'));
+  const readback = publicObservationReadback({
+    id: 'a6f39071-4dba-4bb6-aedf-a9fc0c84d557',
+    space_id: 42,
+    provider_connection_id: '33cf8ca1-4cb4-46ca-bf3f-d4ca4f12e0e2',
+    external_identity_id: '827c4919-7d52-481c-b1a6-dc5861d8ae64',
+    observed_media_public_id: '5dfc8ac2-b081-4d32-b3cf-94f61e249e95',
+    source_kind: 'kavita_api',
+    schema_version: 1,
+    idempotency_key: 'a'.repeat(64),
+    content_hash: 'b'.repeat(64),
+    normalized_facts: kavitaObservation.facts,
+    source_updated_at: '2026-11-22T12:00:00Z',
+    observed_at: '2026-11-22T12:01:00Z',
+    actor_user_id: 99,
+    provider_type: 'kavita',
+    connection_display_name: 'Kavita Shelf',
+    identity_kind: 'chapter',
+    identity_active: true,
+    endpoint_url: 'https://kavita.example.invalid'
+  });
+  assert.strictEqual(readback.providerConnection.providerType, 'kavita');
+  assert.strictEqual(readback.identity.kind, 'chapter');
+  assert.strictEqual(readback.fingerprint, 'b'.repeat(64));
+  assert.strictEqual(readback.spaceId, undefined);
+  assert.strictEqual(readback.actorUserId, undefined);
+  assert.strictEqual(readback.idempotencyKey, undefined);
+  assert.strictEqual(readback.providerConnection.endpointUrl, undefined);
   assert.ok(migrationsSource.includes('version: 145'));
   assert.ok(initSqlSource.includes("(145, 'Add immutable provider source observations')"));
   assert.ok(providerSourceObservationsSqlSource.includes('provider_source_observations_append_only'));
   assert.ok(providerSourceObservationsSqlSource.includes('provider_source_observations_scope'));
   assert.ok(providerSourceObservationsSource.includes('normalized_facts'));
   assert.ok(providerSourceObservationsSource.includes('idempotencyKey'));
+  assert.ok(providerSourceObservationsSource.includes('listProviderSourceObservations'));
+  assert.ok(mediaRoutesSource.includes("router.get('/:id/provider-observations'"));
+  assert.ok(openApiSource.includes('"/api/media/{id}/provider-observations"'));
+  assert.ok(libraryViewSource.includes("`/media/${item.id}/provider-observations?limit=10`"));
+  assert.ok(libraryViewSource.includes('Provider history'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('immutableSourceObservations'));
+  assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('providerObservationReadback'));
   assert.ok(kavitaImportIdentitySource.includes('buildKavitaSourceObservation'));
   assert.ok(kavitaImportIdentitySource.includes('appendProviderSourceObservation'));
   assert.ok(kavitaImportSyncSmokeSource.includes('immutableSourceObservations'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('providerObservationReadback'));
 }));
 
 results.push(run('migration authority evidence certifies fresh install after init.sql retirement', () => {

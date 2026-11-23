@@ -4,14 +4,54 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.3` reliability and provider-observation milestones are complete. `3.29.4` is the active Kavita source-observation adoption milestone.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.4` reliability and provider-observation adoption milestones are complete. `3.29.5` is complete locally as the provider-observation readback release candidate and awaits hosted certification after an authorized push.
 
 ---
+
+## 3.29.5 — Workspace Provider Observation Readback
+
+**Goal:** Make immutable BookOrbit and Kavita evidence useful to people and API clients through a bounded, workspace-authorized projection without exposing provider credentials, raw payloads, or internal authorization state.
+**Status:** Complete locally as a release candidate. The read module, media API projection, Library drawer history, OpenAPI contract, canonical runtime, provider smokes, browser regression, version closeout, and local release gates are complete; hosted certification requires an authorized push.
+
+### Selected scope
+
+- Add a newest-first paginated read interface over observations whose external identity is currently attached to the requested canonical media record.
+- Require the media record to exist in the active workspace/library scope before any observation history is read.
+- Return provider connection identity and label, identity kind/lifecycle, canonical public UUID at observation time, source/schema/timestamps, content fingerprint, and the already-normalized provider-specific facts.
+- Omit workspace implementation ids, actor ids, identity database ids, idempotency keys, Provider Connection endpoints/settings, credentials, authorization data, and raw provider payloads.
+- Show the latest bounded provider history in the Library item drawer, including BookOrbit upstream provider ids and Kavita series/chapter identity facts.
+- Keep automated conflict/rematch policy, historical backfill, writeback/progress observations, additional providers, and work/edition/owned-copy modeling outside this slice.
+
+### Acceptance criteria
+
+- A media detail client can read paginated BookOrbit and Kavita observations newest-first and see the provider source, provider ids/facts, identity kind, source timestamp, observation timestamp, and stable content fingerprint.
+- A sibling workspace or library scope receives the same non-disclosing not-found behavior as media detail and cannot use a known media id to read observations.
+- The public projection contains no credential, direct provider endpoint, actor/workspace implementation id, idempotency identity, or raw response.
+- The Library drawer shows recent provider history without replacing current canonical fields or implying that an upstream provider id is the selected canonical provider.
+- Existing provider import, identity, cover, reader, progress, metadata writeback, and append-only behavior remains green.
+- Version `3.29.5`, release notes/feed, canonical stack, local release gate, OpenAPI, provider smokes, and relevant release evidence are aligned before closeout.
+
+### Milestone boundary
+
+This slice is read-only. It does not add a migration, backfill historical media, change canonical-field precedence, choose an upstream metadata provider, rematch identities, or mutate observations.
+
+### 3.29.5 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.29.5 — Workspace Provider Observation Readback`, bounded newest-first API projection, Library drawer history, explicit secret-free DTO, and version closeout.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/53-Digital-Library-Provider-Identity-Contract.md`, `docs/wiki/54-Durable-Workspace-Job-Contract.md`, and `docs/releases/v3.29.5.md`.
+- **Verified facts:** Authorized clients can read paginated observations newest-first only after the requested media record is resolved in the active workspace/library scope. The explicit public DTO exposes the Provider Connection label/type, identity kind/lifecycle, observed canonical public UUID, normalized facts, timestamps, schema version, and fingerprint while omitting workspace and actor implementation ids, identity database ids, idempotency keys, endpoints/settings, credentials, authorization values, and raw provider payloads. No migration, retained-data rewrite, observation mutation, or provider-selection policy was added.
+- **Runtime verification used:** Backend and frontend were rebuilt and recreated in place in the canonical `collectz-private` stack on port `3201`; health reports application, frontend, backend, and build `3.29.5`; Help > Releases serves `3.29.5` first. In-container BookOrbit and Kavita smokes proved paginated readback, ComicVine and Kavita series/chapter facts, current identity attachment, sibling-workspace non-disclosure, credential/direct-URL exclusion, and retained import/cover/reader/progress/writeback behavior. Control-plane runtime authority passed `5/5`; observability evidence passed `9/9`; the canonical Core and Cairn services are healthy.
+- **CI/checks run:** JavaScript syntax checks; backend unit/source suite (`389` assertions plus `57` Node tests); OpenAPI validation; frontend unit tests (`7/7`) and production build; workspace ownership certification (`80` tables, `356` routes, `12` execution paths); fresh migration authority and retained upgrade rehearsal through migration `145`; external-identity certification (`21/21`); runtime-role certification (`32/32`); control-plane runtime authority (`5/5`); observability evidence (`9/9`); package/app version sync; release-note/feed validation; zero-finding backend/frontend production dependency audits; changed-file frontend quality; diff hygiene; canonical health, Help > Releases, BookOrbit and Kavita smokes, and platform-boundary smoke. The full local browser regression passed `56` tests with `6` edition-inapplicable skips. The standard local release gate passed `14/14`.
+- **Files changed:** Provider observation read service and media route; OpenAPI schemas and endpoint; bounded Library drawer history; BookOrbit, Kavita, unit/source, and browser regression coverage; workspace ownership inventory; provider identity contract; roadmap/backlog promotion; synchronized `3.29.5` metadata; release note/feed; and refreshed observability, control-plane, and local preflight evidence.
+- **Blocked/unverified:** The canonical Platform stack cannot validly certify the Core-only `rbac-regression` route boundary, and the local development stack does not use the CI secure-cookie configuration required by `compose-smoke`. Hosted Core `rbac-regression`, Core migration-built `runtime-smoke`, secure-cookie `compose-smoke`, gitleaks `secret-scan`, CodeQL, image security/SBOM, hosted `browser-regression`, release preflight, image publication, and auto-tag require confirmation after an authorized push. The full local release profile was not run because its Core runtime path creates a parallel Compose project, prohibited by repository policy; equivalent allowed local browser, runtime, control-plane, dependency, and evidence checks passed against the canonical stack.
+- **Risks or follow-ups:** Readback reports immutable historical evidence and the lifecycle of its currently attached external identity; it does not select a canonical provider, resolve conflicts, rematch identities, or backfill missing observations. Those behaviors remain separately bounded roadmap/backlog work.
+- **What remains in the milestone:** Push only with user authorization, then confirm the complete hosted gate set, image publication, and annotated `v3.29.5` creation from `main`.
+- **Recommended commit message:** `Release 3.29.5 with workspace-authorized provider observation readback`.
 
 ## 3.29.4 — Kavita Provider Source Observation Adoption
 
 **Goal:** Prove the immutable provider-observation ledger with a second, materially different provider by preserving Kavita series and chapter facts without flattening Kavita's identity or reader/cover behavior into BookOrbit's schema.
-**Status:** Complete locally as a release candidate. Implementation, canonical runtime verification, version alignment, release-note/feed generation, second-adopter proof, and local release gates are complete; hosted certification requires an authorized push.
+**Status:** Complete. Build and Publish Images run `45086999259` and CodeQL run `45086999246` passed for closeout commit `08eb173e`; annotated tag `v3.29.4` identifies the certified release commit.
 
 ### Selected scope
 
@@ -43,9 +83,10 @@ This slice proves a second observation Adapter at the existing Seam. It does not
 - **Runtime verification used:** Backend and frontend were rebuilt and recreated in place in the canonical `collectz-private` stack on port `3201`; health reports application, frontend, backend, and build `3.29.4`; Help > Releases serves `3.29.4` first. The in-container Kavita smoke proved `19` primary-workspace observations, `3` isolated sibling-workspace observations, `6` chapter observations, canonical public-UUID linkage, exact same-batch reuse, sibling-workspace invisibility, credential/direct-URL exclusion, and retained import/fan-out/cover/reader/progress/writeback behavior. Control-plane runtime authority passed `5/5`; observability evidence passed `9/9`.
 - **CI/checks run:** JavaScript syntax checks; backend unit/source suite (`389` assertions plus `57` Node tests) in the production image; OpenAPI in the production image; frontend unit tests (`7/7`) and production build; version/release-note/feed validation; backend/frontend dependency audits; changed-file frontend quality; diff hygiene; canonical health, Help > Releases, and Kavita runtime smoke. The standard local release gate passed `14/14`. The Core browser regression completed with `55` passing and `6` edition-inapplicable skipped tests against the canonical Platform stack.
 - **Files changed:** Kavita observation schema builder and transactional identity adoption; queued-import observation batch propagation; Kavita runtime and source-contract proof; provider identity/job contract docs; roadmap/backlog promotion; synchronized `3.29.4` metadata; release note/feed; refreshed observability and control-plane artifacts; and local preflight evidence.
-- **Blocked/unverified:** The local Core RBAC script reaches the canonical Platform-only admin route and receives the expected Platform authorization response (`403`) instead of the Core unmounted-route response (`404`), so hosted Core `rbac-regression` must certify that edition boundary. CI-shaped secure-cookie `compose-smoke`, hosted Core migration-built `runtime-smoke`, gitleaks, CodeQL, image security/SBOM, hosted release preflight, publication, and auto-tag require confirmation after an authorized push. The full local release profile was not run because its Core runtime path creates a parallel Compose project, prohibited by repository policy.
+- **Hosted certification:** Build and Publish Images run `45086999259` passed prepare, migration check, frontend quality, dependency and secret scans, Compose smoke, Core RBAC/browser/runtime regressions, backend/frontend image publication, image security/SBOM, release preflight, and auto-tag. CodeQL run `45086999246` passed. Annotated tag `v3.29.4` resolves to closeout commit `08eb173e`.
+- **Blocked/unverified:** No tagged-CI release gate remains blocked.
 - **Risks or follow-ups:** The observation Seam now has two materially different Adapters, but public provenance readback, automated conflict/rematch policy, historical backfill, progress/writeback observation, and other providers remain separate bounded work. The broader durable-job/provider program is not closed by this source-observation proof.
-- **What remains in the milestone:** Push only with user authorization, then confirm the complete hosted gate set, image publication, and annotated `v3.29.4` creation from `main`.
+- **What remains in the milestone:** Nothing. Hosted certification, image publication, release preflight, CodeQL, and annotated `v3.29.4` creation completed from `main`.
 - **Recommended commit message:** `Release 3.29.4 with immutable Kavita series and chapter observations`.
 
 ## 3.29.3 — Immutable Provider Source Observations

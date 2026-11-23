@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.29.5",
+      "version": "3.29.5",
+      "date": "2026-11-22",
+      "status": null,
+      "summary": "Makes immutable BookOrbit and Kavita source evidence safely readable through the media API and Library item drawer without exposing credentials, raw provider responses, or internal authorization state.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a newest-first, paginated provider-observation endpoint for media records in the active workspace/library scope.",
+            "Readback includes the safe Provider Connection label/type, identity kind and lifecycle, canonical public UUID at observation time, normalized provider facts, timestamps, and stable content fingerprint.",
+            "BookOrbit history exposes normalized native/OPDS facts and upstream provider identifiers such as ComicVine or Goodreads ids when observed.",
+            "Kavita history preserves separate series/chapter evidence and safe CollectZ cover-proxy provenance.",
+            "Added a bounded Provider history section to the Library item drawer.",
+            "The projection omits workspace and actor implementation ids, identity database ids, idempotency keys, Provider Connection endpoints/settings, credentials, authorization values, and raw payloads."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.29.4",
       "version": "3.29.4",
       "date": "2026-11-22",
@@ -180,26 +200,6 @@
             "Added rollback-only live-database certification for exact CWA book and Kavita series/chapter adoption, redacted diagnostics, idempotent reruns, ambiguity refusal, and retained-state restoration.",
             "Extracted a two-operation digital-library identity-payload module used by BookOrbit, CWA, and Kavita for allowlisted Canonical Field construction and exact Compatibility Projection construction.",
             "Documented intentional differences in provider identity syntax, connection models, link/cover handling, credential sources, BookOrbit type transitions, and Kavita reader/writeback behavior."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.27.4",
-      "version": "3.27.4",
-      "date": "2026-11-11",
-      "status": null,
-      "summary": "Adds BookOrbit as a first-class, multi-instance OPDS provider backed by the authoritative external-identity registry. BookOrbit books and comics retain stable provider identity across repeat imports, ISBN corrections, visible-title collisions, and provider-owned book/comic classification changes without being presented as Calibre/CWA records.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added bounded BookOrbit OPDS discovery and catalog traversal over the shared transport, including Basic authentication, safe same-origin URL resolution, response/page/time limits, cycle detection, and complete-feed validation before mutation.",
-            "Added explicit BookOrbit connection administration with encrypted credentials, redacted readback, credential rotation, test, disable, reactivate, archive, and active-connection import selection.",
-            "Preserved Atom entry ids such as `urn:bookorbit:book:{id}` as connection-scoped External Identities while keeping ISBN and other bibliographic facts mutable and non-identifying.",
-            "Recognized current CBZ and CBR acquisition MIME types, preserved series/index, cover, acquisition, and source-update facts, and skipped unsupported audiobook acquisitions instead of misclassifying them as books.",
-            "Kept distinct provider records separate when ISBN or visible titles collide and added audit diagnostics for duplicates, partial outcomes, provider-identity matches, and guarded strong-identifier conflicts.",
-            "Added controlled Provider Type Transitions: lossless provider-owned book/comic changes retain the Canonical Object, while locked, manual, cross-provider, uncontrolled, or lossy changes preserve the existing object and require review."
           ]
         }
       ]

@@ -897,6 +897,9 @@ function MediaDetail({
   const [mergeDetails, setMergeDetails] = useState(null);
   const [mergeDetailsLoading, setMergeDetailsLoading] = useState(false);
   const [openMergeEntryId, setOpenMergeEntryId] = useState(null);
+  const [providerObservations, setProviderObservations] = useState([]);
+  const [providerObservationTotal, setProviderObservationTotal] = useState(0);
+  const [providerObservationsLoading, setProviderObservationsLoading] = useState(false);
   const [, setSeasonDrafts] = useState({});
   const [seasonSaving, setSeasonSaving] = useState({});
   const [openSeason, setOpenSeason] = useState(null);
@@ -991,6 +994,29 @@ function MediaDetail({
       membership.source_updated_at ? `Updated ${new Date(membership.source_updated_at).toLocaleString()}` : null
     ].filter(Boolean);
     return values.join(' · ');
+  };
+  const providerObservationSummary = (observation) => {
+    const facts = observation?.facts && typeof observation.facts === 'object' ? observation.facts : {};
+    const identity = facts.identity && typeof facts.identity === 'object' ? facts.identity : {};
+    const identifiers = facts.providerIdentifiers && typeof facts.providerIdentifiers === 'object' ? facts.providerIdentifiers : {};
+    const kavita = facts.kavita && typeof facts.kavita === 'object' ? facts.kavita : {};
+    const values = [
+      identity.externalId ? `Provider ID ${identity.externalId}` : null,
+      kavita?.series?.name ? `Series ${kavita.series.name}` : null,
+      kavita?.chapter?.number ? `Chapter ${kavita.chapter.number}` : null,
+      ...Object.entries(identifiers)
+        .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+        .slice(0, 4)
+        .map(([name, value]) => `${name.replace(/([a-z])([A-Z])/g, '$1 $2')}: ${value}`)
+    ].filter(Boolean);
+    return values.join(' · ');
+  };
+  const providerObservationSourceLabel = (observation) => {
+    const sourceKind = String(observation?.sourceKind || '').trim();
+    if (sourceKind === 'bookorbit_native') return 'BookOrbit native metadata';
+    if (sourceKind === 'bookorbit_opds') return 'BookOrbit OPDS';
+    if (sourceKind === 'kavita_api') return 'Kavita API';
+    return sourceKind.replace(/_/g, ' ') || 'Provider metadata';
   };
   const hiddenTypeDetailKeys = new Set(
     isBook
@@ -1748,6 +1774,35 @@ function MediaDetail({
   }, [apiCall, item?.id]);
 
   useEffect(() => {
+    if (!item?.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setProviderObservations([]);
+      setProviderObservationTotal(0);
+      setProviderObservationsLoading(false);
+      return;
+    }
+    let active = true;
+    setProviderObservationsLoading(true);
+    apiCall('get', `/media/${item.id}/provider-observations?limit=10`)
+      .then((payload) => {
+        if (!active) return;
+        setProviderObservations(Array.isArray(payload?.observations) ? payload.observations : []);
+        setProviderObservationTotal(Number(payload?.pagination?.total || 0));
+      })
+      .catch(() => {
+        if (!active) return;
+        setProviderObservations([]);
+        setProviderObservationTotal(0);
+      })
+      .finally(() => {
+        if (active) setProviderObservationsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [apiCall, item?.id]);
+
+  useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoanForm(buildLoanFormState(item));
     setShowLoanItemDetails(false);
@@ -2246,6 +2301,48 @@ function MediaDetail({
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {(providerObservationsLoading || providerObservations.length > 0) && (
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="label">Provider history</p>
+                  {providerObservationTotal > 0 ? (
+                    <span className="text-xs text-ghost">
+                      Showing {providerObservations.length} of {providerObservationTotal}
+                    </span>
+                  ) : null}
+                </div>
+                {providerObservationsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-ghost">
+                    <Spinner size={14} /> Loading provider history…
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {providerObservations.map((observation) => (
+                      <div key={observation.id} className="rounded-lg border border-edge/70 bg-panel px-3 py-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-medium text-ink">
+                              {observation.providerConnection?.displayName || observation.providerConnection?.providerType || 'Provider'}
+                            </p>
+                            <p className="mt-1 text-xs text-ghost">
+                              {providerObservationSourceLabel(observation)} · {observation.identity?.kind || 'item'}
+                              {observation.identity?.active === false ? ' · inactive identity' : ''}
+                            </p>
+                          </div>
+                          <span className="badge badge-dim">
+                            {observation.observedAt ? new Date(observation.observedAt).toLocaleString() : 'Observed'}
+                          </span>
+                        </div>
+                        {providerObservationSummary(observation) ? (
+                          <p className="mt-2 break-words text-xs text-dim">{providerObservationSummary(observation)}</p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

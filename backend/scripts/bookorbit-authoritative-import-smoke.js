@@ -699,6 +699,26 @@ async function main() {
     assert.equal(mediaDetail.series_memberships[0].series_index, '3');
     assert.equal(mediaDetail.series_memberships[0].issue_number, '3');
     assert.equal(mediaDetail.series_memberships[0].source_kind, 'bookorbit_native');
+    const observationReadbackPageOne = await client.request(`/api/media/${comic.id}/provider-observations?page=1&limit=2`);
+    const observationReadbackPageTwo = await client.request(`/api/media/${comic.id}/provider-observations?page=2&limit=2`);
+    assert.equal(observationReadbackPageOne.media.id, comic.id);
+    assert.equal(observationReadbackPageOne.media.publicId, comic.public_id);
+    assert.ok(observationReadbackPageOne.pagination.total >= 4);
+    assert.equal(observationReadbackPageOne.observations.length, 2);
+    assert.ok(observationReadbackPageOne.observations.every((observation) => observation.sourceKind === 'bookorbit_native'));
+    assert.ok(observationReadbackPageOne.observations.every((observation) => observation.providerConnection.providerType === 'bookorbit'));
+    assert.ok(observationReadbackPageOne.observations.every((observation) => observation.identity.kind === 'book'));
+    assert.ok(observationReadbackPageOne.observations.every((observation) => observation.facts?.providerIdentifiers?.comicvine === '315507'));
+    assert.ok(observationReadbackPageOne.observations.every((observation) => /^[0-9a-f]{64}$/.test(observation.fingerprint)));
+    assert.ok(observationReadbackPageTwo.observations.length >= 1);
+    assert.equal(observationReadbackPageTwo.observations.some((observation) => observationReadbackPageOne.observations.some((first) => first.id === observation.id)), false);
+    const serializedObservationReadback = JSON.stringify(observationReadbackPageOne);
+    assert.equal(serializedObservationReadback.includes(one.password), false);
+    assert.equal(serializedObservationReadback.includes(one.apiKey), false);
+    assert.equal(serializedObservationReadback.includes(fake.baseUrl), false);
+    assert.equal(serializedObservationReadback.includes('idempotencyKey'), false);
+    assert.equal(serializedObservationReadback.includes('actorUserId'), false);
+    assert.equal(serializedObservationReadback.includes('spaceId'), false);
     const coverResponse = await fetch(`${BASE_URL}${comic.poster_path}`, {
       headers: { Cookie: client.cookieHeader(), Accept: 'image/png' }
     });
@@ -768,6 +788,7 @@ async function main() {
       comicSeriesOrderingPreserved: true,
       nativeMetadataEnrichment: 'provider-ids-preserved',
       immutableSourceObservations: 'normalized-idempotent-append-only-and-rls-proven',
+      providerObservationReadback: 'paginated-sanitized-and-workspace-authorized',
       normalizedSeriesMemberships: 'multi-series-retirement-proven',
       nativeCoverProxy: 'authenticated-and-versioned',
       lockedTypeTransition: 'review-required-existing-preserved',

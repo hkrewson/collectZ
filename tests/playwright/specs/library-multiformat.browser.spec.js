@@ -445,6 +445,84 @@ test.describe('library multi-format browser regressions', () => {
     }
   });
 
+  test('media detail shows safe provider observation history', async ({ page }) => {
+    const credentials = await createFreshUserCredentials();
+    const requestContext = await createAuthenticatedRequestContext(credentials);
+    const title = `Playwright Provider History ${Date.now()}`;
+    let mediaId = null;
+
+    await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+
+    try {
+      const createResponse = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title,
+          media_type: 'comic_book',
+          format: 'Comic Book',
+          owned_formats: ['paper']
+        },
+        201
+      );
+      const created = await createResponse.json();
+      mediaId = Number(created?.id || 0) || null;
+      expect(mediaId).toBeTruthy();
+
+      await page.route(`**/api/media/${mediaId}/provider-observations?limit=10`, async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            media: { id: mediaId, publicId: 'bcb2b3a1-b97d-4b05-a236-cd264ac548da', title },
+            observations: [
+              {
+                id: 'f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5',
+                providerConnection: {
+                  id: '4915dc42-c0cc-41ba-bfa5-b037ab5ae5a2',
+                  providerType: 'bookorbit',
+                  displayName: 'BookOrbit Shelf'
+                },
+                identity: { kind: 'book', active: true },
+                observedMediaPublicId: 'bcb2b3a1-b97d-4b05-a236-cd264ac548da',
+                sourceKind: 'bookorbit_native',
+                schemaVersion: 1,
+                fingerprint: 'a'.repeat(64),
+                facts: {
+                  identity: { kind: 'book', externalId: 'urn:bookorbit:book:1264' },
+                  providerIdentifiers: { comicvine: '315507' }
+                },
+                sourceUpdatedAt: '2026-11-22T12:00:00Z',
+                observedAt: '2026-11-22T12:01:00Z'
+              }
+            ],
+            pagination: { page: 1, limit: 10, total: 1, totalPages: 1, hasMore: false }
+          })
+        });
+      });
+
+      const storageState = await requestContext.storageState();
+      await page.context().addCookies(storageState.cookies || []);
+      await page.goto('/library/comics');
+      await getLibrarySearchInput(page).fill(title);
+      const resultCard = page
+        .locator('article')
+        .filter({ has: page.getByText(title, { exact: true }) })
+        .first();
+      await expect(resultCard).toBeVisible();
+      await resultCard.click();
+
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await expect(page.getByText('Provider history', { exact: true })).toBeVisible();
+      await expect(page.getByText('BookOrbit Shelf', { exact: true })).toBeVisible();
+      await expect(page.getByText(/ComicVine: 315507/i)).toBeVisible();
+      await expect(page.getByText(/Provider ID urn:bookorbit:book:1264/i)).toBeVisible();
+    } finally {
+      await deleteMediaByExactTitle(requestContext, title).catch(() => {});
+      await requestContext.dispose();
+    }
+  });
+
   test('admin sees explicit Plex writeback controls on Plex-linked media detail', async ({ page }) => {
     const credentials = await createFreshUserCredentials({ role: 'admin', noCache: true });
     const requestContext = await createAuthenticatedRequestContext(credentials);

@@ -178,6 +178,7 @@ const {
 } = require('../services/signatures');
 const { buildCollectibleTraits } = require('../services/collectibleTraits');
 const { loadTraitRecords, loadTraitRecordsForOwner } = require('../services/collectibleTraitRecords');
+const { listProviderSourceObservations } = require('../services/providerSourceObservations');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const { createMetronImportIdentityModule } = require('../services/metronImportIdentity');
@@ -11315,6 +11316,41 @@ router.get('/:id', asyncHandler(async (req, res, next) => {
     return res.status(404).json({ error: 'Media item not found' });
   }
   res.json(media);
+}));
+
+router.get('/:id/provider-observations', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  if (!Number.isInteger(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+  const page = Math.max(1, Number.parseInt(String(req.query?.page || '1'), 10) || 1);
+  const limit = Math.max(1, Math.min(100, Number.parseInt(String(req.query?.limit || '25'), 10) || 25));
+  const result = await withAuthorizedScopeTransaction(
+    pool,
+    { spaceId: scopeContext.spaceId, libraryId: scopeContext.libraryId || null },
+    req.user.id,
+    async (client) => {
+      const media = await loadScopedMediaItem(mediaId, scopeContext, client);
+      if (!media) return null;
+      const readback = await listProviderSourceObservations(client, {
+        spaceId: scopeContext.spaceId,
+        mediaId,
+        page,
+        limit
+      });
+      return {
+        media: {
+          id: media.id,
+          publicId: media.public_id,
+          title: media.title
+        },
+        ...readback
+      };
+    }
+  );
+  if (!result) return res.status(404).json({ error: 'Media item not found' });
+  return res.json(result);
 }));
 
 router.get('/:id/merge-details', asyncHandler(async (req, res) => {
