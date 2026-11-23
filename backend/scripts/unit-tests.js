@@ -52,6 +52,7 @@ const {
   prepareBookOrbitImportRows
 } = require('../services/bookOrbit');
 const {
+  buildProviderObservationComparison,
   buildBookOrbitSourceObservation,
   buildKavitaSourceObservation,
   normalizeFacts: normalizeProviderObservationFacts,
@@ -5854,6 +5855,54 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   assert.strictEqual(readback.actorUserId, undefined);
   assert.strictEqual(readback.idempotencyKey, undefined);
   assert.strictEqual(readback.providerConnection.endpointUrl, undefined);
+  const comparison = buildProviderObservationComparison({
+    facts: {
+      bibliographic: {
+        title: ' Observed   Comic ',
+        year: '2026',
+        releaseDate: '2026-11-22T18:30:00.000Z',
+        isbn: '978-1-4028-9462-6',
+        publisher: null
+      }
+    },
+    canonicalMedia: {
+      title: 'Current Comic',
+      year: 2026,
+      release_date: '2026-11-22',
+      type_details: { isbn: '9781402894626' }
+    },
+    providerConnectionId: '33cf8ca1-4cb4-46ca-bf3f-d4ca4f12e0e2',
+    controls: [{
+      field_path: 'media.title',
+      authority: 'manual',
+      provider_write_mode: 'preserve',
+      locked: true,
+      source_provider_connection_id: null
+    }]
+  });
+  assert.strictEqual(comparison.status, 'differs');
+  assert.strictEqual(comparison.comparedFieldCount, 4);
+  assert.strictEqual(comparison.differenceCount, 1);
+  assert.strictEqual(comparison.fields[0].fieldPath, 'media.title');
+  assert.strictEqual(comparison.fields[0].currentValue, 'Current Comic');
+  assert.strictEqual(comparison.fields[0].observedValue, ' Observed   Comic ');
+  assert.deepStrictEqual(comparison.fields[0].control, {
+    authority: 'manual',
+    providerWriteMode: 'preserve',
+    locked: true,
+    sameProvider: false
+  });
+  assert.strictEqual(comparison.fields[0].control.sourceProviderConnectionId, undefined);
+  const noComparableFacts = buildProviderObservationComparison({
+    facts: { providerIdentifiers: { comicvine: '315507' } },
+    canonicalMedia: {}
+  });
+  assert.deepStrictEqual(noComparableFacts, {
+    status: 'no_comparable_facts',
+    comparedFieldCount: 0,
+    differenceCount: 0,
+    fields: []
+  });
   assert.ok(migrationsSource.includes('version: 145'));
   assert.ok(initSqlSource.includes("(145, 'Add immutable provider source observations')"));
   assert.ok(providerSourceObservationsSqlSource.includes('provider_source_observations_append_only'));
@@ -5861,6 +5910,7 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   assert.ok(providerSourceObservationsSource.includes('normalized_facts'));
   assert.ok(providerSourceObservationsSource.includes('idempotencyKey'));
   assert.ok(providerSourceObservationsSource.includes('listProviderSourceObservations'));
+  assert.ok(providerSourceObservationsSource.includes('buildProviderObservationComparison'));
   assert.ok(mediaRoutesSource.includes("router.get('/:id/provider-observations'"));
   assert.ok(openApiSource.includes('"/api/media/{id}/provider-observations"'));
   assert.ok(libraryViewSource.includes("`/media/${item.id}/provider-observations?limit=10`"));

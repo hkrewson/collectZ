@@ -728,6 +728,17 @@ async function main() {
     assert.equal(serializedObservationReadback.includes('idempotencyKey'), false);
     assert.equal(serializedObservationReadback.includes('actorUserId'), false);
     assert.equal(serializedObservationReadback.includes('spaceId'), false);
+    assert.ok(observationReadbackPageOne.observations.every((observation) => observation.comparison));
+    assert.equal(serializedObservationReadback.includes('sourceProviderConnectionId'), false);
+    const lockedTitleReadback = await client.request(`/api/media/${firstBook.id}/provider-observations?page=1&limit=10`);
+    const lockedTitleDifference = lockedTitleReadback.observations
+      .flatMap((observation) => observation.comparison?.fields || [])
+      .find((field) => field.fieldPath === 'media.title');
+    assert.equal(lockedTitleReadback.observations.some((observation) => observation.comparison?.status === 'differs'), true);
+    assert.equal(lockedTitleDifference?.currentValue, 'Manual BookOrbit Title');
+    assert.equal(lockedTitleDifference?.control?.authority, 'manual');
+    assert.equal(lockedTitleDifference?.control?.locked, true);
+    assert.equal(lockedTitleDifference?.control?.sameProvider, false);
     const coverResponse = await fetch(`${BASE_URL}${comic.poster_path}`, {
       headers: { Cookie: client.cookieHeader(), Accept: 'image/png' }
     });
@@ -799,6 +810,7 @@ async function main() {
       explicitMetadataSource: 'comicvine:315507-verified-without-inference',
       immutableSourceObservations: 'normalized-idempotent-append-only-and-rls-proven',
       providerObservationReadback: 'paginated-sanitized-and-workspace-authorized',
+      providerObservationComparison: 'read-only-current-observed-and-lock-context-proven',
       normalizedSeriesMemberships: 'multi-series-retirement-proven',
       nativeCoverProxy: 'authenticated-and-versioned',
       lockedTypeTransition: 'review-required-existing-preserved',

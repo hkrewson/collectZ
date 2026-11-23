@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.29.7",
+      "version": "3.29.7",
+      "date": "2026-11-23",
+      "status": null,
+      "summary": "Makes immutable BookOrbit and Kavita evidence easier to review by showing how allowlisted observed bibliographic facts compare with the current canonical record, without applying metadata or changing provider authority.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a derived comparison to each workspace-authorized provider observation readback.",
+            "Compares an explicit allowlist of current and observed bibliographic fields while ignoring blank provider values.",
+            "Normalizes equivalent text, number, identifier, and date representations before reporting differences.",
+            "Returns only differing fields with safe current/observed values and bounded authority, write-mode, lock, and same-provider context.",
+            "Shows match/difference counts and field details in Library Provider history without offering apply or rematch actions.",
+            "Extended unit, OpenAPI, BookOrbit runtime, and browser coverage for comparison behavior and internal-id exclusion."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.29.6",
       "version": "3.29.6",
       "date": "2026-11-23",
@@ -178,27 +198,6 @@
             "Added native cover provenance and a versioned, session-only CollectZ cover proxy that resolves encrypted credentials at request time, verifies the imported BookOrbit identity, bounds response type and size, and never exposes the upstream API key.",
             "Added active multi-series and provenance readback to media detail plus a Library drawer presentation for series position, expected item count, source, and update time.",
             "Added migration, RLS, ownership, transport, authoritative import, OpenAPI, frontend, and release certification coverage for the new relational and cover paths."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.28.0",
-      "version": "3.28.0",
-      "date": "2026-11-12",
-      "status": null,
-      "summary": "Introduces a workspace-owned durable PostgreSQL job lifecycle, adopts it for Plex reconciliation and scheduled BookOrbit synchronization, and gives integration operators safe job history, cadence visibility, and cancellation without exposing credentials or provider payloads.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added stable public job UUIDs, relational workspace/library/provider-connection ownership, idempotency identities, bounded attempts, availability, leases, heartbeats, cancellation, and terminal timestamps while retaining compatibility with existing numeric job IDs.",
-            "Added one shared durable lifecycle for idempotent enqueue, concurrent-safe claim, owner-bound lease renewal, progress, bounded retry/final settlement, cancellation, expired-lease recovery, and workspace-scoped readback.",
-            "Migrated Plex full-library reconciliation to the leased worker lifecycle while preserving its existing safe-update, strong-identifier, and conflict-review behavior.",
-            "Added relational BookOrbit sync targets with enabled cadence, last-enqueue state, scheduled durable execution, current credential resolution at execution time, and duplicate cadence suppression.",
-            "Preserved BookOrbit OPDS series names and ordering, stable provider identity, acquisition and cover links, and lossless provider-owned book/comic classification changes without fabricating issue numbers.",
-            "Added provider-neutral operator APIs and integration panels for recent job state, attempt counts, next eligibility, safe failure summaries, cadence status, and cooperative cancellation.",
-            "Added canonical database, provider, ownership, migration, runtime-role, external-identity, RBAC, browser, and runtime-contract evidence for the durable lifecycle and its first two materially different adopters."
           ]
         }
       ]

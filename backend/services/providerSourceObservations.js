@@ -21,6 +21,25 @@ const BOOKORBIT_PROVIDER_ID_FIELDS = Object.freeze([
   ['lubimyczytac', 'bookorbit_lubimyczytac_id'],
   ['aladin', 'bookorbit_aladin_id']
 ]);
+const OBSERVATION_COMPARISON_FIELDS = Object.freeze([
+  Object.freeze({ fact: 'title', fieldPath: 'media.title', label: 'Title', kind: 'text' }),
+  Object.freeze({ fact: 'mediaType', fieldPath: 'media.media_type', label: 'Media type', kind: 'text' }),
+  Object.freeze({ fact: 'year', fieldPath: 'media.year', label: 'Year', kind: 'number' }),
+  Object.freeze({ fact: 'releaseDate', fieldPath: 'media.release_date', label: 'Release date', kind: 'date' }),
+  Object.freeze({ fact: 'format', fieldPath: 'media.format', label: 'Format', kind: 'text' }),
+  Object.freeze({ fact: 'author', fieldPath: 'type_details.author', label: 'Author', kind: 'text' }),
+  Object.freeze({ fact: 'publisher', fieldPath: 'type_details.publisher', label: 'Publisher', kind: 'text' }),
+  Object.freeze({ fact: 'isbn', fieldPath: 'type_details.isbn', label: 'ISBN', kind: 'identifier' }),
+  Object.freeze({ fact: 'edition', fieldPath: 'type_details.edition', label: 'Edition', kind: 'text' }),
+  Object.freeze({ fact: 'series', fieldPath: 'type_details.series', label: 'Series', kind: 'text' }),
+  Object.freeze({ fact: 'seriesIndex', fieldPath: 'type_details.series_index', label: 'Series index', kind: 'number' }),
+  Object.freeze({ fact: 'volume', fieldPath: 'type_details.volume', label: 'Volume', kind: 'text' }),
+  Object.freeze({ fact: 'issueNumber', fieldPath: 'type_details.issue_number', label: 'Issue number', kind: 'text' }),
+  Object.freeze({ fact: 'coverDate', fieldPath: 'type_details.cover_date', label: 'Cover date', kind: 'date' })
+]);
+const OBSERVATION_COMPARISON_FIELD_PATHS = Object.freeze(
+  OBSERVATION_COMPARISON_FIELDS.map(({ fieldPath }) => fieldPath)
+);
 
 function positiveInteger(value, label) {
   const parsed = Number(value);
@@ -107,9 +126,87 @@ function publicObservation(row, { created = false } = {}) {
   });
 }
 
-function publicObservationReadback(row) {
-  if (!row) return null;
+function displayComparisonValue(value) {
+  if (value instanceof Date) return value.toISOString();
+  return value;
+}
+
+function normalizedComparisonValue(value, kind) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  if (kind === 'number') {
+    const parsed = Number(text);
+    return Number.isFinite(parsed) ? `number:${parsed}` : `text:${text.toLocaleLowerCase()}`;
+  }
+  if (kind === 'date') {
+    const match = text.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) return `date:${match[1]}`;
+    const parsed = new Date(text);
+    return Number.isFinite(parsed.getTime())
+      ? `date:${parsed.toISOString().slice(0, 10)}`
+      : `text:${text.toLocaleLowerCase()}`;
+  }
+  if (kind === 'identifier') return `identifier:${text.replace(/[\s-]/g, '').toLocaleLowerCase()}`;
+  return `text:${text.replace(/\s+/g, ' ').toLocaleLowerCase()}`;
+}
+
+function buildProviderObservationComparison({
+  facts,
+  canonicalMedia,
+  controls = [],
+  providerConnectionId
+} = {}) {
+  const bibliographic = facts?.bibliographic && typeof facts.bibliographic === 'object'
+    ? facts.bibliographic
+    : {};
+  const typeDetails = canonicalMedia?.type_details && typeof canonicalMedia.type_details === 'object'
+    ? canonicalMedia.type_details
+    : {};
+  const controlMap = controls instanceof Map
+    ? controls
+    : new Map((Array.isArray(controls) ? controls : []).map((control) => [control.field_path, control]));
+  const differences = [];
+  let comparedFieldCount = 0;
+
+  for (const field of OBSERVATION_COMPARISON_FIELDS) {
+    const observedValue = bibliographic[field.fact];
+    const normalizedObserved = normalizedComparisonValue(observedValue, field.kind);
+    if (normalizedObserved === null) continue;
+    comparedFieldCount += 1;
+    const [storage, name] = field.fieldPath.split('.');
+    const currentValue = storage === 'media' ? canonicalMedia?.[name] : typeDetails[name];
+    if (normalizedObserved === normalizedComparisonValue(currentValue, field.kind)) continue;
+    const control = controlMap.get(field.fieldPath) || null;
+    differences.push(Object.freeze({
+      fieldPath: field.fieldPath,
+      label: field.label,
+      currentValue: displayComparisonValue(currentValue ?? null),
+      observedValue: displayComparisonValue(observedValue),
+      control: control ? Object.freeze({
+        authority: control.authority,
+        providerWriteMode: control.provider_write_mode,
+        locked: Boolean(control.locked),
+        sameProvider: Boolean(
+          control.source_provider_connection_id
+          && providerConnectionId
+          && control.source_provider_connection_id === providerConnectionId
+        )
+      }) : null
+    }));
+  }
+
   return Object.freeze({
+    status: comparedFieldCount === 0 ? 'no_comparable_facts' : differences.length > 0 ? 'differs' : 'matches',
+    comparedFieldCount,
+    differenceCount: differences.length,
+    fields: Object.freeze(differences)
+  });
+}
+
+function publicObservationReadback(row, { canonicalMedia = null, controls = [] } = {}) {
+  if (!row) return null;
+  const readback = {
     id: row.id,
     providerConnection: Object.freeze({
       id: row.provider_connection_id,
@@ -127,12 +224,22 @@ function publicObservationReadback(row) {
     facts: row.normalized_facts,
     sourceUpdatedAt: row.source_updated_at,
     observedAt: row.observed_at
-  });
+  };
+  if (canonicalMedia) {
+    readback.comparison = buildProviderObservationComparison({
+      facts: row.normalized_facts,
+      canonicalMedia,
+      controls,
+      providerConnectionId: row.provider_connection_id
+    });
+  }
+  return Object.freeze(readback);
 }
 
 async function listProviderSourceObservations(client, {
   spaceId: spaceIdValue,
   mediaId: mediaIdValue,
+  canonicalMedia = null,
   page: pageValue = 1,
   limit: limitValue = 25
 } = {}) {
@@ -147,7 +254,7 @@ async function listProviderSourceObservations(client, {
   const offset = (page - 1) * limit;
   if (!Number.isSafeInteger(offset)) throw new TypeError('Provider observation page is invalid');
 
-  const [countResult, rowsResult] = await Promise.all([
+  const [countResult, rowsResult, controlsResult] = await Promise.all([
     client.query(
       `SELECT COUNT(*)::int AS total
          FROM provider_source_observations pso
@@ -186,12 +293,25 @@ async function listProviderSourceObservations(client, {
         ORDER BY pso.observed_at DESC, pso.id DESC
         LIMIT $3 OFFSET $4`,
       [spaceId, mediaId, limit, offset]
-    )
+    ),
+    canonicalMedia
+      ? client.query(
+          `SELECT field_path, authority, provider_write_mode, locked, source_provider_connection_id
+             FROM canonical_media_field_controls
+            WHERE space_id = $1
+              AND media_id = $2
+              AND field_path = ANY($3::varchar[])`,
+          [spaceId, mediaId, OBSERVATION_COMPARISON_FIELD_PATHS]
+        )
+      : Promise.resolve({ rows: [] })
   ]);
   const total = Number(countResult.rows[0]?.total || 0);
   const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
   return Object.freeze({
-    observations: Object.freeze(rowsResult.rows.map(publicObservationReadback)),
+    observations: Object.freeze(rowsResult.rows.map((row) => publicObservationReadback(row, {
+      canonicalMedia,
+      controls: controlsResult.rows
+    }))),
     pagination: Object.freeze({
       page,
       limit,
@@ -425,7 +545,9 @@ function buildKavitaSourceObservation(item = {}, identity = {}) {
 }
 
 module.exports = {
+  OBSERVATION_COMPARISON_FIELDS,
   appendProviderSourceObservation,
+  buildProviderObservationComparison,
   buildBookOrbitSourceObservation,
   buildKavitaSourceObservation,
   listProviderSourceObservations,

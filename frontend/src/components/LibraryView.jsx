@@ -1039,6 +1039,23 @@ function MediaDetail({
     if (sourceKind === 'kavita_api') return 'Kavita API';
     return sourceKind.replace(/_/g, ' ') || 'Provider metadata';
   };
+  const providerObservationComparisonLabel = (comparison) => {
+    if (comparison?.status === 'matches') return `${comparison.comparedFieldCount} fields match`;
+    if (comparison?.status === 'differs') {
+      return `${comparison.differenceCount} ${comparison.differenceCount === 1 ? 'difference' : 'differences'}`;
+    }
+    return 'No comparable fields';
+  };
+  const providerObservationControlLabel = (control) => {
+    if (!control) return 'No field authority recorded';
+    const authority = String(control.authority || 'unknown').replace(/_/g, ' ');
+    const values = [authority, control.locked ? 'locked' : null, control.sameProvider ? 'same provider' : null].filter(Boolean);
+    return values.join(' · ');
+  };
+  const providerObservationComparisonValue = (value) => {
+    if (value === null || value === undefined || String(value).trim() === '') return 'Not set';
+    return String(value);
+  };
   const hiddenTypeDetailKeys = new Set(
     isBook
       ? [
@@ -2359,6 +2376,29 @@ function MediaDetail({
                         </div>
                         {providerObservationSummary(observation) ? (
                           <p className="mt-2 break-words text-xs text-dim">{providerObservationSummary(observation)}</p>
+                        ) : null}
+                        {observation.comparison ? (
+                          <div className="mt-3 border-t border-edge/60 pt-3">
+                            <p className="text-xs font-medium text-ink">{providerObservationComparisonLabel(observation.comparison)}</p>
+                            {observation.comparison.fields?.length > 0 ? (
+                              <div className="mt-2 space-y-2">
+                                {observation.comparison.fields.map((field) => (
+                                  <div key={field.fieldPath} className="rounded-md border border-edge/60 bg-surface/40 px-2.5 py-2">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p className="text-xs font-medium text-ink">{field.label}</p>
+                                      <span className="text-[11px] text-ghost">{providerObservationControlLabel(field.control)}</span>
+                                    </div>
+                                    <p className="mt-1 break-words text-xs text-dim">
+                                      Current: {providerObservationComparisonValue(field.currentValue)}
+                                    </p>
+                                    <p className="mt-1 break-words text-xs text-dim">
+                                      Observed: {providerObservationComparisonValue(field.observedValue)}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
                         ) : null}
                       </div>
                     ))}

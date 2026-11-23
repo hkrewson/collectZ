@@ -4,14 +4,56 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.5` reliability and provider-observation milestones are complete. `3.29.6` is complete locally as the explicit BookOrbit metadata-source provenance release candidate and awaits hosted certification after an authorized push.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.6` reliability and provider-observation milestones are complete. `3.29.7` is complete locally as the read-only provider-observation comparison release candidate and awaits hosted certification after an authorized push.
 
 ---
+
+## 3.29.7 — Provider Observation Comparison Preview
+
+**Goal:** Compare immutable provider observations with the current canonical media record so people can understand matching and conflicting bibliographic facts without applying historical metadata or changing provider authority.
+**Status:** Complete locally as a release candidate. Comparison projection, API/UI contracts, canonical runtime, browser regression, version closeout, and permitted local release gates are complete; hosted certification requires an authorized push.
+
+### Selected scope
+
+- Derive a current-record comparison for an explicit allowlist of BookOrbit and Kavita bibliographic observation fields.
+- Omit absent and blank observed facts so historical observations cannot imply a request to clear canonical values.
+- Normalize equivalent text, numeric, and date values before reporting a difference.
+- Include the current canonical value, observed value, and safe canonical-field authority/lock context for each differing field.
+- Expose only a same-provider boolean for field controls rather than internal Provider Connection or authorization identifiers.
+- Show a compact match/difference summary and differing-field details in Library Provider history.
+- Keep the projection read-only and compute it inside the existing workspace-authorized observation read transaction.
+
+### Acceptance criteria
+
+- Each observation readback reports `matches`, `differs`, or `no_comparable_facts`, plus compared-field and difference counts.
+- A differing allowlisted field reports its stable canonical field path, label, current value, observed value, and safe authority/write-mode/lock/same-provider context.
+- Equivalent date, numeric, and trimmed textual representations compare equal, and missing provider values are not reported as differences.
+- The comparison does not expose workspace ids, actor ids, field-control Provider Connection ids, credentials, endpoints, raw payloads, or unsupported observation facts.
+- Provider history makes differences understandable without presenting an apply, rematch, or provider-selection action.
+- Existing BookOrbit/Kavita import, identity, cover, reader, progress/writeback, observation append, and workspace-isolation behavior remains green.
+- Version `3.29.7`, release notes/feed, canonical stack, local release gate, OpenAPI, provider smoke, browser coverage, and relevant release evidence are aligned before closeout.
+
+### Milestone boundary
+
+This slice is a derived read-only preview. It does not apply an observation, change canonical-field precedence, infer or select a metadata provider, rematch identities, backfill history, add a migration, or introduce work/edition/owned-copy modeling.
+
+### 3.29.7 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.29.7 — Provider Observation Comparison Preview`, allowlisted current-versus-observed comparison, safe field-control context, Provider history detail, and version closeout.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/53-Digital-Library-Provider-Identity-Contract.md`, and `docs/releases/v3.29.7.md`.
+- **Verified facts:** Every API observation read through an authorized media scope now derives `matches`, `differs`, or `no_comparable_facts` against the current canonical row. Only nonblank allowlisted bibliographic facts participate; text, number, date, and ISBN forms normalize before comparison. Only differences expose safe current/observed values. Field controls expose authority, write mode, lock state, and a same-provider boolean without returning their Provider Connection id or decision actor. The projection is read-only and adds no migration, apply/rematch behavior, observation mutation, provider inference, or precedence change.
+- **Runtime verification used:** Backend and frontend were rebuilt and recreated in place in the canonical `collectz-private` stack on port `3201`; health reports application, frontend, backend, and build `3.29.7`; Help > Releases serves `3.29.7` first. The in-container BookOrbit authoritative import smoke proved current-versus-observed comparison, matching fields, a differing manually locked title, safe control context, current identity attachment, and internal-id/credential exclusion while retaining identity, series, cover, append-only, and workspace-isolation behavior. Fresh migration-built control-plane runtime authority passed `5/5` through migration `145`; observability evidence passed `9/9`; canonical Platform and Cairn services remain healthy.
+- **CI/checks run:** JavaScript syntax checks; backend unit/source suite (`389` assertions plus `57` Node tests); frontend unit tests (`7/7`) and production build; OpenAPI validation; changed-file ESLint/Prettier; zero-finding backend/frontend production dependency audits; version/release-note/feed validation; diff and generated-evidence hygiene; canonical health and Help > Releases; BookOrbit authoritative import smoke; migration/init/rehearsal, identity, saved-view RLS, external-identity, runtime-role, and control-plane preflight evidence. After reclaiming unused Docker build cache from a full Docker VM filesystem, the complete browser regression passed `73` tests with `6` edition-inapplicable skips. The standard local release gate passed `14/14`.
+- **Files changed:** Provider-observation comparison allowlist, normalization, control readback, and media-route composition; OpenAPI comparison schemas; Library Provider history comparison UI; unit, BookOrbit runtime, and browser coverage; provider identity contract; roadmap/backlog promotion; synchronized `3.29.7` metadata; release note/feed; and refreshed observability, control-plane, and local preflight evidence.
+- **Blocked/unverified:** The canonical Platform stack cannot validly certify the Core-only `rbac-regression` route boundary, and the local development stack does not use the CI secure-cookie configuration required by `compose-smoke`. Hosted Core `rbac-regression`, Core migration-built `runtime-smoke`, secure-cookie `compose-smoke`, gitleaks `secret-scan`, CodeQL, hosted dependency scan, image security/SBOM, hosted `browser-regression`, release preflight, image publication, and auto-tag require confirmation after an authorized push. Local browser regression, dependency audits, migration/control-plane runtime authority, evidence-key/path scans, and artifact hygiene passed. The full local release profile was not run because its Core runtime path creates a parallel Compose project, prohibited by repository policy.
+- **Risks or follow-ups:** Comparisons are advisory snapshots against the current row and only cover facts already retained by the BookOrbit/Kavita observation schemas. Automated apply, conflict policy, provider choice, identity rematching, historical backfill, other provider adopters, and work/edition/owned-copy modeling remain separate backlog work.
+- **What remains in the milestone:** Push CollectZ only with user authorization, then confirm the complete hosted gate set, image publication, and annotated `v3.29.7` creation from `main`.
+- **Recommended commit message:** `Release 3.29.7 with provider observation comparison preview`.
 
 ## 3.29.6 — Explicit BookOrbit Metadata Source Provenance
 
 **Goal:** Preserve the upstream provider actually selected for a BookOrbit metadata update, and that provider's record id, without inferring selection from the presence of unrelated provider identifiers or changing BookOrbit's canonical identity.
-**Status:** Complete locally as a release candidate. Native parsing, compatibility projection, immutable observation facts, API/UI readback, canonical runtime, browser regression, version closeout, and permitted local release gates are complete; hosted certification requires an authorized push.
+**Status:** Complete. Build and Publish Images run `45122585697` and CodeQL run `45122585741` passed for closeout commit `a9be223a`; annotated tag `v3.29.6` identifies the certified release commit.
 
 ### Selected scope
 
@@ -43,9 +85,10 @@ This slice records explicit attribution supplied by BookOrbit. It does not choos
 - **Runtime verification used:** Backend and frontend were rebuilt and recreated in place in the canonical `collectz-private` stack on port `3201`; health reports application, frontend, backend, and build `3.29.6`; Help > Releases serves `3.29.6` first. The in-container BookOrbit authoritative import smoke proved explicit `comicvine:315507` attribution through compatibility storage, immutable facts, paginated public readback, and the existing identity/series/cover/lock/isolation behavior. The BookOrbit transport smoke passed authentication, safety, fallback, native-source, and cover-proxy checks. Control-plane runtime authority passed `5/5`; observability evidence passed `9/9`; canonical Core and Cairn services remain healthy.
 - **CI/checks run:** JavaScript syntax checks; backend unit/source suite (`389` assertions plus `57` Node tests); frontend unit tests (`7/7`) and production build; OpenAPI validation; changed-file ESLint/Prettier; zero-finding backend/frontend production dependency audits; version/release-note/feed validation; diff hygiene; canonical health, Help > Releases, BookOrbit transport and authoritative import smokes, and migration-built control-plane certification through migration `145`. The full browser regression passed `73` tests with `6` edition-inapplicable skips. The standard local release gate passed `14/14`.
 - **Files changed:** BookOrbit native metadata-source normalizer and enrichment counters; import compatibility/canonical field allowlists; immutable observation facts; connection-test/import summaries; Provider history label; OpenAPI and provider identity contract; BookOrbit unit/transport/authoritative and browser coverage; resilient TV activation fixture setup; roadmap/backlog promotion; synchronized `3.29.6` metadata; release note/feed; and refreshed observability, control-plane, and local preflight evidence.
-- **Blocked/unverified:** The canonical Platform stack cannot validly certify the Core-only `rbac-regression` route boundary, and the local development stack does not use the CI secure-cookie configuration required by `compose-smoke`. Hosted Core `rbac-regression`, Core migration-built `runtime-smoke`, secure-cookie `compose-smoke`, gitleaks `secret-scan`, CodeQL, dependency scan, image security/SBOM, hosted `browser-regression`, release preflight, image publication, and auto-tag require confirmation after an authorized push. The full local release profile was not run because its Core runtime path creates a parallel Compose project, prohibited by repository policy; equivalent allowed local browser, runtime, control-plane, dependency, and evidence checks passed against the canonical stack.
+- **Hosted certification:** Build and Publish Images run `45122585697` passed prepare, migration check, frontend quality, dependency and secret scans, Compose smoke, Core RBAC/browser/runtime regressions, backend/frontend image publication, image security/SBOM, release preflight, and auto-tag. CodeQL run `45122585741` passed. Annotated tag `v3.29.6` resolves to closeout commit `a9be223a`.
+- **Blocked/unverified:** No tagged-CI release gate remains blocked.
 - **Risks or follow-ups:** CollectZ is contract-ready, but the live BookOrbit `/api/v1/books/{id}` response must add the explicit `metadataSource` pair before real imports can populate selected-source provenance. The current public BookOrbit documentation does not publish a response schema for that endpoint. This slice does not infer from `providerIds`; BookOrbit must preserve the provider choice made by its metadata workflow.
-- **What remains in the milestone:** Add the explicit response pair in BookOrbit, then push CollectZ only with user authorization and confirm the complete hosted gate set, image publication, and annotated `v3.29.6` creation from `main`.
+- **What remains in the milestone:** Nothing. Hosted certification, image publication, release preflight, CodeQL, and annotated `v3.29.6` creation completed from `main`. BookOrbit response adoption remains an upstream integration dependency rather than unfinished CollectZ release work.
 - **Recommended commit message:** `Release 3.29.6 with explicit BookOrbit metadata source provenance`.
 
 ## 3.29.5 — Workspace Provider Observation Readback

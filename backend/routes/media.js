@@ -11337,6 +11337,7 @@ router.get('/:id/provider-observations', asyncHandler(async (req, res) => {
       const readback = await listProviderSourceObservations(client, {
         spaceId: scopeContext.spaceId,
         mediaId,
+        canonicalMedia: media,
         page,
         limit
       });

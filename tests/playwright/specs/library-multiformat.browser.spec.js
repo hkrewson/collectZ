@@ -490,8 +490,28 @@ test.describe('library multi-format browser regressions', () => {
                 fingerprint: 'a'.repeat(64),
                 facts: {
                   identity: { kind: 'book', externalId: 'urn:bookorbit:book:1264' },
+                  bibliographic: { title: 'Observed Provider Title' },
                   metadataSource: { provider: 'comicvine', providerItemId: '315507' },
                   providerIdentifiers: { comicvine: '315507' }
+                },
+                comparison: {
+                  status: 'differs',
+                  comparedFieldCount: 1,
+                  differenceCount: 1,
+                  fields: [
+                    {
+                      fieldPath: 'media.title',
+                      label: 'Title',
+                      currentValue: title,
+                      observedValue: 'Observed Provider Title',
+                      control: {
+                        authority: 'manual',
+                        providerWriteMode: 'preserve',
+                        locked: true,
+                        sameProvider: false
+                      }
+                    }
+                  ]
                 },
                 sourceUpdatedAt: '2026-11-22T12:00:00Z',
                 observedAt: '2026-11-22T12:01:00Z'
@@ -519,6 +539,10 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByText(/Metadata source: ComicVine #315507/i)).toBeVisible();
       await expect(page.getByText(/ComicVine: 315507/i)).toBeVisible();
       await expect(page.getByText(/Provider ID urn:bookorbit:book:1264/i)).toBeVisible();
+      await expect(page.getByText('1 difference', { exact: true })).toBeVisible();
+      await expect(page.getByText('manual · locked', { exact: true })).toBeVisible();
+      await expect(page.getByText(`Current: ${title}`, { exact: true })).toBeVisible();
+      await expect(page.getByText('Observed: Observed Provider Title', { exact: true })).toBeVisible();
     } finally {
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
       await requestContext.dispose();

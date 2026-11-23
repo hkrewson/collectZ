@@ -1210,10 +1210,53 @@
             "additionalProperties": true,
             "description": "Provider-specific normalized facts. BookOrbit native observations may include metadataSource.provider and metadataSource.providerItemId only when BookOrbit explicitly reports a pair consistent with providerIdentifiers."
           },
+          "comparison": { "$ref": "#/components/schemas/ProviderObservationComparison" },
           "sourceUpdatedAt": { "type": ["string", "null"], "format": "date-time" },
           "observedAt": { "type": "string", "format": "date-time" }
         },
-        "required": ["id", "providerConnection", "identity", "observedMediaPublicId", "sourceKind", "schemaVersion", "fingerprint", "facts", "sourceUpdatedAt", "observedAt"]
+        "required": ["id", "providerConnection", "identity", "observedMediaPublicId", "sourceKind", "schemaVersion", "fingerprint", "facts", "comparison", "sourceUpdatedAt", "observedAt"]
+      },
+      "ProviderObservationComparison": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Read-only comparison of allowlisted observed bibliographic facts with the current canonical record. Only differing fields are included in fields.",
+        "properties": {
+          "status": { "type": "string", "enum": ["matches", "differs", "no_comparable_facts"] },
+          "comparedFieldCount": { "type": "integer", "minimum": 0 },
+          "differenceCount": { "type": "integer", "minimum": 0 },
+          "fields": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ProviderObservationComparisonField" }
+          }
+        },
+        "required": ["status", "comparedFieldCount", "differenceCount", "fields"]
+      },
+      "ProviderObservationComparisonField": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fieldPath": { "type": "string", "pattern": "^(media|type_details)\\.[a-z][a-z0-9_]{0,79}$" },
+          "label": { "type": "string" },
+          "currentValue": { "type": ["string", "number", "boolean", "null"] },
+          "observedValue": { "type": ["string", "number", "boolean"] },
+          "control": {
+            "anyOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "authority": { "type": "string", "enum": ["provider", "manual", "reviewed"] },
+                  "providerWriteMode": { "type": "string", "enum": ["preserve", "refresh"] },
+                  "locked": { "type": "boolean" },
+                  "sameProvider": { "type": "boolean" }
+                },
+                "required": ["authority", "providerWriteMode", "locked", "sameProvider"]
+              }
+            ]
+          }
+        },
+        "required": ["fieldPath", "label", "currentValue", "observedValue", "control"]
       },
       "ProviderSourceObservationListResponse": {
         "type": "object",
@@ -11505,7 +11548,7 @@
       "get": {
         "tags": ["Media"],
         "summary": "List immutable provider observations for a media record",
-        "description": "Returns newest-first, normalized provider evidence attached to identities currently linked to the media record. The projection omits workspace implementation ids, actors, idempotency keys, credentials, connection endpoints, raw provider payloads, and authorization data.",
+        "description": "Returns newest-first, normalized provider evidence attached to identities currently linked to the media record, plus a read-only allowlisted comparison with the current canonical record. The projection omits workspace implementation ids, actors, field-control connection ids, idempotency keys, credentials, connection endpoints, raw provider payloads, and authorization data.",
         "security": [
           { "cookieSession": [] },
           { "bearerAuth": [] }
