@@ -14715,13 +14715,14 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
     socket: req.socket
   };
 
-  const runImport = async ({ onProgress = null, reviewContext = null } = {}) => {
+  const runImport = async ({ onProgress = null, reviewContext = null, observationBatchId = null } = {}) => {
     const fetched = await fetchKavitaImportItems(config, { maxPages, pageSize, includeChapterFanout });
     const identitySession = await kavitaImportIdentity.open({
       spaceId: Number(scopeContext?.spaceId || 0),
       libraryId: Number(scopeContext?.libraryId || 0) || null,
       actorId: req.user.id,
-      endpointUrl: config.kavitaBaseUrl
+      endpointUrl: config.kavitaBaseUrl,
+      observationBatchId
     });
     const result = await runGenericCsvImport({
       rows: fetched.rows,
@@ -14764,7 +14765,8 @@ router.post('/import-kavita', asyncHandler(async (req, res) => {
         await importJob.start(job.id);
         const { fetched, result, valuationRefresh } = await runImport({
           onProgress: async (progress) => importJob.reportProgress(job.id, progress),
-          reviewContext: { jobId: job.id, provider: 'kavita', auditReq }
+          reviewContext: { jobId: job.id, provider: 'kavita', auditReq },
+          observationBatchId: `kavita-job:${job.id}`
         });
         await importJob.succeed(job.id, {
           progress: {

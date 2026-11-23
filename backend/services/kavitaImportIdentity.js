@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('node:crypto');
 const { appendScopeSql } = require('../db/scopeContext');
 const { setCanonicalFieldControl } = require('./canonicalMediaFieldControls');
 const { createExternalMediaIdentityService } = require('./externalMediaIdentities');
@@ -13,6 +14,10 @@ const { buildOwnedFormatsPayload } = require('./mediaFormats');
 const { syncNormalizedMetadataForMedia } = require('./mediaTaxonomy');
 const { recordProviderIdentityCompatibilityEvent } = require('./metrics');
 const { createProviderIntegrationBindingService } = require('./providerIntegrationBindings');
+const {
+  appendProviderSourceObservation,
+  buildKavitaSourceObservation
+} = require('./providerSourceObservations');
 
 function positiveInteger(value, label) {
   const parsed = Number(value);
@@ -35,6 +40,7 @@ function createKavitaImportIdentityModule({ pool } = {}) {
     libraryId: libraryIdValue = null,
     actorId: actorIdValue,
     endpointUrl,
+    observationBatchId: observationBatchIdValue = null,
     transactionClient = null
   } = {}) {
     const spaceId = positiveInteger(spaceIdValue, 'Workspace');
@@ -44,6 +50,10 @@ function createKavitaImportIdentityModule({ pool } = {}) {
       : positiveInteger(libraryIdValue, 'Library');
     if (transactionClient && typeof transactionClient.query !== 'function') {
       throw new TypeError('Kavita import identity transaction client must provide query()');
+    }
+    const observationBatchId = String(observationBatchIdValue || crypto.randomUUID()).trim();
+    if (!observationBatchId || observationBatchId.length > 512) {
+      throw new TypeError('Kavita observation batch id is invalid');
     }
     const binding = await bindings.ensureKavitaBinding(
       { spaceId, actorId, endpointUrl },
@@ -148,7 +158,24 @@ function createKavitaImportIdentityModule({ pool } = {}) {
             client
           });
         }
-        return reconciled;
+        const observationInput = buildKavitaSourceObservation(item, parsed);
+        const sourceObservation = await appendProviderSourceObservation(client, {
+          spaceId,
+          providerConnectionId: binding.providerConnectionId,
+          externalIdentityId: reconciled.identity.id,
+          actorId,
+          sourceKind: observationInput.sourceKind,
+          sourceUpdatedAt: observationInput.sourceUpdatedAt,
+          batchKey: observationBatchId,
+          facts: observationInput.facts
+        });
+        return {
+          ...reconciled,
+          value: {
+            ...reconciled.value,
+            providerSourceObservation: sourceObservation
+          }
+        };
       });
     }
 

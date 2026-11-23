@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db/pool');
 const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
+const { createKavitaImportIdentityModule } = require('../services/kavitaImportIdentity');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const KAVITA_SMOKE_KEY = `kavita-import-smoke-${crypto.randomBytes(8).toString('hex')}`;
@@ -621,10 +622,13 @@ async function createDirectSpaceAndLibrary({ userId, suffix }) {
 async function readImportedProviderRow(libraryId, providerItemId) {
   const result = await pool.query(
     `SELECT id,
+            public_id,
             title,
             media_type,
             year,
             release_date,
+            format,
+            overview,
             import_source,
             poster_path,
             type_details
@@ -970,6 +974,31 @@ async function main() {
       kavitaIdentities.rows.filter((row) => row.identity_kind === 'chapter').map((row) => row.external_id_normalized).join(',') === '9702,9703,9799',
       `Expected distinct Kavita chapter identities, got ${JSON.stringify(kavitaIdentities.rows)}`
     );
+    const observationSession = await createKavitaImportIdentityModule({ pool }).open({
+      spaceId,
+      libraryId,
+      actorId: userId,
+      endpointUrl: fake.baseUrl,
+      observationBatchId: `kavita-observation-smoke:${suffix}`
+    });
+    const reconcileObservedComic = () => observationSession.reconcileItem({
+      externalId: COMIC_PROVIDER_ITEM_ID,
+      item: canonicalComic,
+      sourceUrl: canonicalComicDetails.provider_external_url || null
+    }, async ({ preferredMediaId, matchedBy }) => ({
+      mediaId: preferredMediaId,
+      type: 'updated',
+      matchMode: 'provider_identity',
+      matchedBy
+    }));
+    const firstObservationRetry = await reconcileObservedComic();
+    const secondObservationRetry = await reconcileObservedComic();
+    assert(firstObservationRetry.value?.providerSourceObservation?.created === true, 'Expected first Kavita observation batch append to create one row');
+    assert(secondObservationRetry.value?.providerSourceObservation?.created === false, 'Expected exact Kavita observation retry to reuse its row');
+    assert(
+      firstObservationRetry.value?.providerSourceObservation?.id === secondObservationRetry.value?.providerSourceObservation?.id,
+      'Expected exact Kavita observation retry to return the same observation id'
+    );
     const kavitaSeriesPreview = await client.request(`/api/media/${canonicalComic.id}/kavita-writeback-preview?${scopeQuery}`, {
       method: 'POST',
       withCsrf: true,
@@ -1117,6 +1146,58 @@ async function main() {
     const secondCoverReadback = await client.requestRaw(`/api/media/kavita-cover/8602?space_id=${secondSpaceId}&library_id=${secondLibraryId}`, { expectStatus: 200 });
     assert(String(secondCoverReadback.headers.get('content-type') || '').startsWith('image/png'), `Expected second workspace Kavita cover content type, got ${secondCoverReadback.headers.get('content-type')}`);
 
+    const readObservations = (targetSpaceId, targetLibraryId) => withAuthorizedScopeTransaction(
+      pool,
+      { spaceId: targetSpaceId, libraryId: targetLibraryId },
+      userId,
+      async (scopedClient) => (await scopedClient.query(
+        `SELECT pso.id,
+                pso.observed_media_public_id,
+                pso.source_kind,
+                pso.normalized_facts,
+                emi.identity_kind,
+                emi.external_id_raw,
+                m.public_id AS current_media_public_id
+           FROM provider_source_observations pso
+           JOIN external_media_identities emi
+             ON emi.space_id = pso.space_id
+            AND emi.provider_connection_id = pso.provider_connection_id
+            AND emi.id = pso.external_identity_id
+           JOIN media m ON m.space_id = pso.space_id AND m.public_id = pso.observed_media_public_id
+          WHERE pso.space_id = $1 AND pso.source_kind = 'kavita_api'
+          ORDER BY pso.observed_at, pso.id`,
+        [targetSpaceId]
+      )).rows
+    );
+    const sourceObservations = await readObservations(spaceId, libraryId);
+    const secondWorkspaceObservations = await readObservations(secondSpaceId, secondLibraryId);
+    const siblingWorkspaceLeakCount = await withAuthorizedScopeTransaction(
+      pool,
+      { spaceId: secondSpaceId, libraryId: secondLibraryId },
+      userId,
+      async (scopedClient) => Number((await scopedClient.query(
+        `SELECT COUNT(*)::int AS count
+           FROM provider_source_observations
+          WHERE space_id = $1 AND source_kind = 'kavita_api'`,
+        [spaceId]
+      )).rows[0]?.count || 0)
+    );
+    assert(sourceObservations.length === 19, `Expected eighteen route observations plus one exact-retry row, got ${sourceObservations.length}`);
+    assert(secondWorkspaceObservations.length === 3, `Expected one observation per second-workspace Kavita series, got ${secondWorkspaceObservations.length}`);
+    assert(siblingWorkspaceLeakCount === 0, `Expected sibling workspace grant to see zero primary-workspace observations, got ${siblingWorkspaceLeakCount}`);
+    assert(sourceObservations.every((row) => row.source_kind === 'kavita_api'), 'Expected every Kavita observation to use the Kavita source kind');
+    assert(sourceObservations.every((row) => row.observed_media_public_id === row.current_media_public_id), 'Expected every Kavita observation to retain the canonical public UUID');
+    assert(sourceObservations.every((row) => row.normalized_facts?.identity?.kind === row.identity_kind), 'Expected Kavita observation identity kinds to match the registry');
+    assert(sourceObservations.every((row) => row.normalized_facts?.identity?.externalId === row.external_id_raw), 'Expected Kavita observation identities to preserve exact provider ids');
+    const chapterObservations = sourceObservations.filter((row) => row.identity_kind === 'chapter');
+    assert(chapterObservations.length === 6, `Expected two batches for each of three Kavita chapter identities, got ${chapterObservations.length}`);
+    assert(chapterObservations.every((row) => row.normalized_facts?.kavita?.chapter?.externalId), 'Expected Kavita chapter observations to retain chapter identity facts');
+    assert(chapterObservations.every((row) => row.normalized_facts?.cover?.proxyPath?.startsWith('/api/media/kavita-chapter-cover/')), 'Expected Kavita chapter observations to retain only safe cover proxy paths');
+    const serializedObservations = JSON.stringify([...sourceObservations, ...secondWorkspaceObservations]);
+    assert(!serializedObservations.includes(KAVITA_SMOKE_KEY), 'Kavita observation facts must not retain API keys');
+    assert(!serializedObservations.includes(KAVITA_SMOKE_BEARER), 'Kavita observation facts must not retain bearer tokens');
+    assert(!serializedObservations.includes(fake.baseUrl), 'Kavita observation facts must not retain direct server URLs');
+
     console.log(JSON.stringify({
       provider: 'kavita',
       rows: firstImport.data?.rows,
@@ -1168,6 +1249,14 @@ async function main() {
       comicChapterCoverProxyUrl: chapterOneDetails.kavita_cover_proxy_url,
       coverProxyContentType: coverReadback.headers.get('content-type'),
       chapterCoverProxyContentType: chapterCoverReadback.headers.get('content-type'),
+      immutableSourceObservations: {
+        primaryWorkspace: sourceObservations.length,
+        secondWorkspace: secondWorkspaceObservations.length,
+        chapterObservations: chapterObservations.length,
+        exactRetryReused: true,
+        workspaceIsolation: siblingWorkspaceLeakCount === 0,
+        credentialFree: true
+      },
       secretReturned: false
     }, null, 2));
   } finally {

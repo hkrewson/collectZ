@@ -63,6 +63,8 @@ The scheduler scans due targets on a five-minute process-local sweep. The target
 
 BookOrbit job execution also supplies a stable observation batch identity. Migration `145` uses that identity with the external media identity, source kind, and normalized content hash to make immutable provider observations retry-idempotent. Observation append remains inside the provider reconciliation transaction; it is not part of the durable job envelope and never stores the job target, credentials, or raw provider response.
 
+Kavita's legacy inline import uses the same observation ledger without pretending the import itself is restart-capable durable work. A queued inline import derives its observation batch from the existing job id; a synchronous request mints one request-local batch. Series and optional chapter-fan-out rows append inside their reconciliation transactions, and an exact repeated row within the same batch reuses its observation. The observation schema remains Kavita-specific and stores neither job state nor Kavita credentials, direct server URLs, progress, or writeback payloads.
+
 The certified BookOrbit result contract records bounded counts and audit rows, including series coverage, while keeping credentials and raw feeds out of targets, progress, summaries, logs, and readback. OPDS series order remains `series_index`; an absent provider issue number remains absent.
 
 ## Operator readback and cancellation
@@ -85,6 +87,6 @@ The older numeric-id `/api/media/sync-jobs` list, detail, and result endpoints u
 
 - additional mutation-plus-enqueue workflows beyond the atomic scheduled BookOrbit target pattern;
 - restart-capable durable-worker adoption for legacy CWA, Kavita, Metron, CSV, and Plex import execution where payload durability can be designed without persisting uploads or credentials;
-- append-only external source-observation adoption beyond BookOrbit;
+- append-only external source-observation adoption beyond BookOrbit and Kavita;
 - broader work/edition/owned-copy modeling;
 - multi-process worker deployment and transactional outbox adoption where enqueue must share another domain commit.

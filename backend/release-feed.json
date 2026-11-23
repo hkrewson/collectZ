@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.29.4",
+      "version": "3.29.4",
+      "date": "2026-11-22",
+      "status": null,
+      "summary": "Makes Kavita the second immutable provider-observation adopter, preserving separate series and chapter provenance without storing credentials or direct server URLs.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added an explicit Kavita normalized-fact builder at the existing immutable observation seam.",
+            "Kavita series and chapter reconciliation now appends `kavita_api` observations in the same authorized transaction as identity, canonical-field, compatibility, format, and normalized-metadata work.",
+            "Observations preserve separate Kavita series/chapter identities, library and bibliographic facts, chapter-fan-out detail, and safe CollectZ cover-proxy paths.",
+            "Queued imports derive their observation batch from the existing inline job id; synchronous imports mint one batch per request.",
+            "Exact retries within one batch reuse the observation, while later import requests append immutable history.",
+            "Kavita observation facts omit API keys, bearer tokens, raw API payloads, direct server/reader/cover URLs, and server filenames."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.29.3",
       "version": "3.29.3",
       "date": "2026-11-22",
@@ -180,28 +200,6 @@
             "Recognized current CBZ and CBR acquisition MIME types, preserved series/index, cover, acquisition, and source-update facts, and skipped unsupported audiobook acquisitions instead of misclassifying them as books.",
             "Kept distinct provider records separate when ISBN or visible titles collide and added audit diagnostics for duplicates, partial outcomes, provider-identity matches, and guarded strong-identifier conflicts.",
             "Added controlled Provider Type Transitions: lossless provider-owned book/comic changes retain the Canonical Object, while locked, manual, cross-provider, uncontrolled, or lossy changes preserve the existing object and require review."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.27.3",
-      "version": "3.27.3",
-      "date": "2026-11-10",
-      "status": null,
-      "summary": "Makes the provider-connection-scoped external identity registry authoritative for adopted sync paths while preserving existing provider fields as compatibility projections. The release establishes stable canonical UUIDs, lifecycle-safe provider identities, conflict-safe merge and revert behavior, canonical field precedence, and explicit cutover diagnostics without removing legacy fields.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added immutable canonical object UUIDs, multi-instance Provider Connections, scoped external identities, append-only lifecycle evidence, and explicit workspace integration bindings.",
-            "Added authorized transaction composition for identity attach, resolve, deactivate, reassign, merge, revert, compatibility projection, and canonical field decisions.",
-            "Added plan-first, fail-closed legacy identity backfill that attaches only unambiguous evidence and reports duplicate, conflicting, or unbound rows without guessing.",
-            "Added Canonical Field Controls so provider refreshes preserve uncontrolled existing, manual, reviewed, locked, and differently sourced values unless an explicit reviewed refresh policy permits replacement.",
-            "Adopted authoritative reconciliation in Metron, CWA/Calibre OPDS, and Plex imports. Plex prefers GUID identity and falls back to its section/item key when a GUID is absent.",
-            "Added bounded compatibility telemetry and deterministic cutover diagnostics. A provider requires at least seven continuous observation days, two successful syncs, no legacy activity or projection conflicts, repeat-alignment evidence, and a clean legacy inventory before a separate cutover proposal.",
-            "Updated `fast-xml-parser` to `5.12.0` after the release audit identified the stop-node CPU-consumption advisory affecting `5.11.2`; the rebuilt backend now reports zero dependency vulnerabilities.",
-            "Preserved compatibility fields and existing provider behavior; BookOrbit remains scoped to `3.27.4`, and Kavita authoritative adoption remains scoped to `3.27.5`."
           ]
         }
       ]

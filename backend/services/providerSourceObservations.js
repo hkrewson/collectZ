@@ -180,6 +180,21 @@ function optionalFact(value) {
   return normalized || null;
 }
 
+function optionalNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function optionalBoolean(value) {
+  if (value === true || value === false) return value;
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (!normalized) return null;
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return null;
+}
+
 function buildBookOrbitSourceObservation(item = {}) {
   const details = item.type_details && typeof item.type_details === 'object' ? item.type_details : {};
   const native = details.bookorbit_native_metadata === 'available';
@@ -234,9 +249,84 @@ function buildBookOrbitSourceObservation(item = {}) {
   });
 }
 
+function buildKavitaSourceObservation(item = {}, identity = {}) {
+  const details = item.type_details && typeof item.type_details === 'object' ? item.type_details : {};
+  const externalId = optionalFact(identity.providerItemId || details.provider_item_id);
+  const derivedKind = externalId?.match(/^kavita:(series|chapter):[1-9]\d*$/i)?.[1]?.toLowerCase() || null;
+  const identityKind = optionalFact(identity.identityKind || derivedKind);
+  if (!externalId || !derivedKind || !['series', 'chapter'].includes(identityKind) || derivedKind !== identityKind) {
+    throw new TypeError('Kavita provider observation requires a series or chapter identity');
+  }
+  return Object.freeze({
+    sourceKind: 'kavita_api',
+    sourceUpdatedAt: details.source_updated_at || null,
+    facts: {
+      identity: {
+        kind: identityKind,
+        externalId
+      },
+      bibliographic: {
+        title: optionalFact(item.title),
+        mediaType: optionalFact(item.media_type),
+        year: optionalNumber(item.year),
+        releaseDate: optionalFact(item.release_date),
+        format: optionalFact(item.format),
+        author: optionalFact(details.author),
+        publisher: optionalFact(details.publisher),
+        isbn: optionalFact(details.isbn),
+        edition: optionalFact(details.edition),
+        series: optionalFact(details.series),
+        issueNumber: optionalFact(details.issue_number),
+        volume: optionalFact(details.volume),
+        coverDate: optionalFact(details.cover_date)
+      },
+      kavita: {
+        library: {
+          id: optionalNumber(details.kavita_library_id),
+          name: optionalFact(details.kavita_library_name),
+          type: optionalFact(details.kavita_library_type)
+        },
+        series: {
+          id: optionalNumber(details.kavita_series_id),
+          name: optionalFact(details.kavita_series_name),
+          localizedName: optionalFact(details.kavita_localized_name),
+          originalName: optionalFact(details.kavita_original_name),
+          sortName: optionalFact(details.kavita_sort_name),
+          externalId: optionalFact(details.kavita_series_provider_item_id)
+            || (identityKind === 'series' ? externalId : optionalFact(details.kavita_parent_provider_item_id))
+        },
+        chapter: identityKind === 'chapter' ? {
+          id: optionalNumber(details.kavita_chapter_id),
+          externalId: optionalFact(details.kavita_chapter_provider_item_id) || externalId,
+          volumeId: optionalNumber(details.kavita_volume_id),
+          number: optionalFact(details.kavita_chapter_number),
+          title: optionalFact(details.kavita_chapter_title),
+          sortOrder: optionalFact(details.kavita_chapter_sort_order),
+          releaseDate: optionalFact(details.kavita_chapter_release_date),
+          pages: optionalNumber(details.kavita_chapter_pages),
+          special: optionalBoolean(details.kavita_chapter_special)
+        } : null,
+        chapterFanout: optionalBoolean(details.kavita_chapter_fanout),
+        titleParseStatus: optionalFact(details.kavita_title_parse_status),
+        format: optionalFact(details.kavita_format),
+        pages: optionalNumber(details.kavita_pages),
+        volumeDetailStatus: optionalFact(details.kavita_volume_detail_status),
+        volumeCount: optionalNumber(details.kavita_volume_count),
+        chapterCount: optionalNumber(details.kavita_chapter_count)
+      },
+      cover: {
+        proxyPath: optionalFact(details.kavita_cover_proxy_url),
+        source: optionalFact(details.kavita_cover_source),
+        status: optionalFact(details.kavita_cover_status)
+      }
+    }
+  });
+}
+
 module.exports = {
   appendProviderSourceObservation,
   buildBookOrbitSourceObservation,
+  buildKavitaSourceObservation,
   normalizeFacts,
   publicObservation
 };

@@ -52,6 +52,7 @@ const {
 } = require('../services/bookOrbit');
 const {
   buildBookOrbitSourceObservation,
+  buildKavitaSourceObservation,
   normalizeFacts: normalizeProviderObservationFacts
 } = require('../services/providerSourceObservations');
 const {
@@ -5763,6 +5764,34 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   });
   assert.strictEqual(bookOrbitObservation.sourceKind, 'bookorbit_native');
   assert.strictEqual(bookOrbitObservation.facts.providerIdentifiers.comicvine, '315507');
+  const kavitaObservation = buildKavitaSourceObservation({
+    title: 'Observed Kavita Issue',
+    media_type: 'comic_book',
+    release_date: '2026-11-22',
+    type_details: {
+      provider_item_id: 'kavita:chapter:9702',
+      provider_external_url: 'https://kavita.example.invalid/library/87/series/8602/manga/9702',
+      source_updated_at: '2026-11-22T12:00:00Z',
+      kavita_library_id: 87,
+      kavita_library_type: 'comic',
+      kavita_series_id: 8602,
+      kavita_series_name: 'Observed Kavita Series',
+      kavita_series_provider_item_id: 'kavita:series:8602',
+      kavita_chapter_id: 9702,
+      kavita_chapter_provider_item_id: 'kavita:chapter:9702',
+      kavita_chapter_number: '1',
+      kavita_chapter_pages: 24,
+      kavita_chapter_fanout: 'true',
+      kavita_cover_url: 'https://kavita.example.invalid/api/Image/chapter-cover?chapterId=9702',
+      kavita_cover_proxy_url: '/api/media/kavita-chapter-cover/9702',
+      kavita_cover_source: 'collectz_chapter_proxy'
+    }
+  }, { identityKind: 'chapter', providerItemId: 'kavita:chapter:9702' });
+  assert.strictEqual(kavitaObservation.sourceKind, 'kavita_api');
+  assert.strictEqual(kavitaObservation.facts.identity.kind, 'chapter');
+  assert.strictEqual(kavitaObservation.facts.kavita.chapter.id, 9702);
+  assert.strictEqual(kavitaObservation.facts.cover.proxyPath, '/api/media/kavita-chapter-cover/9702');
+  assert.ok(!JSON.stringify(kavitaObservation.facts).includes('kavita.example.invalid'));
   assert.ok(migrationsSource.includes('version: 145'));
   assert.ok(initSqlSource.includes("(145, 'Add immutable provider source observations')"));
   assert.ok(providerSourceObservationsSqlSource.includes('provider_source_observations_append_only'));
@@ -5770,6 +5799,9 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   assert.ok(providerSourceObservationsSource.includes('normalized_facts'));
   assert.ok(providerSourceObservationsSource.includes('idempotencyKey'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('immutableSourceObservations'));
+  assert.ok(kavitaImportIdentitySource.includes('buildKavitaSourceObservation'));
+  assert.ok(kavitaImportIdentitySource.includes('appendProviderSourceObservation'));
+  assert.ok(kavitaImportSyncSmokeSource.includes('immutableSourceObservations'));
 }));
 
 results.push(run('migration authority evidence certifies fresh install after init.sql retirement', () => {
