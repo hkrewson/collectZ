@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-11-24T03:31:38.099Z",
+  "generatedAt": "2026-11-24T21:17:23.626Z",
   "status": "passed",
   "certificationMode": "migration_built_control_plane_runtime_authority",
   "authority": {
-    "generatedAt": "2026-11-24T03:31:38.842Z",
+    "generatedAt": "2026-11-24T21:17:24.518Z",
     "status": "passed",
     "certificationMode": "migration_built_runtime_authority",
     "authority": {

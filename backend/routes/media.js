@@ -182,7 +182,8 @@ const { buildCollectibleTraits } = require('../services/collectibleTraits');
 const { loadTraitRecords, loadTraitRecordsForOwner } = require('../services/collectibleTraitRecords');
 const {
   appendProviderObservationFieldReview,
-  listProviderSourceObservations
+  listProviderSourceObservations,
+  loadProviderObservationApplyPreview
 } = require('../services/providerSourceObservations');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabledForSpace } = require('../services/featureFlags');
@@ -5955,11 +5956,18 @@ function buildMediaDedupLockKey(item = {}, scopeContext = null) {
 }
 
 async function withDedupLock(lockKey, fn) {
-  await pool.query('SELECT pg_advisory_lock(hashtext($1))', [lockKey]);
+  const client = await pool.connect();
+  let locked = false;
   try {
+    await client.query('SELECT pg_advisory_lock(hashtext($1))', [lockKey]);
+    locked = true;
     return await fn();
   } finally {
-    await pool.query('SELECT pg_advisory_unlock(hashtext($1))', [lockKey]);
+    try {
+      if (locked) await client.query('SELECT pg_advisory_unlock(hashtext($1))', [lockKey]);
+    } finally {
+      client.release();
+    }
   }
 }
 
@@ -11401,6 +11409,31 @@ router.post('/:id/provider-observations/:observationId/reviews',
     });
     return res.status(201).json(result);
   }));
+
+router.get('/:id/provider-observations/:observationId/apply-preview', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  if (!Number.isInteger(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+  const preview = await withAuthorizedScopeTransaction(
+    pool,
+    { spaceId: scopeContext.spaceId, libraryId: scopeContext.libraryId || null },
+    req.user.id,
+    async (client) => {
+      const media = await loadScopedMediaItem(mediaId, scopeContext, client);
+      if (!media) return null;
+      return loadProviderObservationApplyPreview(client, {
+        spaceId: scopeContext.spaceId,
+        mediaId,
+        observationId: req.params.observationId,
+        canonicalMedia: media
+      });
+    }
+  );
+  if (!preview) return res.status(404).json({ error: 'Provider observation not found in the active scope' });
+  return res.json(preview);
+}));
 
 router.get('/:id/merge-details', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);

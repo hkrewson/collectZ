@@ -264,6 +264,103 @@ function publicObservationReadback(row, { canonicalMedia = null, controls = [], 
   return Object.freeze(readback);
 }
 
+function providerApplyBlocker(field) {
+  if (!field.review) return 'not_reviewed';
+  if (!field.review.current) return 'review_outdated';
+  if (field.review.decision === 'rejected') return 'review_rejected';
+  if (field.review.decision === 'deferred') return 'review_deferred';
+  if (field.review.decision !== 'approved') return 'not_approved';
+  if (field.control?.locked) return 'field_locked';
+  return null;
+}
+
+function buildProviderObservationApplyPreview(observation) {
+  if (!observation?.comparison) {
+    throw new TypeError('Provider observation apply preview requires a current comparison');
+  }
+  const fields = observation.comparison.fields.map((field) => {
+    const blocker = providerApplyBlocker(field);
+    return Object.freeze({
+      fieldPath: field.fieldPath,
+      label: field.label,
+      currentValue: field.currentValue,
+      proposedValue: field.observedValue,
+      eligible: blocker === null,
+      blocker,
+      control: field.control,
+      review: field.review
+    });
+  });
+  const eligibleCount = fields.filter((field) => field.eligible).length;
+  const blockedCount = fields.length - eligibleCount;
+  return Object.freeze({
+    observationId: observation.id,
+    observationFingerprint: observation.fingerprint,
+    providerConnection: observation.providerConnection,
+    status: fields.length === 0 ? 'no_changes' : eligibleCount > 0 ? 'ready' : 'blocked',
+    eligibleCount,
+    blockedCount,
+    mutationEnabled: false,
+    fields: Object.freeze(fields)
+  });
+}
+
+async function loadProviderObservationApplyPreview(client, {
+  spaceId: spaceIdValue,
+  mediaId: mediaIdValue,
+  observationId: observationIdValue,
+  canonicalMedia
+} = {}) {
+  if (!client || typeof client.query !== 'function') {
+    throw new TypeError('Provider observation apply preview requires a transaction client');
+  }
+  const spaceId = positiveInteger(spaceIdValue, 'Workspace');
+  const mediaId = positiveInteger(mediaIdValue, 'Canonical object');
+  const observationId = uuid(observationIdValue, 'Provider observation');
+  const [observationResult, controlsResult, reviewsResult] = await Promise.all([
+    client.query(
+      `SELECT pso.id, pso.provider_connection_id, pso.observed_media_public_id,
+              pso.source_kind, pso.schema_version, pso.content_hash,
+              pso.normalized_facts, pso.source_updated_at, pso.observed_at,
+              pc.provider_type, pc.display_name AS connection_display_name,
+              emi.identity_kind, emi.active AS identity_active
+         FROM provider_source_observations pso
+         JOIN external_media_identities emi
+           ON emi.space_id = pso.space_id
+          AND emi.provider_connection_id = pso.provider_connection_id
+          AND emi.id = pso.external_identity_id
+         JOIN provider_connections pc
+           ON pc.space_id = pso.space_id AND pc.id = pso.provider_connection_id
+        WHERE pso.space_id = $1 AND pso.id = $2 AND emi.media_id = $3`,
+      [spaceId, observationId, mediaId]
+    ),
+    client.query(
+      `SELECT field_path, authority, provider_write_mode, locked, source_provider_connection_id
+         FROM canonical_media_field_controls
+        WHERE space_id = $1 AND media_id = $2 AND field_path = ANY($3::varchar[])`,
+      [spaceId, mediaId, OBSERVATION_COMPARISON_FIELD_PATHS]
+    ),
+    client.query(
+      `SELECT DISTINCT ON (field_path)
+              provider_observation_id, field_path, observation_fingerprint,
+              canonical_value_fingerprint, decision, note, deferred_until, created_at
+         FROM provider_observation_field_reviews
+        WHERE space_id = $1 AND media_id = $2 AND provider_observation_id = $3
+        ORDER BY field_path, created_at DESC, id DESC`,
+      [spaceId, mediaId, observationId]
+    )
+  ]);
+  const observationRow = observationResult.rows[0];
+  if (!observationRow) return null;
+  const reviews = new Map(reviewsResult.rows.map((row) => [`${observationId}:${row.field_path}`, row]));
+  const observation = publicObservationReadback(observationRow, {
+    canonicalMedia,
+    controls: controlsResult.rows,
+    reviews
+  });
+  return buildProviderObservationApplyPreview(observation);
+}
+
 async function listProviderSourceObservations(client, {
   spaceId: spaceIdValue,
   mediaId: mediaIdValue,
@@ -674,10 +771,12 @@ module.exports = {
   OBSERVATION_COMPARISON_FIELDS,
   appendProviderObservationFieldReview,
   appendProviderSourceObservation,
+  buildProviderObservationApplyPreview,
   buildProviderObservationComparison,
   buildBookOrbitSourceObservation,
   buildKavitaSourceObservation,
   listProviderSourceObservations,
+  loadProviderObservationApplyPreview,
   normalizeFacts,
   publicObservation,
   publicObservationReadback

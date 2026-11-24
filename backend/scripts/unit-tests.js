@@ -52,6 +52,7 @@ const {
   prepareBookOrbitImportRows
 } = require('../services/bookOrbit');
 const {
+  buildProviderObservationApplyPreview,
   buildProviderObservationComparison,
   buildBookOrbitSourceObservation,
   buildKavitaSourceObservation,
@@ -5909,6 +5910,33 @@ results.push(run('provider source observations are immutable, sanitized, and mig
     differenceCount: 0,
     fields: []
   });
+  const applyPreview = buildProviderObservationApplyPreview({
+    id: 'f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5',
+    fingerprint: 'a'.repeat(64),
+    providerConnection: { id: '4915dc42-c0cc-41ba-bfa5-b037ab5ae5a2', providerType: 'bookorbit', displayName: 'BookOrbit' },
+    comparison: {
+      fields: [
+        { fieldPath: 'media.title', label: 'Title', currentValue: 'Current', observedValue: 'Observed', control: null,
+          review: { decision: 'approved', current: true } },
+        { fieldPath: 'media.year', label: 'Year', currentValue: 2025, observedValue: 2026,
+          control: { locked: true }, review: { decision: 'approved', current: true } },
+        { fieldPath: 'type_details.publisher', label: 'Publisher', currentValue: 'Old', observedValue: 'New', control: null,
+          review: { decision: 'approved', current: false } },
+        { fieldPath: 'type_details.edition', label: 'Edition', currentValue: 'First', observedValue: 'Second', control: null,
+          review: { decision: 'rejected', current: true } },
+        { fieldPath: 'type_details.volume', label: 'Volume', currentValue: '1', observedValue: '2', control: null, review: null }
+      ]
+    }
+  });
+  assert.strictEqual(applyPreview.status, 'ready');
+  assert.strictEqual(applyPreview.eligibleCount, 1);
+  assert.strictEqual(applyPreview.blockedCount, 4);
+  assert.strictEqual(applyPreview.mutationEnabled, false);
+  assert.strictEqual(applyPreview.fields[0].eligible, true);
+  assert.strictEqual(applyPreview.fields[0].blocker, null);
+  assert.deepStrictEqual(applyPreview.fields.slice(1).map((field) => field.blocker), [
+    'field_locked', 'review_outdated', 'review_rejected', 'not_reviewed'
+  ]);
   assert.ok(migrationsSource.includes('version: 145'));
   assert.ok(migrationsSource.includes('version: 146'));
   assert.ok(initSqlSource.includes("(145, 'Add immutable provider source observations')"));
@@ -5923,15 +5951,20 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   assert.ok(providerSourceObservationsSource.includes('buildProviderObservationComparison'));
   assert.ok(mediaRoutesSource.includes("router.get('/:id/provider-observations'"));
   assert.ok(mediaRoutesSource.includes("router.post('/:id/provider-observations/:observationId/reviews'"));
+  assert.ok(mediaRoutesSource.includes("router.get('/:id/provider-observations/:observationId/apply-preview'"));
+  assert.ok(mediaRoutesSource.includes("const client = await pool.connect();"));
+  assert.ok(mediaRoutesSource.includes("client.query('SELECT pg_advisory_unlock(hashtext($1))'"));
   assert.ok(openApiSource.includes('"/api/media/{id}/provider-observations"'));
   assert.ok(libraryViewSource.includes("`/media/${item.id}/provider-observations?limit=10`"));
   assert.ok(libraryViewSource.includes('Provider history'));
   assert.ok(libraryViewSource.includes('Defer 7 days'));
+  assert.ok(libraryViewSource.includes('Preview approved changes'));
   assert.ok(libraryViewSource.includes('Metadata source:'));
   assert.ok(openApiSource.includes('metadataSource.providerItemId'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('immutableSourceObservations'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('providerObservationReadback'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('providerObservationFieldReviews'));
+  assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('providerObservationApplyPreview'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('explicitMetadataSource'));
   assert.ok(kavitaImportIdentitySource.includes('buildKavitaSourceObservation'));
   assert.ok(kavitaImportIdentitySource.includes('appendProviderSourceObservation'));

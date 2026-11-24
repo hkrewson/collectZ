@@ -4,14 +4,55 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.7` reliability and provider-observation milestones are complete. `3.29.8` is active as the provider-observation field-review decision slice.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.9` reliability and provider-observation milestones are complete locally. No later backlog slice is selected yet.
+
+---
+
+## 3.29.9 — Provider Observation Apply Preview
+
+**Goal:** Show the exact approved provider-observation fields that would be eligible for a future canonical update, and why other fields remain blocked, without mutating canonical metadata or authority.
+**Status:** Complete locally; hosted certification awaits an authorized push.
+
+### Selected scope
+
+- Build a targeted preview for one immutable provider observation currently attached to the media record.
+- Recompute the current comparison and latest field reviews inside the authorized transaction.
+- Mark a field eligible only when its latest decision is approved, both fingerprints are current, and the canonical field is not locked.
+- Return explicit non-sensitive blocker reasons for missing, rejected, deferred, outdated, and locked reviews.
+- Show eligible and blocked counts/details in Library Provider history.
+- Keep the preview read-only and omit any apply, provider selection, identity rematch, or authority mutation.
+
+### Acceptance criteria
+
+- Preview cannot be generated for an observation outside the active media/workspace/library scope.
+- Current approved unlocked differences are eligible; locked or fingerprint-stale approvals remain blocked.
+- Rejected, deferred, and unreviewed differences never appear eligible.
+- Preview readback omits workspace, library, actor, credentials, endpoints, raw payloads, and internal control connection ids.
+- OpenAPI, provider contract, provider smoke, browser behavior, version `3.29.9`, release notes/feed, and canonical runtime remain aligned.
+
+### Milestone boundary
+
+This slice is dry-run planning only. It does not update canonical fields, alter field controls, consume or supersede reviews, suppress observations, choose a provider, rematch identities, or introduce work/edition/owned-copy modeling.
+
+### 3.29.9 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.29.9 — Provider Observation Apply Preview`, targeted eligibility planning, explicit blockers, Library Provider history readback, and version closeout.
+- **Project docs/checklists used:** `AGENTS.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/53-Digital-Library-Provider-Identity-Contract.md`, and `docs/releases/v3.29.9.md`.
+- **Verified facts:** The new workspace-authorized endpoint recomputes one attached observation, its latest reviews, fingerprints, and field controls. Only current approved unlocked differences are eligible; unreviewed, outdated, rejected, deferred, otherwise unapproved, and locked differences carry explicit blockers. Every response declares `mutationEnabled: false`. The preview never updates canonical metadata, field authority, reviews, identities, or provider selection. Import deduplication advisory locks now remain on one acquired database session through unlock, preventing connection-pool lock stranding discovered by the runtime smoke.
+- **Runtime verification used:** The canonical `collectz-private` stack was rebuilt and recreated in place on port `3201`; health and the running backend environment report `3.29.9`, the Playwright bypass is unset after testing, and Help > Releases serves `3.29.9` first. Live workspace ownership certifies `81` tables, `358` routes, and `12` maintained execution paths. The in-container BookOrbit authoritative import smoke proved a current approved title is blocked while locked, becomes eligible after unlock, and remains unchanged by preview. Core RBAC passed through an unpublished Core process inside the existing backend container using an ephemeral admin, while fresh migration-built Platform authority passed `5/5` and observability evidence passed `9/9`.
+- **CI/checks run:** JavaScript syntax; OpenAPI; backend unit/source (`389` assertions plus `57` Node tests); frontend unit/build; changed-file ESLint and Prettier; zero-finding backend/frontend production dependency audits; complete Core browser regression (`56` passed, `6` edition-inapplicable skips); workspace ownership certification; Help release smoke; BookOrbit authoritative import smoke; Core RBAC regression; migration/init/rehearsal, runtime-role, external-identity, and identity-upgrade artifacts through migration `146`; control-plane runtime authority (`5/5`); observability evidence (`9/9`); release preflight; diff and evidence-secret hygiene; and the standard local release gate (`14/14`).
+- **Files changed:** Provider-observation preview service/API/OpenAPI; Library Provider history preview; provider runtime/unit/browser coverage; workspace ownership inventory; import advisory-lock session safety; provider identity contract; roadmap/backlog; synchronized `3.29.9` metadata and lockfiles; release note/feed; and refreshed control-plane, observability, dependency-audit, preflight, and local-gate evidence.
+- **Blocked/unverified:** The canonical development profile cannot prove CI secure-cookie `compose-smoke` settings. Hosted CI must still certify secure-cookie Compose smoke, Core RBAC/runtime/browser gates, dependency and secret scans, CodeQL, image security/SBOM, release preflight, image publication, and tagging after an authorized push. Local browser, RBAC, runtime, dependency, and version evidence are green; local gitleaks and Trivy/SBOM remain hosted-only.
+- **Risks or follow-ups:** Eligibility is a current read-only plan, not permission to mutate. Actual apply transactions still need atomic stale-plan revalidation, explicit authority transitions, audit evidence, review consumption policy, and safe failure/readback behavior. Provider selection, identity rematching, observation suppression, and work/edition/owned-copy modeling remain separate backlog work.
+- **What remains in the milestone:** Nothing for `3.29.9`; actual provider-observation apply/rematch policy remains a separate backlog candidate.
+- **Recommended commit message:** `Release 3.29.9 with provider observation apply preview`.
 
 ---
 
 ## 3.29.8 — Provider Observation Review Decisions
 
 **Goal:** Preserve deliberate approve, reject, and defer decisions for individual provider-observation differences without applying metadata or changing canonical authority.
-**Status:** Complete locally as a release candidate. Implementation, migration and restore authority, canonical runtime, provider smoke, browser regression, observability, version closeout, and permitted local release gates are complete; hosted certification requires an authorized push.
+**Status:** Complete and hosted-certified. Build and Publish Images run `45320537004` and CodeQL run `45320537033` passed for certified `main` commit `43a01614`; annotated tag `v3.29.8` identifies that release commit.
 
 ### Selected scope
 
@@ -41,9 +82,9 @@ This slice records review decisions only. It does not apply metadata, suppress f
 - **Runtime verification used:** The retained canonical `collectz-private` stack was migrated, rebuilt, and recreated in place on port `3201`; health reports `3.29.8`, Help > Releases serves `3.29.8` first, and the live ownership inventory certifies `81` tables, `357` routes, and `12` maintained execution paths. The in-container BookOrbit authoritative import smoke proved review creation, safe readback, unscoped invisibility, update/delete rejection, and retained identity, provenance, series, cover, lock, and workspace behavior.
 - **CI/checks run:** JavaScript syntax, OpenAPI, ESLint/Prettier, backend unit/source (`389` assertions plus `57` Node tests), frontend unit/build, zero-finding production dependency audits, targeted and complete browser regression (`73` passed, `6` edition-inapplicable skips), workspace ownership certification, Help release smoke, BookOrbit authoritative import smoke, migration-chain authority, migration rehearsal and restored non-owner runtime authority through `146`, identity upgrade certification, runtime-role certification, external-identity certification, control-plane runtime authority (`5/5`), observability evidence, release preflight, diff hygiene, and the standard local release gate (`14/14`).
 - **Files changed:** Migration and ownership inventories; provider-observation review service/API/OpenAPI; Library Provider history actions; validation, unit, provider runtime, and browser coverage; provider identity contract; roadmap/backlog; synchronized `3.29.8` metadata; release note/feed; and refreshed release evidence.
-- **Blocked/unverified:** Hosted secure-cookie `compose-smoke`, Core `rbac-regression`, hosted Core `runtime-smoke`, hosted `browser-regression`, gitleaks `secret-scan`, CodeQL, hosted dependency scan, image security/SBOM, release preflight, publication, and auto-tag remain pending until an authorized push. The local full profile was not run because its Core path creates a prohibited parallel Compose project; equivalent permitted local browser, migration/restore, runtime-role, control-plane, dependency, observability, and canonical-stack checks passed.
+- **Blocked/unverified:** None for the certified release. The successful hosted Build and Publish Images workflow certified its secure-cookie Compose, Core RBAC/runtime/browser, dependency/secret, image/SBOM, publication, and release-preflight path; CodeQL also passed.
 - **Risks or follow-ups:** Review decisions are advisory and the latest decision is selected by timestamp plus UUID. Automated application, conflict resolution, provider selection, observation suppression, identity rematching, and work/edition/owned-copy modeling remain separate backlog work.
-- **What remains in the milestone:** Push only with user authorization, then confirm the complete hosted gate set, image publication, and annotated `v3.29.8` creation from `main`.
+- **What remains in the milestone:** Nothing; actual provider-observation apply/rematch policy remains separate backlog work.
 - **Recommended commit message:** `Release 3.29.8 with provider observation review decisions`.
 
 ---

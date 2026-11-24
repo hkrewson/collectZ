@@ -1297,6 +1297,57 @@
         },
         "required": ["observationId", "fieldPath", "review"]
       },
+      "ProviderObservationApplyPreviewField": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fieldPath": { "type": "string" },
+          "label": { "type": "string" },
+          "currentValue": { "type": ["string", "number", "boolean", "null"] },
+          "proposedValue": { "type": ["string", "number", "boolean"] },
+          "eligible": { "type": "boolean" },
+          "blocker": {
+            "type": ["string", "null"],
+            "enum": ["not_reviewed", "review_outdated", "review_rejected", "review_deferred", "not_approved", "field_locked", null]
+          },
+          "control": { "$ref": "#/components/schemas/ProviderObservationComparisonField/properties/control" },
+          "review": {
+            "anyOf": [
+              { "type": "null" },
+              { "$ref": "#/components/schemas/ProviderObservationFieldReview" }
+            ]
+          }
+        },
+        "required": ["fieldPath", "label", "currentValue", "proposedValue", "eligible", "blocker", "control", "review"]
+      },
+      "ProviderObservationApplyPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Read-only plan for currently differing fields. mutationEnabled is always false in this contract.",
+        "properties": {
+          "observationId": { "type": "string", "format": "uuid" },
+          "observationFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "providerConnection": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "providerType": { "type": "string" },
+              "displayName": { "type": "string" }
+            },
+            "required": ["id", "providerType", "displayName"]
+          },
+          "status": { "type": "string", "enum": ["ready", "blocked", "no_changes"] },
+          "eligibleCount": { "type": "integer", "minimum": 0 },
+          "blockedCount": { "type": "integer", "minimum": 0 },
+          "mutationEnabled": { "const": false },
+          "fields": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ProviderObservationApplyPreviewField" }
+          }
+        },
+        "required": ["observationId", "observationFingerprint", "providerConnection", "status", "eligibleCount", "blockedCount", "mutationEnabled", "fields"]
+      },
       "ProviderSourceObservationListResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -11641,6 +11692,28 @@
           },
           "404": { "description": "Media or observation not found in the active scope", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
           "409": { "description": "The field is no longer a current difference", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/media/{id}/provider-observations/{observationId}/apply-preview": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Preview approved provider observation changes",
+        "description": "Recomputes the current observation comparison and latest reviews, then classifies each difference as eligible or blocked. This endpoint is read-only and never applies metadata or changes canonical authority.",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "observationId", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only approved-field apply preview",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProviderObservationApplyPreview" } } }
+          },
+          "404": { "description": "Media or observation not found in the active scope", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
         }
       }
     },

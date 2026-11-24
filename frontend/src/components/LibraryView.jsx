@@ -901,6 +901,8 @@ function MediaDetail({
   const [providerObservationTotal, setProviderObservationTotal] = useState(0);
   const [providerObservationsLoading, setProviderObservationsLoading] = useState(false);
   const [providerReviewSaving, setProviderReviewSaving] = useState({});
+  const [providerApplyPreviews, setProviderApplyPreviews] = useState({});
+  const [providerApplyPreviewLoading, setProviderApplyPreviewLoading] = useState({});
   const [, setSeasonDrafts] = useState({});
   const [seasonSaving, setSeasonSaving] = useState({});
   const [openSeason, setOpenSeason] = useState(null);
@@ -1078,12 +1080,40 @@ function MediaDetail({
               }
         )
       );
+      setProviderApplyPreviews((current) => {
+        const next = { ...current };
+        delete next[observationId];
+        return next;
+      });
       onToast?.(`Provider difference ${decision}`);
     } catch (error) {
       onToast?.(error?.response?.data?.error || 'Failed to save provider review', 'error');
     } finally {
       setProviderReviewSaving((current) => ({ ...current, [key]: false }));
     }
+  };
+  const previewProviderObservationApply = async (observationId) => {
+    if (providerApplyPreviewLoading[observationId]) return;
+    setProviderApplyPreviewLoading((current) => ({ ...current, [observationId]: true }));
+    try {
+      const payload = await apiCall('get', `/media/${item.id}/provider-observations/${observationId}/apply-preview`);
+      setProviderApplyPreviews((current) => ({ ...current, [observationId]: payload }));
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to preview approved provider changes', 'error');
+    } finally {
+      setProviderApplyPreviewLoading((current) => ({ ...current, [observationId]: false }));
+    }
+  };
+  const providerApplyBlockerLabel = (blocker) => {
+    const labels = {
+      not_reviewed: 'Not reviewed',
+      review_outdated: 'Review is outdated',
+      review_rejected: 'Rejected',
+      review_deferred: 'Deferred',
+      not_approved: 'Not approved',
+      field_locked: 'Field is locked'
+    };
+    return labels[blocker] || 'Blocked';
   };
   const hiddenTypeDetailKeys = new Set(
     isBook
@@ -2447,6 +2477,43 @@ function MediaDetail({
                                     </div>
                                   </div>
                                 ))}
+                              </div>
+                            ) : null}
+                            {observation.comparison.fields?.length > 0 ? (
+                              <div className="mt-3">
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary px-2.5 py-1.5 text-xs"
+                                  disabled={Boolean(providerApplyPreviewLoading[observation.id])}
+                                  onClick={() => previewProviderObservationApply(observation.id)}
+                                >
+                                  {providerApplyPreviewLoading[observation.id] ? 'Building preview…' : 'Preview approved changes'}
+                                </button>
+                                {providerApplyPreviews[observation.id] ? (
+                                  <div className="mt-2 rounded-md border border-edge/60 bg-surface/40 px-2.5 py-2">
+                                    <p className="text-xs font-medium text-ink">Read-only apply preview</p>
+                                    <p className="mt-1 text-[11px] text-ghost">
+                                      {providerApplyPreviews[observation.id].eligibleCount} eligible ·{' '}
+                                      {providerApplyPreviews[observation.id].blockedCount} blocked · no changes applied
+                                    </p>
+                                    <div className="mt-2 space-y-1.5">
+                                      {providerApplyPreviews[observation.id].fields.map((previewField) => (
+                                        <div
+                                          key={previewField.fieldPath}
+                                          className="flex flex-wrap items-center justify-between gap-2 text-[11px]"
+                                        >
+                                          <span className="text-dim">
+                                            {previewField.label}: {providerObservationComparisonValue(previewField.currentValue)} →{' '}
+                                            {providerObservationComparisonValue(previewField.proposedValue)}
+                                          </span>
+                                          <span className={previewField.eligible ? 'text-emerald-500' : 'text-amber-500'}>
+                                            {previewField.eligible ? 'Eligible' : providerApplyBlockerLabel(previewField.blocker)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : null}
                               </div>
                             ) : null}
                           </div>

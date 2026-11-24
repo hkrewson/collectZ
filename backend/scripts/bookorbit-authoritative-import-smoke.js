@@ -761,6 +761,44 @@ async function main() {
       ?.comparison?.fields?.find((field) => field.fieldPath === 'media.title');
     assert.equal(reviewedTitle?.review?.decision, 'approved');
     assert.equal(reviewedTitle?.review?.current, true);
+    const lockedApplyPreview = await client.request(
+      `/api/media/${firstBook.id}/provider-observations/${lockedTitleObservation.id}/apply-preview`
+    );
+    const lockedApplyTitle = lockedApplyPreview.fields.find((field) => field.fieldPath === 'media.title');
+    assert.equal(lockedApplyPreview.status, 'blocked');
+    assert.equal(lockedApplyPreview.eligibleCount, 0);
+    assert.ok(lockedApplyPreview.blockedCount >= 1);
+    assert.equal(lockedApplyPreview.mutationEnabled, false);
+    assert.equal(lockedApplyTitle?.currentValue, 'Manual BookOrbit Title');
+    assert.equal(lockedApplyTitle?.eligible, false);
+    assert.equal(lockedApplyTitle?.blocker, 'field_locked');
+    assert.equal(JSON.stringify(lockedApplyPreview).includes('decidedBy'), false);
+    assert.equal(JSON.stringify(lockedApplyPreview).includes('spaceId'), false);
+    await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+      await setCanonicalFieldControl(db, {
+        spaceId,
+        mediaId: firstMediaId,
+        fieldPath: 'media.title',
+        authority: 'reviewed',
+        providerWriteMode: 'refresh',
+        locked: false,
+        providerConnectionId: firstConnectionId,
+        actorId: userId
+      });
+    });
+    const eligibleApplyPreview = await client.request(
+      `/api/media/${firstBook.id}/provider-observations/${lockedTitleObservation.id}/apply-preview`
+    );
+    const eligibleApplyTitle = eligibleApplyPreview.fields.find((field) => field.fieldPath === 'media.title');
+    assert.equal(eligibleApplyPreview.status, 'ready');
+    assert.ok(eligibleApplyPreview.eligibleCount >= 1);
+    assert.equal(eligibleApplyPreview.mutationEnabled, false);
+    assert.equal(eligibleApplyTitle?.currentValue, 'Manual BookOrbit Title');
+    assert.notEqual(eligibleApplyTitle?.proposedValue, 'Manual BookOrbit Title');
+    assert.equal(eligibleApplyTitle?.eligible, true);
+    assert.equal(eligibleApplyTitle?.blocker, null);
+    const unchangedTitle = await client.request(`/api/media/${firstBook.id}`);
+    assert.equal(unchangedTitle.title, 'Manual BookOrbit Title');
     const reviewRow = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
       const selected = await db.query(
         `SELECT id FROM provider_observation_field_reviews
@@ -862,6 +900,7 @@ async function main() {
       providerObservationReadback: 'paginated-sanitized-and-workspace-authorized',
       providerObservationComparison: 'read-only-current-observed-and-lock-context-proven',
       providerObservationFieldReviews: 'append-only-approved-review-with-safe-readback-proven',
+      providerObservationApplyPreview: 'locked-blocker-and-approved-current-eligibility-proven-without-mutation',
       normalizedSeriesMemberships: 'multi-series-retirement-proven',
       nativeCoverProxy: 'authenticated-and-versioned',
       lockedTypeTransition: 'review-required-existing-preserved',

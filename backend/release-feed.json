@@ -1,6 +1,27 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.29.9",
+      "version": "3.29.9",
+      "date": "2026-11-24",
+      "status": null,
+      "summary": "Adds a read-only preview of approved BookOrbit and Kavita metadata differences, showing which fields are currently eligible for a future update and why other fields remain blocked.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added a targeted workspace-authorized preview for one immutable provider observation attached to the current media record.",
+            "Recomputes the current comparison, latest review fingerprints, and field locks at request time.",
+            "Marks only current approved and unlocked differences eligible.",
+            "Reports explicit blockers for unreviewed, outdated, rejected, deferred, otherwise unapproved, and locked fields.",
+            "Adds an operator-facing preview in Library Provider history with eligible and blocked counts.",
+            "Keeps the contract strictly read-only with `mutationEnabled: false`; no metadata, authority, provider identity, or review state is changed.",
+            "Keeps each import deduplication advisory lock on one database session so concurrent provider/scheduler work cannot strand a lock in the connection pool."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.29.8",
       "version": "3.29.8",
       "date": "2026-11-23",
@@ -176,26 +197,6 @@
             "Added contained Platform certification that starts a production-mode control-plane backend from an empty migration-built scratch database inside the canonical stack and passes the complete edition boundary.",
             "Retired `init.sql` after the migration-built Core, Platform, retained-upgrade, restore, bootstrap, and ownership contracts were certified. The compatibility-named parity artifact now fails if that duplicate schema source reappears.",
             "Moved workspace-ownership table discovery from duplicate-schema parsing to a direct comparison between reviewed classifications and the live migration-built PostgreSQL catalog."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.28.2",
-      "version": "3.28.2",
-      "date": "2026-11-20",
-      "status": null,
-      "summary": "Expands PostgreSQL row-level security across five workspace-owned operational families, including durable sync jobs, while preserving application authorization through explicit actor and narrowly bounded worker transaction grants.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Protected Dashboard review decisions, merge-recommendation feedback, event exclusive sources, and object relationships with ownership backfills, same-scope constraints, immutable ownership, guarded cascades, and command-appropriate policies.",
-            "Added a private transaction-scope broker for short-lived actor grants and bounded worker grants separated by claim, recovery, lifecycle, observation, maintenance, and exact-scope ingestion actions.",
-            "Moved durable enqueue, operator readback and cancellation, dashboard/activity readback, metrics observation, startup maintenance, Plex webhook ingestion and processing, valuation refresh, Plex reconciliation preview, and legacy inline-import paths behind their respective authorization contracts.",
-            "Activated command-separated `sync_jobs` policies for actor SELECT/INSERT/UPDATE/DELETE and worker SELECT/INSERT/UPDATE while deliberately leaving worker DELETE unavailable.",
-            "Preserved terminal job history, including null-library tombstones, without inventing ownership; migration `144` aborts on missing workspaces or cross-workspace libraries rather than rewriting ambiguous retained rows.",
-            "Added fresh-database, retained-upgrade, non-owner runtime, migration/restore, RBAC, browser, workspace-isolation, worker-action, and fixture-cleanup certification for the protected families."
           ]
         }
       ]

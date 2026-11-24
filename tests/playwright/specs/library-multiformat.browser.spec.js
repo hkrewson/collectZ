@@ -541,6 +541,52 @@ test.describe('library multi-format browser regressions', () => {
           })
         });
       });
+      await page.route(
+        `**/api/media/${mediaId}/provider-observations/f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5/apply-preview`,
+        async (route) => {
+          expect(route.request().method()).toBe('GET');
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              observationId: 'f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5',
+              observationFingerprint: 'a'.repeat(64),
+              providerConnection: {
+                id: '4915dc42-c0cc-41ba-bfa5-b037ab5ae5a2',
+                providerType: 'bookorbit',
+                displayName: 'BookOrbit Shelf'
+              },
+              status: 'blocked',
+              eligibleCount: 0,
+              blockedCount: 1,
+              mutationEnabled: false,
+              fields: [
+                {
+                  fieldPath: 'media.title',
+                  label: 'Title',
+                  currentValue: title,
+                  proposedValue: 'Observed Provider Title',
+                  eligible: false,
+                  blocker: 'field_locked',
+                  control: {
+                    authority: 'manual',
+                    providerWriteMode: 'preserve',
+                    locked: true,
+                    sameProvider: false
+                  },
+                  review: {
+                    decision: 'approved',
+                    note: null,
+                    deferredUntil: null,
+                    createdAt: '2026-11-23T12:00:00Z',
+                    current: true
+                  }
+                }
+              ]
+            })
+          });
+        }
+      );
 
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
@@ -565,6 +611,10 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByText('Observed: Observed Provider Title', { exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Approve', exact: true }).click();
       await expect(page.getByText('Review: approved', { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Preview approved changes', exact: true }).click();
+      await expect(page.getByText('Read-only apply preview', { exact: true })).toBeVisible();
+      await expect(page.getByText('0 eligible · 1 blocked · no changes applied', { exact: true })).toBeVisible();
+      await expect(page.getByText('Field is locked', { exact: true })).toBeVisible();
     } finally {
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
       await requestContext.dispose();
