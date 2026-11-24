@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-22T19:29:54.581Z",
-  "migrationVersion": 145,
+  "generatedAt": "2026-11-24T03:31:37.933Z",
+  "migrationVersion": 146,
   "passed": true,
   "checks": [
     {

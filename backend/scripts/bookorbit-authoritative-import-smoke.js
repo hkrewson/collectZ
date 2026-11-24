@@ -731,14 +731,64 @@ async function main() {
     assert.ok(observationReadbackPageOne.observations.every((observation) => observation.comparison));
     assert.equal(serializedObservationReadback.includes('sourceProviderConnectionId'), false);
     const lockedTitleReadback = await client.request(`/api/media/${firstBook.id}/provider-observations?page=1&limit=10`);
-    const lockedTitleDifference = lockedTitleReadback.observations
-      .flatMap((observation) => observation.comparison?.fields || [])
+    const lockedTitleObservation = lockedTitleReadback.observations.find((observation) => (
+      observation.comparison?.fields?.some((field) => field.fieldPath === 'media.title')
+    ));
+    const lockedTitleDifference = lockedTitleObservation?.comparison?.fields
       .find((field) => field.fieldPath === 'media.title');
     assert.equal(lockedTitleReadback.observations.some((observation) => observation.comparison?.status === 'differs'), true);
     assert.equal(lockedTitleDifference?.currentValue, 'Manual BookOrbit Title');
     assert.equal(lockedTitleDifference?.control?.authority, 'manual');
     assert.equal(lockedTitleDifference?.control?.locked, true);
     assert.equal(lockedTitleDifference?.control?.sameProvider, false);
+    assert.equal(lockedTitleDifference?.review, null);
+    const titleReview = await client.request(
+      `/api/media/${firstBook.id}/provider-observations/${lockedTitleObservation.id}/reviews`,
+      {
+        method: 'POST',
+        csrf: true,
+        body: JSON.stringify({ fieldPath: 'media.title', decision: 'approved', note: 'Smoke review' }),
+        status: 201
+      }
+    );
+    assert.equal(titleReview.review.decision, 'approved');
+    assert.equal(titleReview.review.current, true);
+    assert.equal(titleReview.review.note, 'Smoke review');
+    assert.equal(JSON.stringify(titleReview).includes('decidedBy'), false);
+    const reviewedReadback = await client.request(`/api/media/${firstBook.id}/provider-observations?page=1&limit=10`);
+    const reviewedTitle = reviewedReadback.observations
+      .find((observation) => observation.id === lockedTitleObservation.id)
+      ?.comparison?.fields?.find((field) => field.fieldPath === 'media.title');
+    assert.equal(reviewedTitle?.review?.decision, 'approved');
+    assert.equal(reviewedTitle?.review?.current, true);
+    const reviewRow = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+      const selected = await db.query(
+        `SELECT id FROM provider_observation_field_reviews
+          WHERE provider_observation_id = $1 AND field_path = 'media.title'
+          ORDER BY created_at DESC, id DESC LIMIT 1`,
+        [lockedTitleObservation.id]
+      );
+      return selected.rows[0];
+    });
+    await assert.rejects(
+      withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, (db) => db.query(
+        'UPDATE provider_observation_field_reviews SET decision = $2 WHERE id = $1',
+        [reviewRow.id, 'rejected']
+      )),
+      /(append-only|scope access denied)/
+    );
+    await assert.rejects(
+      withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, (db) => db.query(
+        'DELETE FROM provider_observation_field_reviews WHERE id = $1',
+        [reviewRow.id]
+      )),
+      /(append-only|scope access denied)/
+    );
+    const unscopedReviews = await pool.query(
+      'SELECT COUNT(*)::int AS count FROM provider_observation_field_reviews WHERE id = $1',
+      [reviewRow.id]
+    );
+    assert.equal(Number(unscopedReviews.rows[0]?.count || 0), 0);
     const coverResponse = await fetch(`${BASE_URL}${comic.poster_path}`, {
       headers: { Cookie: client.cookieHeader(), Accept: 'image/png' }
     });
@@ -811,6 +861,7 @@ async function main() {
       immutableSourceObservations: 'normalized-idempotent-append-only-and-rls-proven',
       providerObservationReadback: 'paginated-sanitized-and-workspace-authorized',
       providerObservationComparison: 'read-only-current-observed-and-lock-context-proven',
+      providerObservationFieldReviews: 'append-only-approved-review-with-safe-readback-proven',
       normalizedSeriesMemberships: 'multi-series-retirement-proven',
       nativeCoverProxy: 'authenticated-and-versioned',
       lockedTypeTransition: 'review-required-existing-preserved',

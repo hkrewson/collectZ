@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.29.8",
+      "version": "3.29.8",
+      "date": "2026-11-23",
+      "status": null,
+      "summary": "Adds durable, non-mutating review decisions for individual BookOrbit and Kavita metadata differences, so provider evidence can be approved, rejected, or deferred before any future apply policy exists.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added an append-only, exact-library-scoped review ledger tied to the canonical media record and immutable provider observation.",
+            "Binds each decision to server-computed observation and current-value fingerprints so changed canonical data makes an earlier decision visibly outdated.",
+            "Adds approve, reject, and seven-day defer actions to Library Provider history.",
+            "Returns only the latest safe review projection; internal actor and ownership identifiers remain private.",
+            "Rejects attempts to review unsupported, matching, absent, or no-longer-current differences.",
+            "Extended OpenAPI, migration inventory, provider contract, unit/source checks, and the BookOrbit runtime smoke."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.29.7",
       "version": "3.29.7",
       "date": "2026-11-23",
@@ -176,28 +196,6 @@
             "Activated command-separated `sync_jobs` policies for actor SELECT/INSERT/UPDATE/DELETE and worker SELECT/INSERT/UPDATE while deliberately leaving worker DELETE unavailable.",
             "Preserved terminal job history, including null-library tombstones, without inventing ownership; migration `144` aborts on missing workspaces or cross-workspace libraries rather than rewriting ambiguous retained rows.",
             "Added fresh-database, retained-upgrade, non-owner runtime, migration/restore, RBAC, browser, workspace-isolation, worker-action, and fixture-cleanup certification for the protected families."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.28.1",
-      "version": "3.28.1",
-      "date": "2026-11-15",
-      "status": null,
-      "summary": "Extends the BookOrbit adapter with capability-gated native metadata, upstream comic identifiers, normalized multi-series membership and provenance, stable membership retirement/reactivation, and credential-safe native cover enrichment while retaining OPDS fallback and canonical BookOrbit identity.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added optional encrypted BookOrbit native API authentication and read-only `/api/v1/books/{id}` enrichment derived only from validated BookOrbit Atom identities.",
-            "Preserved BookOrbit-scoped ComicVine, Goodreads, and other upstream identifiers as compatibility metadata without treating them as alternate canonical identities or inferring an unavailable selected-provider field.",
-            "Added normalized provider-series records and canonical-media memberships capable of representing multiple ordered series, series index, volume, issue number, expected item count, source timestamps, provenance, and active/deactivated lifecycle.",
-            "Added repeat-sync refresh semantics that update or reactivate observed memberships, retire missing memberships and orphaned provider-series observations, and leave prior native observations unchanged when a per-publication native request falls back to OPDS.",
-            "Kept the first ordered membership projected into existing scalar series fields during compatibility migration without fabricating issue numbers from OPDS ordering.",
-            "Added native cover provenance and a versioned, session-only CollectZ cover proxy that resolves encrypted credentials at request time, verifies the imported BookOrbit identity, bounds response type and size, and never exposes the upstream API key.",
-            "Added active multi-series and provenance readback to media detail plus a Library drawer presentation for series position, expected item count, source, and update time.",
-            "Added migration, RLS, ownership, transport, authoritative import, OpenAPI, frontend, and release certification coverage for the new relational and cover paths."
           ]
         }
       ]

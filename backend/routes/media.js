@@ -34,6 +34,7 @@ const {
   simpleSearchSchema,
   titleAuthorSearchSchema,
   titleArtistSearchSchema,
+  providerObservationFieldReviewSchema,
   upcLookupSchema,
   barcodeLookupSchema,
   barcodeImportSchema,
@@ -179,7 +180,10 @@ const {
 } = require('../services/signatures');
 const { buildCollectibleTraits } = require('../services/collectibleTraits');
 const { loadTraitRecords, loadTraitRecordsForOwner } = require('../services/collectibleTraitRecords');
-const { listProviderSourceObservations } = require('../services/providerSourceObservations');
+const {
+  appendProviderObservationFieldReview,
+  listProviderSourceObservations
+} = require('../services/providerSourceObservations');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
 const { isFeatureEnabledForSpace } = require('../services/featureFlags');
 const { createMetronImportIdentityModule } = require('../services/metronImportIdentity');
@@ -11354,6 +11358,49 @@ router.get('/:id/provider-observations', asyncHandler(async (req, res) => {
   if (!result) return res.status(404).json({ error: 'Media item not found' });
   return res.json(result);
 }));
+
+router.post('/:id/provider-observations/:observationId/reviews',
+  validate(providerObservationFieldReviewSchema),
+  asyncHandler(async (req, res) => {
+    const scopeContext = resolveScopeContext(req);
+    const mediaId = Number(req.params.id);
+    if (!Number.isInteger(mediaId) || mediaId <= 0) {
+      return res.status(400).json({ error: 'Invalid media id' });
+    }
+    let result;
+    try {
+      result = await withAuthorizedScopeTransaction(
+        pool,
+        { spaceId: scopeContext.spaceId, libraryId: scopeContext.libraryId || null },
+        req.user.id,
+        async (client) => {
+          const media = await loadScopedMediaItem(mediaId, scopeContext, client);
+          if (!media) return null;
+          return appendProviderObservationFieldReview(client, {
+            spaceId: scopeContext.spaceId,
+            libraryId: media.library_id,
+            mediaId,
+            observationId: req.params.observationId,
+            actorId: req.user.id,
+            canonicalMedia: media,
+            ...req.body
+          });
+        }
+      );
+    } catch (error) {
+      if (error.code === 'PROVIDER_OBSERVATION_FIELD_NOT_DIFFERENT') {
+        return res.status(409).json({ error: error.message });
+      }
+      throw error;
+    }
+    if (!result) return res.status(404).json({ error: 'Provider observation not found in the active scope' });
+    await logActivity(req, 'provider_observation.field_reviewed', 'media', mediaId, {
+      observationId: result.observationId,
+      fieldPath: result.fieldPath,
+      decision: result.review.decision
+    });
+    return res.status(201).json(result);
+  }));
 
 router.get('/:id/merge-details', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);

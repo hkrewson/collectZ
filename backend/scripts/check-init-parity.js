@@ -175,6 +175,7 @@ async function schemaFingerprint(client) {
       'provider_sync_targets',
       'provider_series_records',
       'provider_source_observations',
+      'provider_observation_field_reviews',
       'media_series_memberships',
       'media_review_decisions',
       'media_merge_recommendation_feedback',

@@ -204,7 +204,25 @@ function buildProviderObservationComparison({
   });
 }
 
-function publicObservationReadback(row, { canonicalMedia = null, controls = [] } = {}) {
+function canonicalValueFingerprint(fieldPath, value) {
+  const field = OBSERVATION_COMPARISON_FIELDS.find((candidate) => candidate.fieldPath === fieldPath);
+  if (!field) throw new TypeError('Provider observation field path is invalid');
+  return sha256(normalizedComparisonValue(value, field.kind) || 'null');
+}
+
+function publicFieldReview(row, { observationFingerprint, canonicalFingerprint } = {}) {
+  if (!row) return null;
+  return Object.freeze({
+    decision: row.decision,
+    note: row.note || null,
+    deferredUntil: row.deferred_until || null,
+    createdAt: row.created_at,
+    current: row.observation_fingerprint === observationFingerprint
+      && row.canonical_value_fingerprint === canonicalFingerprint
+  });
+}
+
+function publicObservationReadback(row, { canonicalMedia = null, controls = [], reviews = new Map() } = {}) {
   if (!row) return null;
   const readback = {
     id: row.id,
@@ -226,11 +244,21 @@ function publicObservationReadback(row, { canonicalMedia = null, controls = [] }
     observedAt: row.observed_at
   };
   if (canonicalMedia) {
-    readback.comparison = buildProviderObservationComparison({
+    const comparison = buildProviderObservationComparison({
       facts: row.normalized_facts,
       canonicalMedia,
       controls,
       providerConnectionId: row.provider_connection_id
+    });
+    readback.comparison = Object.freeze({
+      ...comparison,
+      fields: Object.freeze(comparison.fields.map((field) => Object.freeze({
+        ...field,
+        review: publicFieldReview(reviews.get(`${row.id}:${field.fieldPath}`), {
+          observationFingerprint: row.content_hash,
+          canonicalFingerprint: canonicalValueFingerprint(field.fieldPath, field.currentValue)
+        })
+      })))
     });
   }
   return Object.freeze(readback);
@@ -305,12 +333,28 @@ async function listProviderSourceObservations(client, {
         )
       : Promise.resolve({ rows: [] })
   ]);
+  const observationIds = rowsResult.rows.map((row) => row.id);
+  const reviewsResult = observationIds.length > 0
+    ? await client.query(
+        `SELECT DISTINCT ON (provider_observation_id, field_path)
+                provider_observation_id, field_path, observation_fingerprint,
+                canonical_value_fingerprint, decision, note, deferred_until, created_at
+           FROM provider_observation_field_reviews
+          WHERE space_id = $1
+            AND media_id = $2
+            AND provider_observation_id = ANY($3::uuid[])
+          ORDER BY provider_observation_id, field_path, created_at DESC, id DESC`,
+        [spaceId, mediaId, observationIds]
+      )
+    : { rows: [] };
+  const reviews = new Map(reviewsResult.rows.map((row) => [`${row.provider_observation_id}:${row.field_path}`, row]));
   const total = Number(countResult.rows[0]?.total || 0);
   const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
   return Object.freeze({
     observations: Object.freeze(rowsResult.rows.map((row) => publicObservationReadback(row, {
       canonicalMedia,
-      controls: controlsResult.rows
+      controls: controlsResult.rows,
+      reviews
     }))),
     pagination: Object.freeze({
       page,
@@ -318,6 +362,88 @@ async function listProviderSourceObservations(client, {
       total,
       totalPages,
       hasMore: page < totalPages
+    })
+  });
+}
+
+async function appendProviderObservationFieldReview(client, {
+  spaceId: spaceIdValue,
+  libraryId: libraryIdValue,
+  mediaId: mediaIdValue,
+  observationId: observationIdValue,
+  actorId: actorIdValue,
+  canonicalMedia,
+  fieldPath,
+  decision,
+  note = null
+} = {}) {
+  if (!client || typeof client.query !== 'function') {
+    throw new TypeError('Provider observation field review requires a transaction client');
+  }
+  const spaceId = positiveInteger(spaceIdValue, 'Workspace');
+  const libraryId = positiveInteger(libraryIdValue, 'Library');
+  const mediaId = positiveInteger(mediaIdValue, 'Canonical object');
+  const actorId = positiveInteger(actorIdValue, 'Actor');
+  const observationId = uuid(observationIdValue, 'Provider observation');
+  if (!OBSERVATION_COMPARISON_FIELD_PATHS.includes(fieldPath)) {
+    throw new TypeError('Provider observation field path is invalid');
+  }
+  if (!['approved', 'rejected', 'deferred'].includes(decision)) {
+    throw new TypeError('Provider observation field review decision is invalid');
+  }
+  const observationResult = await client.query(
+    `SELECT pso.*, emi.media_id, pc.provider_type, pc.display_name AS connection_display_name,
+            emi.identity_kind, emi.active AS identity_active
+       FROM provider_source_observations pso
+       JOIN external_media_identities emi
+         ON emi.space_id = pso.space_id
+        AND emi.provider_connection_id = pso.provider_connection_id
+        AND emi.id = pso.external_identity_id
+       JOIN provider_connections pc
+         ON pc.space_id = pso.space_id AND pc.id = pso.provider_connection_id
+      WHERE pso.space_id = $1 AND pso.id = $2 AND emi.media_id = $3`,
+    [spaceId, observationId, mediaId]
+  );
+  const observation = observationResult.rows[0];
+  if (!observation) return null;
+  const controlsResult = await client.query(
+    `SELECT field_path, authority, provider_write_mode, locked, source_provider_connection_id
+       FROM canonical_media_field_controls
+      WHERE space_id = $1 AND media_id = $2 AND field_path = ANY($3::varchar[])`,
+    [spaceId, mediaId, OBSERVATION_COMPARISON_FIELD_PATHS]
+  );
+  const comparison = buildProviderObservationComparison({
+    facts: observation.normalized_facts,
+    canonicalMedia,
+    controls: controlsResult.rows,
+    providerConnectionId: observation.provider_connection_id
+  });
+  const field = comparison.fields.find((candidate) => candidate.fieldPath === fieldPath);
+  if (!field) {
+    const error = new Error('Provider observation field is not a current difference');
+    error.code = 'PROVIDER_OBSERVATION_FIELD_NOT_DIFFERENT';
+    throw error;
+  }
+  const deferredUntil = decision === 'deferred'
+    ? new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)).toISOString()
+    : null;
+  const inserted = await client.query(
+    `INSERT INTO provider_observation_field_reviews
+       (space_id, library_id, media_id, provider_observation_id, field_path,
+        observation_fingerprint, canonical_value_fingerprint, decision, note,
+        deferred_until, decided_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     RETURNING *`,
+    [spaceId, libraryId, mediaId, observationId, fieldPath, observation.content_hash,
+      canonicalValueFingerprint(fieldPath, field.currentValue), decision,
+      boundedText(note, 500, 'Provider observation field review note'), deferredUntil, actorId]
+  );
+  return Object.freeze({
+    observationId,
+    fieldPath,
+    review: publicFieldReview(inserted.rows[0], {
+      observationFingerprint: observation.content_hash,
+      canonicalFingerprint: canonicalValueFingerprint(fieldPath, field.currentValue)
     })
   });
 }
@@ -546,6 +672,7 @@ function buildKavitaSourceObservation(item = {}, identity = {}) {
 
 module.exports = {
   OBSERVATION_COMPARISON_FIELDS,
+  appendProviderObservationFieldReview,
   appendProviderSourceObservation,
   buildProviderObservationComparison,
   buildBookOrbitSourceObservation,

@@ -509,7 +509,8 @@ test.describe('library multi-format browser regressions', () => {
                         providerWriteMode: 'preserve',
                         locked: true,
                         sameProvider: false
-                      }
+                      },
+                      review: null
                     }
                   ]
                 },
@@ -518,6 +519,25 @@ test.describe('library multi-format browser regressions', () => {
               }
             ],
             pagination: { page: 1, limit: 10, total: 1, totalPages: 1, hasMore: false }
+          })
+        });
+      });
+      await page.route(`**/api/media/${mediaId}/provider-observations/f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5/reviews`, async (route) => {
+        expect(route.request().method()).toBe('POST');
+        expect(route.request().postDataJSON()).toEqual({ fieldPath: 'media.title', decision: 'approved' });
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            observationId: 'f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5',
+            fieldPath: 'media.title',
+            review: {
+              decision: 'approved',
+              note: null,
+              deferredUntil: null,
+              createdAt: '2026-11-23T12:00:00Z',
+              current: true
+            }
           })
         });
       });
@@ -543,6 +563,8 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByText('manual · locked', { exact: true })).toBeVisible();
       await expect(page.getByText(`Current: ${title}`, { exact: true })).toBeVisible();
       await expect(page.getByText('Observed: Observed Provider Title', { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Approve', exact: true }).click();
+      await expect(page.getByText('Review: approved', { exact: true })).toBeVisible();
     } finally {
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
       await requestContext.dispose();

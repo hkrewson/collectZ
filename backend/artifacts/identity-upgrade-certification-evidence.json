@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-11-22T19:30:07.195Z",
+  "generatedAt": "2026-11-24T03:31:30.492Z",
   "status": "passed",
   "manifestSchemaVersion": 1,
   "baselineVersion": 127,
-  "latestVersion": 145,
+  "latestVersion": 146,
   "certifiedMigrationVersions": [
     128,
     129,
@@ -22,7 +22,8 @@
     142,
     143,
     144,
-    145
+    145,
+    146
   ],
   "selectorMatches": [
     {
@@ -80,6 +81,10 @@
     {
       "version": 145,
       "description": "Add immutable provider source observations"
+    },
+    {
+      "version": 146,
+      "description": "Add provider observation field review decisions"
     }
   ],
   "fixturePolicy": {
@@ -156,13 +161,13 @@
       {
         "id": 1,
         "user_id": 1,
-        "expires_at": "2026-11-29T19:30:08.007Z",
+        "expires_at": "2026-12-01T03:31:31.329Z",
         "storedCredentialPresent": true
       },
       {
         "id": 2,
         "user_id": 1,
-        "expires_at": "2026-11-29T19:30:08.008Z",
+        "expires_at": "2026-12-01T03:31:31.330Z",
         "storedCredentialPresent": true
       }
     ],
@@ -218,7 +223,7 @@
             "libraries:read"
           ],
           "revoked_at": null,
-          "expires_at": "2026-11-29T19:30:08.010Z",
+          "expires_at": "2026-12-01T03:31:31.333Z",
           "storedCredentialPresent": true
         }
       ],
@@ -234,7 +239,7 @@
             "/api/libraries"
           ],
           "revoked_at": null,
-          "expires_at": "2026-11-29T19:30:08.010Z",
+          "expires_at": "2026-12-01T03:31:31.333Z",
           "storedCredentialPresent": true
         }
       ]

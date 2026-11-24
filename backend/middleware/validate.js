@@ -121,6 +121,12 @@ const dashboardReviewDecisionSchema = z.object({
   note: z.preprocess(emptyStringToNull, z.string().trim().max(500).optional().nullable())
 });
 
+const providerObservationFieldReviewSchema = z.object({
+  fieldPath: z.string().trim().regex(/^(media|type_details)\.[a-z][a-z0-9_]{0,79}$/),
+  decision: z.enum(['approved', 'rejected', 'deferred']),
+  note: z.preprocess(emptyStringToNull, z.string().trim().max(500).optional().nullable())
+});
+
 const normalizeLookupCode = (value) => {
   const raw = String(value || '');
   return raw
@@ -1183,6 +1189,7 @@ module.exports = {
   titleAuthorSearchSchema,
   titleArtistSearchSchema,
   dashboardReviewDecisionSchema,
+  providerObservationFieldReviewSchema,
   upcLookupSchema,
   barcodeLookupSchema,
   barcodeImportSchema,

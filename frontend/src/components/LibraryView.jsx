@@ -900,6 +900,7 @@ function MediaDetail({
   const [providerObservations, setProviderObservations] = useState([]);
   const [providerObservationTotal, setProviderObservationTotal] = useState(0);
   const [providerObservationsLoading, setProviderObservationsLoading] = useState(false);
+  const [providerReviewSaving, setProviderReviewSaving] = useState({});
   const [, setSeasonDrafts] = useState({});
   const [seasonSaving, setSeasonSaving] = useState({});
   const [openSeason, setOpenSeason] = useState(null);
@@ -1055,6 +1056,34 @@ function MediaDetail({
   const providerObservationComparisonValue = (value) => {
     if (value === null || value === undefined || String(value).trim() === '') return 'Not set';
     return String(value);
+  };
+  const reviewProviderObservationField = async (observationId, fieldPath, decision) => {
+    const key = `${observationId}:${fieldPath}`;
+    if (providerReviewSaving[key]) return;
+    setProviderReviewSaving((current) => ({ ...current, [key]: true }));
+    try {
+      const payload = await apiCall('post', `/media/${item.id}/provider-observations/${observationId}/reviews`, { fieldPath, decision });
+      setProviderObservations((current) =>
+        current.map((observation) =>
+          observation.id !== observationId
+            ? observation
+            : {
+                ...observation,
+                comparison: {
+                  ...observation.comparison,
+                  fields: observation.comparison.fields.map((field) =>
+                    field.fieldPath === fieldPath ? { ...field, review: payload.review } : field
+                  )
+                }
+              }
+        )
+      );
+      onToast?.(`Provider difference ${decision}`);
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to save provider review', 'error');
+    } finally {
+      setProviderReviewSaving((current) => ({ ...current, [key]: false }));
+    }
   };
   const hiddenTypeDetailKeys = new Set(
     isBook
@@ -2394,6 +2423,28 @@ function MediaDetail({
                                     <p className="mt-1 break-words text-xs text-dim">
                                       Observed: {providerObservationComparisonValue(field.observedValue)}
                                     </p>
+                                    {field.review ? (
+                                      <p className={`mt-2 text-[11px] ${field.review.current ? 'text-dim' : 'text-amber-500'}`}>
+                                        Review: {field.review.decision}
+                                        {field.review.current ? '' : ' · outdated'}
+                                      </p>
+                                    ) : null}
+                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                      {['approved', 'rejected', 'deferred'].map((decision) => {
+                                        const key = `${observation.id}:${field.fieldPath}`;
+                                        return (
+                                          <button
+                                            key={decision}
+                                            type="button"
+                                            className="btn btn-secondary px-2 py-1 text-[11px]"
+                                            disabled={Boolean(providerReviewSaving[key])}
+                                            onClick={() => reviewProviderObservationField(observation.id, field.fieldPath, decision)}
+                                          >
+                                            {decision === 'approved' ? 'Approve' : decision === 'rejected' ? 'Reject' : 'Defer 7 days'}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
                                   </div>
                                 ))}
                               </div>

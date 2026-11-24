@@ -1254,9 +1254,48 @@
                 "required": ["authority", "providerWriteMode", "locked", "sameProvider"]
               }
             ]
+          },
+          "review": {
+            "anyOf": [
+              { "type": "null" },
+              { "$ref": "#/components/schemas/ProviderObservationFieldReview" }
+            ]
           }
         },
-        "required": ["fieldPath", "label", "currentValue", "observedValue", "control"]
+        "required": ["fieldPath", "label", "currentValue", "observedValue", "control", "review"]
+      },
+      "ProviderObservationFieldReview": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Latest append-only review decision for this exact observation and current canonical value. Approval records review intent only and does not apply metadata.",
+        "properties": {
+          "decision": { "type": "string", "enum": ["approved", "rejected", "deferred"] },
+          "note": { "type": ["string", "null"], "maxLength": 500 },
+          "deferredUntil": { "type": ["string", "null"], "format": "date-time" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "current": { "type": "boolean" }
+        },
+        "required": ["decision", "note", "deferredUntil", "createdAt", "current"]
+      },
+      "ProviderObservationFieldReviewRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fieldPath": { "type": "string", "pattern": "^(media|type_details)\\.[a-z][a-z0-9_]{0,79}$" },
+          "decision": { "type": "string", "enum": ["approved", "rejected", "deferred"] },
+          "note": { "type": ["string", "null"], "maxLength": 500 }
+        },
+        "required": ["fieldPath", "decision"]
+      },
+      "ProviderObservationFieldReviewResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "observationId": { "type": "string", "format": "uuid" },
+          "fieldPath": { "type": "string" },
+          "review": { "$ref": "#/components/schemas/ProviderObservationFieldReview" }
+        },
+        "required": ["observationId", "fieldPath", "review"]
       },
       "ProviderSourceObservationListResponse": {
         "type": "object",
@@ -11575,6 +11614,33 @@
               }
             }
           }
+        }
+      }
+    },
+    "/api/media/{id}/provider-observations/{observationId}/reviews": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Record a provider observation field review",
+        "description": "Appends an approve, reject, or seven-day defer decision for one currently differing allowlisted field. The server binds it to the immutable observation and current canonical-value fingerprints. This endpoint never applies provider metadata.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "observationId", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProviderObservationFieldReviewRequest" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Review decision appended",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProviderObservationFieldReviewResponse" } } }
+          },
+          "404": { "description": "Media or observation not found in the active scope", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "The field is no longer a current difference", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
         }
       }
     },

@@ -14,6 +14,8 @@ const backendAppMeta = require(path.join(repoRoot, 'backend', 'app-meta.json'));
 const frontendAppMeta = require(path.join(repoRoot, 'frontend', 'src', 'app-meta.json'));
 const backendPackageJson = require(path.join(repoRoot, 'backend', 'package.json'));
 const frontendPackageJson = require(path.join(repoRoot, 'frontend', 'package.json'));
+const { getExpectedMigrationVersion } = require('../db/migrations');
+const expectedMigrationVersion = getExpectedMigrationVersion();
 
 const baseUrl = (process.env.RELEASE_PREFLIGHT_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
 const dependencyAuditDir = path.join(repoRoot, 'artifacts', 'dependency-audit');
@@ -455,6 +457,7 @@ async function main() {
     && initParityEvidence.status === 'passed'
     && initParityEvidence.certificationMode === 'migration_chain_authority_after_init_sql_retirement'
     && initParityEvidence.authority?.source === 'append_only_migration_chain'
+    && Number(initParityEvidence.authority?.expectedMigrationVersion) === expectedMigrationVersion
     && Number(initParityEvidence.authority?.expectedMigrationVersion) === Number(initParityEvidence.authority?.appliedMigrationVersion)
     && initParityEvidence.reference?.status === 'retired'
     && initParityEvidence.reference?.present === false
@@ -466,6 +469,7 @@ async function main() {
   const migrationRestoreCertified = Boolean(
     migrationEvidence
     && migrationEvidence.status === 'passed'
+    && Number(migrationEvidence.latestVersion) === expectedMigrationVersion
     && Number(migrationEvidence.latestVersion) === Number(initParityEvidence?.authority?.appliedMigrationVersion)
     && migrationEvidence.checks?.restoredCountsMatchPostUpgrade === true
     && migrationEvidence.checks?.restoredRuntimeAuthorityPassed === true

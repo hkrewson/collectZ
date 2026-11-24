@@ -518,6 +518,7 @@ const bookOrbitImportIdentitySource = fs.readFileSync(require.resolve('../servic
 const providerSyncTargetsSource = fs.readFileSync(require.resolve('../services/providerSyncTargets'), 'utf8');
 const providerSourceObservationsSource = fs.readFileSync(require.resolve('../services/providerSourceObservations'), 'utf8');
 const providerSourceObservationsSqlSource = fs.readFileSync(path.resolve(__dirname, '../db/providerSourceObservations.sql'), 'utf8');
+const providerObservationFieldReviewsSqlSource = fs.readFileSync(path.resolve(__dirname, '../db/providerObservationFieldReviews.sql'), 'utf8');
 const kavitaImportIdentitySource = fs.readFileSync(require.resolve('../services/kavitaImportIdentity'), 'utf8');
 const plexAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-authoritative-sync-smoke'), 'utf8');
 const plexImportIdentitySource = fs.readFileSync(require.resolve('../services/plexImportIdentity'), 'utf8');
@@ -808,7 +809,7 @@ results.push(run('workspace ownership contract classifies every schema table, ro
   const contract = buildWorkspaceOwnershipContract();
   const snapshot = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'workspace-ownership-contract.json'), 'utf8'));
   assert.deepStrictEqual(contract, snapshot);
-  assert.strictEqual(contract.tables.length, 80);
+  assert.strictEqual(contract.tables.length, 81);
   assert.ok(contract.tables.filter(t => t.name.startsWith('collectz_scope.')).every(t => t.category === 'authorization_control_plane'));
   assert.ok(contract.routes.length >= 300);
   assert.ok(contract.routes.filter((route) => route.authentication === 'required').length >= 300);
@@ -825,6 +826,11 @@ results.push(run('workspace ownership contract classifies every schema table, ro
     'external_media_identity_events',
     'canonical_media_field_controls'
   ].includes(entry.name)).every((entry) => entry.category === 'workspace_owned'));
+  assert.ok(contract.tables.some((entry) => (
+    entry.name === 'provider_observation_field_reviews'
+    && entry.category === 'library_owned'
+    && entry.ownershipKey === 'library_id'
+  )));
   assert.deepStrictEqual(contract.permissionKeys, Object.values(PERMISSIONS).sort());
 }));
 
@@ -5904,21 +5910,28 @@ results.push(run('provider source observations are immutable, sanitized, and mig
     fields: []
   });
   assert.ok(migrationsSource.includes('version: 145'));
+  assert.ok(migrationsSource.includes('version: 146'));
   assert.ok(initSqlSource.includes("(145, 'Add immutable provider source observations')"));
   assert.ok(providerSourceObservationsSqlSource.includes('provider_source_observations_append_only'));
   assert.ok(providerSourceObservationsSqlSource.includes('provider_source_observations_scope'));
+  assert.ok(providerObservationFieldReviewsSqlSource.includes('provider_observation_field_reviews_append_only'));
+  assert.ok(providerObservationFieldReviewsSqlSource.includes('provider_observation_field_reviews_scope'));
+  assert.ok(providerObservationFieldReviewsSqlSource.includes('allows_library(space_id, library_id)'));
   assert.ok(providerSourceObservationsSource.includes('normalized_facts'));
   assert.ok(providerSourceObservationsSource.includes('idempotencyKey'));
   assert.ok(providerSourceObservationsSource.includes('listProviderSourceObservations'));
   assert.ok(providerSourceObservationsSource.includes('buildProviderObservationComparison'));
   assert.ok(mediaRoutesSource.includes("router.get('/:id/provider-observations'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/:id/provider-observations/:observationId/reviews'"));
   assert.ok(openApiSource.includes('"/api/media/{id}/provider-observations"'));
   assert.ok(libraryViewSource.includes("`/media/${item.id}/provider-observations?limit=10`"));
   assert.ok(libraryViewSource.includes('Provider history'));
+  assert.ok(libraryViewSource.includes('Defer 7 days'));
   assert.ok(libraryViewSource.includes('Metadata source:'));
   assert.ok(openApiSource.includes('metadataSource.providerItemId'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('immutableSourceObservations'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('providerObservationReadback'));
+  assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('providerObservationFieldReviews'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('explicitMetadataSource'));
   assert.ok(kavitaImportIdentitySource.includes('buildKavitaSourceObservation'));
   assert.ok(kavitaImportIdentitySource.includes('appendProviderSourceObservation'));
