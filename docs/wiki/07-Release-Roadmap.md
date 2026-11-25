@@ -4,7 +4,49 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.10` reliability and provider-observation milestones are complete locally. The next numbered milestone has not been selected.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.11` reliability and provider-observation milestones are complete locally. No later milestone is selected; unscheduled candidates remain in the backlog.
+
+---
+
+## 3.29.11 — Reviewed Provider Cover Apply
+
+**Goal:** Let a person visually compare a credential-safe observed provider cover with the current CollectZ cover, review it, and apply that exact still-current candidate as a preserve-only canonical cover with the existing immutable audit trail.
+**Status:** Complete locally; hosted certification awaits an authorized push.
+
+### Selected scope
+
+- Treat `media.poster_path` as an allowlisted Source Observation difference only when the observed candidate is a CollectZ-owned credential-safe BookOrbit or Kavita proxy path.
+- Derive historical BookOrbit native candidates from the immutable BookOrbit identity, Provider Connection, and observed cover version so existing native observations do not require a backfill.
+- Render current and observed cover previews in Provider history and in the exact apply preview instead of asking reviewers to compare opaque paths.
+- Reuse the current approve, reject, defer, exact-plan confirmation, atomic apply, Canonical Field Control, and immutable apply-event contracts.
+- Keep broken or unavailable images understandable without exposing upstream URLs, credentials, or provider payloads.
+
+### Acceptance criteria
+
+- Direct upstream, cross-origin, malformed, unsupported-provider, and non-proxy cover values never become reviewable or applicable observation differences.
+- Current and observed covers remain distinguishable and usable at narrow and wide viewports, including missing-image and load-failure states.
+- A current approved unlocked cover can be applied only with the exact current plan fingerprint; stale observation, canonical cover, review, control, identity, or connection state fails without mutation.
+- A successful apply changes only `media.poster_path`, marks it reviewed and preserve-only, and records safe before/after proxy paths in the existing immutable apply event.
+- Existing bibliographic review/apply behavior, provider identity, BookOrbit cover proxy authorization, Kavita cover proxy authorization, OpenAPI, and ordinary safe history readback remain intact.
+- Version `3.29.11`, release note/feed, canonical runtime, browser evidence, and the relevant release gates remain aligned.
+
+### Milestone boundary
+
+This slice applies a reviewed canonical cover reference. It does not copy provider image bytes into local uploads, accept arbitrary remote image URLs, refresh provider metadata, write back upstream, choose a metadata provider, rematch identities, or enable automatic cover replacement.
+
+### 3.29.11 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.29.11 — Reviewed Provider Cover Apply`, credential-safe cover comparison, exact reviewed apply, responsive visual evidence, and version closeout.
+- **Project docs/checklists used:** `AGENTS.md`, `GLOSSARY.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/53-Digital-Library-Provider-Identity-Contract.md`, and `docs/releases/v3.29.11.md`.
+- **Verified facts:** `media.poster_path` becomes reviewable only when the provider observation resolves to an exact CollectZ-owned BookOrbit or Kavita proxy path bound to the observed identity evidence. Current and proposed covers are shown visually, and explicit approval plus the exact still-current plan is required before the existing atomic apply records reviewed preserve-only field control and immutable before/after history. Remote, cross-origin, malformed, unsupported-provider, and identity-mismatched candidates fail closed.
+- **Inference:** No product behavior relies on inferred provider selection or identity matching. Historical native BookOrbit cover candidates are deterministically reconstructed only from already-preserved immutable connection, book identity, and cover-version evidence.
+- **Runtime verification used:** The canonical `collectz-private` stack was rebuilt and recreated in place on port `3201`; health and the running backend report `3.29.11`, the browser bypass is unset after testing, and Help > Releases serves `3.29.11` first. Live workspace ownership certifies `82` tables, `359` routes, and `12` maintained execution paths. The in-container BookOrbit smoke proved visually reviewable safe cover comparison, exact-plan apply, reviewed preserve-only authority, and immutable cover history. Migration-built Platform authority passed `5/5`, RBAC passed with a runtime-generated ephemeral admin, and observability evidence passed `9/9`.
+- **CI/checks run:** OpenAPI; backend source/unit (`389`) and Node (`57`) tests; frontend unit (`7`), production build, and changed-file ESLint/Prettier; desktop/mobile rendered UI inspection and evidence validation; complete maintained browser regression (`56` passed, `6` edition-inapplicable skips); workspace ownership; Help release smoke; BookOrbit authoritative import smoke; RBAC regression; migration-chain authority and migration rehearsal through migration `147`; identity-upgrade, runtime-role (`32/32`), and external-identity (`21`) certification; control-plane runtime authority (`5/5`); observability evidence (`9/9`); zero-finding backend/frontend production dependency audits; production-shaped Compose preflight; diff and artifact secret hygiene; and the standard local release gate (`14/14`).
+- **Files changed:** Provider-observation cover validation and comparison; responsive Library Provider cover review/apply UI; OpenAPI, source/unit, provider smoke, and browser coverage; provider identity contract and glossary; roadmap/backlog; synchronized `3.29.11` metadata and lockfiles; release note/feed; desktop/mobile UI evidence; and refreshed observability and preflight evidence.
+- **Blocked/unverified:** Local CodeQL, gitleaks, and Trivy/SBOM tools are unavailable. Hosted CI must still certify CodeQL, secret scan, image security/SBOM, hosted Core runtime, Compose, RBAC, browser, release preflight, image publication, and tagging after an authorized push. Local equivalents for the application, browser, RBAC, runtime authority, dependency, Compose, version, and release-feed behavior are green.
+- **Risks or follow-ups:** Cover apply intentionally preserves a same-origin provider proxy reference rather than importing image bytes. Provider refresh, provider selection, identity rematching, automatic cover replacement, provider writeback, and the work/edition/owned-copy model remain separate backlog work.
+- **What remains in the milestone:** Nothing for `3.29.11`; select the next numbered milestone from `docs/wiki/08-Backlog.md` before beginning later scope.
+- **Recommended commit message:** `Release 3.29.11 with reviewed provider cover apply`.
 
 ---
 
@@ -1571,7 +1613,6 @@ Hosted release gates passed and the `v3.25.1` tag was created from `main`.
 
 **Remaining:** Resolve the 16 historical credential-fingerprint findings in the full-history secret gate; confirm hosted release gates (local observability now passes 9/9); obtain owner signing and physical-device acceptance. TV-only commits and the native repository scan clean. No history rewrite, push, or publication performed.
 
-
 ## 3.24.14 — Non-Owner Runtime Database Role and Credential Split
 
 **Goal:** Stop running the CollectZ backend as the PostgreSQL owner/superuser. Migrations and provisioning keep the owner credential in a one-shot job; the long-lived backend and its workers connect through a least-privilege runtime role that owns no tables and cannot bypass future row-level security.
@@ -1904,6 +1945,7 @@ Hosted release gates passed and the `v3.25.1` tag was created from `main`.
 - Risks or follow-ups: legacy installation-row provider values remain stored only for rollback compatibility and are ignored by corrected valuation/OCR execution. Live third-party calls remain operator-controlled; automation uses fixture and isolation proofs. A later controlled cleanup may remove unused legacy fields after rollback compatibility is no longer needed.
 - What remains in the milestone: no local implementation or verification work remains. After push, require hosted `compose-smoke`, `rbac-regression`, `browser-regression`, Core/control-plane `runtime-smoke`, `dependency-scan`, `secret-scan`, and `image-security-and-sbom` before promotion.
 - Recommended commit message: `Release 3.24.7 with workspace-owned valuation and OCR integration enforcement`.
+
 ## 3.24.6 — Authentication Token Consumption Hardening
 
 **Goal:** Prevent credential-recovery and invitation tokens from leaking through request URLs, and make one-time token consumption safe under replay and concurrency.
@@ -6727,8 +6769,7 @@ Hosted release gates passed and the `v3.25.1` tag was created from `main`.
 - Do not keep feature-specific route handlers, business logic, provider integrations, or direct domain-query orchestration in `backend/server.js`.
 - Add a centralized async error handler. All route handlers must be wrapped with an `asyncHandler` utility that catches unhandled promise rejections and passes them to Express's error middleware, preventing silent 500s:
   ```js
-  const asyncHandler = fn => (req, res, next) =>
-    Promise.resolve(fn(req, res, next)).catch(next);
+  const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
   ```
 - Completed: consolidated on opaque `httpOnly` cookie sessions with server-side session validation.
 
@@ -6738,7 +6779,7 @@ Hosted release gates passed and the `v3.25.1` tag was created from `main`.
 
 **Minor bugs and polish:**
 
-- Expose the Admin Activity Log in the UI. The `activity_log` table is already being written to and the `GET /api/admin/activity` endpoint exists — the frontend admin panel just doesn't have a dedicated view yet. This is a 1.6.3 feature that wasn't surfaced. *(Note: if already present in current UI, verify and close this item.)*
+- Expose the Admin Activity Log in the UI. The `activity_log` table is already being written to and the `GET /api/admin/activity` endpoint exists — the frontend admin panel just doesn't have a dedicated view yet. This is a 1.6.3 feature that wasn't surfaced. _(Note: if already present in current UI, verify and close this item.)_
 - Add activity log filtering to `GET /api/admin/activity` via optional query params: `action`, `userId`, `from`, `to`, `q`, `limit`. Preserve the current response shape when no filters are sent.
 - Change user role management UX from immediate auto-save on select change to an explicit Save button per row.
 
@@ -7500,6 +7541,7 @@ This track converts the 1.9.1 external assessment findings into executable miles
 **Goal:** Deliver a secure, usable homelab media catalog for households: multiple users, admin-managed integrations, and one unified library experience for movies, TV, books, audio, and games.
 
 **Product boundary for 2.0.0:**
+
 - No enterprise tenancy model.
 - No user-owned integration credentials.
 - No required nested library hierarchy for end users.
@@ -8965,6 +9007,7 @@ Historical note:
 - Slice 3: when dual-source results differ and the user chooses the identifier match, perform the follow-up provider-default title lookup needed to complete enrichment.
 
 ### Scope
+
 - For Movies and TV when title exists, lookup should default to a search of TMDB API
 - For Movies and TV when UPC | Barcode exists, lookup should default to a search of upcitemdb API
 - For Movies and TV when UPC & Title exists, both API endpoints should be eligible and their results can be compared and combined.
@@ -10577,7 +10620,7 @@ Historical note:
   - scheduling/runtime shape,
   - duplicate prevention rules,
   - and minimum audit visibility
-  before implementation starts.
+    before implementation starts.
 - Contract outcome from the audit:
   - the first automation slice should reuse the existing lightweight startup-timer pattern in `backend/server.js` rather than introducing a separate worker/queue system,
   - automation should be explicitly gated by reminder-delivery readiness so the runtime no-ops cleanly when SMTP is unavailable or automation is disabled,
@@ -10625,7 +10668,7 @@ Historical note:
   - event history shape,
   - minimum fields for audit and troubleshooting,
   - and how the deeper history coexists with the existing shallow reminder state
-  before adding new persistence paths.
+    before adding new persistence paths.
 - A small UI alignment pass is included in this opening slice so the loans view no longer carries custom previous/next controls that drift from the shared library pagination shell.
 - Contract outcome from the audit:
   - the existing `media_loans` reminder fields remain the source for simple current-state UI such as latest reminder status and last-sent timing,
@@ -10682,7 +10725,7 @@ Historical note:
   - whether history lives as a dedicated filter/state inside `Loans` or as a separate subview,
   - what summary fields belong in the global history list,
   - and how much reminder-event detail should appear inline versus behind expansion
-  before implementation starts.
+    before implementation starts.
 - Current implementation shape:
   - the dedicated `Loans` workspace now keeps its main list payload lean,
   - each loan row can expand into a per-title history readback by reusing the existing `GET /api/media/:id/loans` detail/history contract,
@@ -10722,7 +10765,7 @@ Historical note:
   - the run-level reminder operations model,
   - the minimum counts and failure details required,
   - and whether the existing admin-trigger path should surface summary results more explicitly
-  before implementation starts.
+    before implementation starts.
 - Contract decision:
   - keep reminder operations visibility separate from per-loan history,
   - start in an admin/operator-facing surface instead of widening the main `Loans` workspace again,
@@ -19394,12 +19437,14 @@ Historical note:
 **Goal:** Fix real Kavita comic libraries that report numeric library type `5` so chapter issue fan-out does not misclassify them as books.
 
 **Scope**
+
 - Normalize Kavita numeric library type `5` as `comic`.
 - Prove import/fan-out behavior with a fake Kavita comic library reporting type `5`.
 - Update Kavita setup and fan-out docs to match current type and special-chapter behavior.
 - Keep cover 404 recovery, historical row repair, and issue coverage audit as separate follow-up work.
 
 **Acceptance**
+
 - `kavita_library_type=5` rows qualify as comic fan-out candidates.
 - Kavita import/sync smoke creates chapter issue rows for numeric type `5`.
 - Unit coverage proves numeric `5` normalizes to `comic`.
@@ -19421,6 +19466,7 @@ Historical note:
 **Goal:** Make Kavita comic imports less likely to hide issues by defaulting the admin import toward chapter issue rows and keeping more Kavita chapter shapes.
 
 **Scope**
+
 - Default the admin Kavita import control to import comic chapters as issue rows.
 - Import comic special chapters as issue rows when they have a stable Kavita chapter id.
 - Use Kavita chapter `sortOrder` as a fallback issue/order signal for sparse chapter metadata.
@@ -19428,6 +19474,7 @@ Historical note:
 - Keep books, unknown library types, automatic repair of older rows, and embedded reader scope out of this slice.
 
 **Acceptance**
+
 - Admin Kavita import queues with chapter issue fan-out enabled unless the user turns it off.
 - Kavita special chapters are imported as chapter-backed comic issue rows.
 - Sparse Kavita chapters with sort/order metadata are no longer skipped solely because title/date/pages are absent.
@@ -20058,5 +20105,5 @@ Homelab deployers continue to use `docker compose -f docker-compose.registry.yml
    - `/api/health` returns expected version/build fields.
    - Smoke test checklist passes (see `09-Smoke-Test-Checklist.md`).
 7. Tag release in git: `vX.Y.Z`.
-7. Update `docker-compose.registry.yml` default `IMAGE_TAG` value.
-8. Notify homelab users via release notes of any env var changes required.
+8. Update `docker-compose.registry.yml` default `IMAGE_TAG` value.
+9. Notify homelab users via release notes of any env var changes required.

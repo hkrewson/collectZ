@@ -2,6 +2,7 @@
 
 const crypto = require('node:crypto');
 const { MEDIA_FIELD_COLUMNS, normalizeFieldPath, setCanonicalFieldControl } = require('./canonicalMediaFieldControls');
+const { buildBookOrbitCoverProxyPath } = require('./bookOrbit');
 const { TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE, normalizeTypeDetails } = require('./typeDetails');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -24,6 +25,7 @@ const BOOKORBIT_PROVIDER_ID_FIELDS = Object.freeze([
   ['aladin', 'bookorbit_aladin_id']
 ]);
 const OBSERVATION_COMPARISON_FIELDS = Object.freeze([
+  Object.freeze({ fact: 'proxyPath', section: 'cover', fieldPath: 'media.poster_path', label: 'Cover', kind: 'text' }),
   Object.freeze({ fact: 'title', fieldPath: 'media.title', label: 'Title', kind: 'text' }),
   Object.freeze({ fact: 'mediaType', fieldPath: 'media.media_type', label: 'Media type', kind: 'text' }),
   Object.freeze({ fact: 'year', fieldPath: 'media.year', label: 'Year', kind: 'number' }),
@@ -153,11 +155,36 @@ function normalizedComparisonValue(value, kind) {
   return `text:${text.replace(/\s+/g, ' ').toLocaleLowerCase()}`;
 }
 
+function credentialSafeObservedCoverPath({ facts, providerConnectionId, sourceKind } = {}) {
+  const cover = facts?.cover && typeof facts.cover === 'object' ? facts.cover : {};
+  const identity = facts?.identity && typeof facts.identity === 'object' ? facts.identity : {};
+  if (sourceKind === 'bookorbit_native') {
+    const bookIdMatch = String(identity.externalId || '').match(/^urn:bookorbit:book:([1-9]\d*)$/i);
+    const hasCoverEvidence = ['proxyPath', 'version', 'source', 'updatedAt', 'width', 'height']
+      .some((key) => cover[key] !== null && cover[key] !== undefined && cover[key] !== '');
+    if (!bookIdMatch || !hasCoverEvidence || !UUID_PATTERN.test(String(providerConnectionId || ''))) return null;
+    const expectedPath = buildBookOrbitCoverProxyPath(
+      String(providerConnectionId).toLowerCase(),
+      Number(bookIdMatch[1]),
+      cover.version || null
+    );
+    return cover.proxyPath && cover.proxyPath !== expectedPath ? null : expectedPath;
+  }
+  if (sourceKind !== 'kavita_api') return null;
+  const proxyPath = String(cover.proxyPath || '').trim();
+  const proxyMatch = proxyPath.match(/^\/api\/media\/kavita-(chapter-)?cover\/([1-9]\d*)$/);
+  const identityMatch = String(identity.externalId || '').match(/^kavita:(series|chapter):([1-9]\d*)$/i);
+  if (!proxyMatch || !identityMatch) return null;
+  const proxyKind = proxyMatch[1] ? 'chapter' : 'series';
+  return proxyKind === identityMatch[1].toLowerCase() && proxyMatch[2] === identityMatch[2] ? proxyPath : null;
+}
+
 function buildProviderObservationComparison({
   facts,
   canonicalMedia,
   controls = [],
-  providerConnectionId
+  providerConnectionId,
+  sourceKind
 } = {}) {
   const bibliographic = facts?.bibliographic && typeof facts.bibliographic === 'object'
     ? facts.bibliographic
@@ -172,7 +199,9 @@ function buildProviderObservationComparison({
   let comparedFieldCount = 0;
 
   for (const field of OBSERVATION_COMPARISON_FIELDS) {
-    const observedValue = bibliographic[field.fact];
+    const observedValue = field.section === 'cover'
+      ? credentialSafeObservedCoverPath({ facts, providerConnectionId, sourceKind })
+      : bibliographic[field.fact];
     const normalizedObserved = normalizedComparisonValue(observedValue, field.kind);
     if (normalizedObserved === null) continue;
     comparedFieldCount += 1;
@@ -250,7 +279,8 @@ function publicObservationReadback(row, { canonicalMedia = null, controls = [], 
       facts: row.normalized_facts,
       canonicalMedia,
       controls,
-      providerConnectionId: row.provider_connection_id
+      providerConnectionId: row.provider_connection_id,
+      sourceKind: row.source_kind
     });
     readback.comparison = Object.freeze({
       ...comparison,
@@ -769,7 +799,8 @@ async function appendProviderObservationFieldReview(client, {
     facts: observation.normalized_facts,
     canonicalMedia,
     controls: controlsResult.rows,
-    providerConnectionId: observation.provider_connection_id
+    providerConnectionId: observation.provider_connection_id,
+    sourceKind: observation.source_kind
   });
   const field = comparison.fields.find((candidate) => candidate.fieldPath === fieldPath);
   if (!field) {
@@ -938,6 +969,9 @@ function buildBookOrbitSourceObservation(item = {}) {
       metadataSource,
       seriesMemberships: memberships,
       cover: {
+        proxyPath: native && /^\/api\/media\/bookorbit-cover\/[0-9a-f-]{36}\/[1-9]\d*(?:\?v=[^#]*)?$/i.test(String(item.poster_path || ''))
+          ? String(item.poster_path)
+          : null,
         version: optionalFact(details.bookorbit_cover_version),
         source: optionalFact(details.bookorbit_cover_source),
         updatedAt: optionalFact(details.bookorbit_cover_updated_at),

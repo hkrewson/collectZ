@@ -101,6 +101,36 @@ const DEFAULT_MEDIA_FORM = {
 };
 const OVERVIEW_MAX_LENGTH = 10000;
 
+function ProviderCoverPreview({ label, value, compact = false }) {
+  const source = posterUrl(value);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [source]);
+  return (
+    <figure className="min-w-0">
+      <figcaption className="mb-1 text-[11px] font-medium text-dim">{label}</figcaption>
+      <div
+        className={cx(
+          'relative overflow-hidden rounded-md border border-edge/70 bg-surface',
+          compact ? 'h-24 w-16' : 'aspect-[2/3] w-full max-w-28'
+        )}
+      >
+        {source && !failed ? (
+          <img
+            src={source}
+            alt={`${label} preview`}
+            className="absolute inset-0 h-full w-full object-cover"
+            onError={() => setFailed(true)}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center px-2 text-center text-[10px] leading-4 text-ghost">
+            {failed ? 'Cover unavailable' : 'No cover set'}
+          </div>
+        )}
+      </div>
+    </figure>
+  );
+}
+
 function hostnameMatches(hostname = '', expectedHostname = '') {
   const value = String(hostname || '')
     .trim()
@@ -2505,13 +2535,23 @@ function MediaDetail({
                                     {applyEvent.fieldCount} {applyEvent.fieldCount === 1 ? 'field' : 'fields'}
                                   </p>
                                   <div className="mt-1 space-y-1">
-                                    {applyEvent.fields.map((field) => (
-                                      <p key={`${applyEvent.id}:${field.fieldPath}`} className="break-words text-xs text-dim">
-                                        <span className="font-medium text-ink">{field.label}:</span>{' '}
-                                        {providerObservationComparisonValue(field.previousValue)} →{' '}
-                                        {providerObservationComparisonValue(field.appliedValue)}
-                                      </p>
-                                    ))}
+                                    {applyEvent.fields.map((field) =>
+                                      field.fieldPath === 'media.poster_path' ? (
+                                        <div key={`${applyEvent.id}:${field.fieldPath}`}>
+                                          <p className="mb-1 text-xs font-medium text-ink">{field.label}</p>
+                                          <div className="grid grid-cols-2 gap-3">
+                                            <ProviderCoverPreview label="Previous cover" value={field.previousValue} compact />
+                                            <ProviderCoverPreview label="Applied cover" value={field.appliedValue} compact />
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <p key={`${applyEvent.id}:${field.fieldPath}`} className="break-words text-xs text-dim">
+                                          <span className="font-medium text-ink">{field.label}:</span>{' '}
+                                          {providerObservationComparisonValue(field.previousValue)} →{' '}
+                                          {providerObservationComparisonValue(field.appliedValue)}
+                                        </p>
+                                      )
+                                    )}
                                   </div>
                                 </div>
                               ))}
@@ -2529,12 +2569,21 @@ function MediaDetail({
                                       <p className="text-xs font-medium text-ink">{field.label}</p>
                                       <span className="text-[11px] text-ghost">{providerObservationControlLabel(field.control)}</span>
                                     </div>
-                                    <p className="mt-1 break-words text-xs text-dim">
-                                      Current: {providerObservationComparisonValue(field.currentValue)}
-                                    </p>
-                                    <p className="mt-1 break-words text-xs text-dim">
-                                      Observed: {providerObservationComparisonValue(field.observedValue)}
-                                    </p>
+                                    {field.fieldPath === 'media.poster_path' ? (
+                                      <div className="mt-2 grid grid-cols-2 gap-3">
+                                        <ProviderCoverPreview label="Current cover" value={field.currentValue} />
+                                        <ProviderCoverPreview label="Observed cover" value={field.observedValue} />
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <p className="mt-1 break-words text-xs text-dim">
+                                          Current: {providerObservationComparisonValue(field.currentValue)}
+                                        </p>
+                                        <p className="mt-1 break-words text-xs text-dim">
+                                          Observed: {providerObservationComparisonValue(field.observedValue)}
+                                        </p>
+                                      </>
+                                    )}
                                     {field.review ? (
                                       <p className={`mt-2 text-[11px] ${field.review.current ? 'text-dim' : 'text-amber-500'}`}>
                                         Review: {field.review.decision}
@@ -2583,14 +2632,18 @@ function MediaDetail({
                                     </p>
                                     <div className="mt-2 space-y-1.5">
                                       {providerApplyPreviews[observation.id].fields.map((previewField) => (
-                                        <div
-                                          key={previewField.fieldPath}
-                                          className="flex flex-wrap items-center justify-between gap-2 text-[11px]"
-                                        >
-                                          <span className="text-dim">
-                                            {previewField.label}: {providerObservationComparisonValue(previewField.currentValue)} →{' '}
-                                            {providerObservationComparisonValue(previewField.proposedValue)}
-                                          </span>
+                                        <div key={previewField.fieldPath} className="text-[11px]">
+                                          {previewField.fieldPath === 'media.poster_path' ? (
+                                            <div className="mb-1 grid grid-cols-2 gap-3">
+                                              <ProviderCoverPreview label="Current cover" value={previewField.currentValue} compact />
+                                              <ProviderCoverPreview label="Proposed cover" value={previewField.proposedValue} compact />
+                                            </div>
+                                          ) : (
+                                            <span className="text-dim">
+                                              {previewField.label}: {providerObservationComparisonValue(previewField.currentValue)} →{' '}
+                                              {providerObservationComparisonValue(previewField.proposedValue)}
+                                            </span>
+                                          )}
                                           <span className={previewField.eligible ? 'text-emerald-500' : 'text-amber-500'}>
                                             {previewField.eligible ? 'Eligible' : providerApplyBlockerLabel(previewField.blocker)}
                                           </span>

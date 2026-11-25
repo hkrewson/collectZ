@@ -1,0 +1,50 @@
+{
+  "contract": "Library media drawer Provider history: let a collection operator visually compare current and observed covers, approve the exact credential-safe candidate, confirm the exact apply plan, and understand immutable before/after history. Keep a quiet scannable hierarchy—comparison, review, preview, confirmation, history—using existing CollectZ controls. Paired portrait cover wells must distinguish every state without showing proxy paths; missing and failed images need safe text. Support 390x844 and 1440x900 with long titles.",
+  "targetViewports": ["390x844", "1440x900"],
+  "accessibility": {
+    "status": "pass",
+    "evidence": "Playwright located the comparison by visible labels and image alternative text, and exercised review, preview, confirmation, cancel/apply button semantics. Rendered inspection confirmed readable labels and no color-only status dependency."
+  },
+  "responsive": {
+    "status": "pass",
+    "evidence": "Rendered 390x844 and 1440x900 captures show the paired 2:3 cover wells, confirmation copy, and actions contained by the drawer without overlap or horizontal overflow."
+  },
+  "contentStates": {
+    "loading": {
+      "status": "pass",
+      "evidence": "The browser flow exercised provider-history, review, preview, and apply transitions; existing loading labels and disabled actions retained stable drawer structure."
+    },
+    "empty": {
+      "status": "pass",
+      "evidence": "The browser regression rendered and asserted the explicit No cover set state for an absent current cover."
+    },
+    "error": {
+      "status": "pass",
+      "evidence": "The browser regression forced the observed proxy request to return 404 and asserted the Cover unavailable recovery state."
+    },
+    "partial": {
+      "status": "pass",
+      "evidence": "The drawer remained usable with a missing current cover and failed observed cover while preserving review context and safe labels."
+    },
+    "success": {
+      "status": "pass",
+      "evidence": "The browser regression completed approval, exact preview confirmation, apply, and asserted Previous cover and Applied cover history."
+    },
+    "permission": {
+      "status": "not-applicable",
+      "reason": "The Provider history surface is not mounted for an out-of-scope media record; exact-library authorization returns non-disclosing not-found before this drawer state exists."
+    }
+  },
+  "renderedEvidence": [
+    {
+      "viewport": "1440x900",
+      "artifact": "provider-cover-review-desktop.png",
+      "observation": "Desktop drawer shows the approved cover plan as two clearly labeled portrait wells, eligibility, preserve-only explanation, and separated confirmation actions."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "provider-cover-review-mobile.png",
+      "observation": "Mobile drawer keeps the long title, paired current/proposed covers, eligibility, confirmation copy, and touch actions within the viewport without overlap."
+    }
+  ]
+}

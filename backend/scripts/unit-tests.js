@@ -5798,11 +5798,14 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   const bookOrbitObservation = buildBookOrbitSourceObservation({
     title: 'Observed Comic',
     media_type: 'comic_book',
+    poster_path: '/api/media/bookorbit-cover/33cf8ca1-4cb4-46ca-bf3f-d4ca4f12e0e2/43?v=cover-7',
     bookorbit_series_memberships: [{ providerSeriesId: 'series-1', name: 'Series One', displayOrder: 0 }],
     type_details: {
       provider_item_id: 'urn:bookorbit:book:43',
       source_updated_at: '2026-11-13T00:43:41.757Z',
       bookorbit_native_metadata: 'available',
+      bookorbit_cover_version: 'cover-7',
+      bookorbit_cover_source: 'comicvine',
       bookorbit_comicvine_id: '315507',
       bookorbit_metadata_source_provider: 'comicvine',
       bookorbit_metadata_source_item_id: '315507'
@@ -5814,6 +5817,10 @@ results.push(run('provider source observations are immutable, sanitized, and mig
     provider: 'comicvine',
     providerItemId: '315507'
   });
+  assert.strictEqual(
+    bookOrbitObservation.facts.cover.proxyPath,
+    '/api/media/bookorbit-cover/33cf8ca1-4cb4-46ca-bf3f-d4ca4f12e0e2/43?v=cover-7'
+  );
   const kavitaObservation = buildKavitaSourceObservation({
     title: 'Observed Kavita Issue',
     media_type: 'comic_book',
@@ -5907,6 +5914,46 @@ results.push(run('provider source observations are immutable, sanitized, and mig
     sameProvider: false
   });
   assert.strictEqual(comparison.fields[0].control.sourceProviderConnectionId, undefined);
+  const bookOrbitCoverComparison = buildProviderObservationComparison({
+    facts: bookOrbitObservation.facts,
+    canonicalMedia: { poster_path: '/uploads/current-cover.jpg', type_details: {} },
+    providerConnectionId: '33cf8ca1-4cb4-46ca-bf3f-d4ca4f12e0e2',
+    sourceKind: 'bookorbit_native'
+  });
+  assert.strictEqual(bookOrbitCoverComparison.status, 'differs');
+  assert.strictEqual(bookOrbitCoverComparison.fields[0].fieldPath, 'media.poster_path');
+  assert.strictEqual(
+    bookOrbitCoverComparison.fields[0].observedValue,
+    '/api/media/bookorbit-cover/33cf8ca1-4cb4-46ca-bf3f-d4ca4f12e0e2/43?v=cover-7'
+  );
+  const historicalBookOrbitCoverComparison = buildProviderObservationComparison({
+    facts: {
+      identity: { externalId: 'urn:bookorbit:book:43' },
+      cover: { version: 'cover-7', source: 'comicvine' }
+    },
+    canonicalMedia: { poster_path: null, type_details: {} },
+    providerConnectionId: '33cf8ca1-4cb4-46ca-bf3f-d4ca4f12e0e2',
+    sourceKind: 'bookorbit_native'
+  });
+  assert.strictEqual(historicalBookOrbitCoverComparison.fields[0].fieldPath, 'media.poster_path');
+  const unsafeBookOrbitCoverComparison = buildProviderObservationComparison({
+    facts: {
+      identity: { externalId: 'urn:bookorbit:book:43' },
+      cover: { proxyPath: 'https://images.example.invalid/cover.jpg', version: 'cover-7' }
+    },
+    canonicalMedia: { poster_path: null, type_details: {} },
+    providerConnectionId: '33cf8ca1-4cb4-46ca-bf3f-d4ca4f12e0e2',
+    sourceKind: 'bookorbit_native'
+  });
+  assert.strictEqual(unsafeBookOrbitCoverComparison.status, 'no_comparable_facts');
+  const kavitaCoverComparison = buildProviderObservationComparison({
+    facts: kavitaObservation.facts,
+    canonicalMedia: { poster_path: '/uploads/current-kavita-cover.jpg', type_details: {} },
+    providerConnectionId: '33cf8ca1-4cb4-46ca-bf3f-d4ca4f12e0e2',
+    sourceKind: 'kavita_api'
+  });
+  assert.strictEqual(kavitaCoverComparison.fields[0].fieldPath, 'media.poster_path');
+  assert.strictEqual(kavitaCoverComparison.fields[0].observedValue, '/api/media/kavita-chapter-cover/9702');
   const noComparableFacts = buildProviderObservationComparison({
     facts: { providerIdentifiers: { comicvine: '315507' } },
     canonicalMedia: {}
@@ -5976,6 +6023,9 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   assert.ok(libraryViewSource.includes('Apply approved fields'));
   assert.ok(libraryViewSource.includes('Future provider syncs will not overwrite them'));
   assert.ok(libraryViewSource.includes('automatically.'));
+  assert.ok(libraryViewSource.includes('Current cover'));
+  assert.ok(libraryViewSource.includes('Observed cover'));
+  assert.ok(libraryViewSource.includes('Cover unavailable'));
   assert.ok(libraryViewSource.includes('Metadata source:'));
   assert.ok(openApiSource.includes('metadataSource.providerItemId'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('immutableSourceObservations'));

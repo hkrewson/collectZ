@@ -449,8 +449,11 @@ test.describe('library multi-format browser regressions', () => {
     const credentials = await createFreshUserCredentials();
     const requestContext = await createAuthenticatedRequestContext(credentials);
     const title = `Playwright Provider History ${Date.now()}`;
+    const currentCoverPath = '/uploads/playwright-current-cover.svg';
+    const observedCoverPath = '/api/media/bookorbit-cover/4915dc42-c0cc-41ba-bfa5-b037ab5ae5a2/1264?v=comicvine-315507';
     let mediaId = null;
     let applyEvent = null;
+    let showPartialCoverState = false;
 
     await deleteMediaByExactTitle(requestContext, title).catch(() => {});
 
@@ -462,7 +465,8 @@ test.describe('library multi-format browser regressions', () => {
           title,
           media_type: 'comic_book',
           format: 'Comic Book',
-          owned_formats: ['paper']
+          owned_formats: ['paper'],
+          poster_path: currentCoverPath
         },
         201
       );
@@ -497,28 +501,29 @@ test.describe('library multi-format browser regressions', () => {
                   seriesMemberships: [{ name: 'Groo: Death and Taxes', issueNumber: '3' }],
                   cover: { source: 'comicvine', width: 600, height: 900 }
                 },
-                comparison: applyEvent
-                  ? { status: 'matches', comparedFieldCount: 1, differenceCount: 0, fields: [] }
-                  : {
-                      status: 'differs',
-                      comparedFieldCount: 1,
-                      differenceCount: 1,
-                      fields: [
-                        {
-                          fieldPath: 'media.title',
-                          label: 'Title',
-                          currentValue: title,
-                          observedValue: 'Observed Provider Title',
-                          control: {
-                            authority: 'manual',
-                            providerWriteMode: 'preserve',
-                            locked: false,
-                            sameProvider: false
-                          },
-                          review: null
-                        }
-                      ]
-                    },
+                comparison:
+                  applyEvent && !showPartialCoverState
+                    ? { status: 'matches', comparedFieldCount: 2, differenceCount: 0, fields: [] }
+                    : {
+                        status: 'differs',
+                        comparedFieldCount: 2,
+                        differenceCount: 1,
+                        fields: [
+                          {
+                            fieldPath: 'media.poster_path',
+                            label: 'Cover',
+                            currentValue: showPartialCoverState ? null : currentCoverPath,
+                            observedValue: observedCoverPath,
+                            control: {
+                              authority: 'manual',
+                              providerWriteMode: 'preserve',
+                              locked: false,
+                              sameProvider: false
+                            },
+                            review: null
+                          }
+                        ]
+                      },
                 applies: applyEvent ? [applyEvent] : [],
                 sourceUpdatedAt: '2026-11-22T12:00:00Z',
                 observedAt: '2026-11-22T12:01:00Z'
@@ -530,13 +535,13 @@ test.describe('library multi-format browser regressions', () => {
       });
       await page.route(`**/api/media/${mediaId}/provider-observations/f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5/reviews`, async (route) => {
         expect(route.request().method()).toBe('POST');
-        expect(route.request().postDataJSON()).toEqual({ fieldPath: 'media.title', decision: 'approved' });
+        expect(route.request().postDataJSON()).toEqual({ fieldPath: 'media.poster_path', decision: 'approved' });
         await route.fulfill({
           status: 201,
           contentType: 'application/json',
           body: JSON.stringify({
             observationId: 'f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5',
-            fieldPath: 'media.title',
+            fieldPath: 'media.poster_path',
             review: {
               decision: 'approved',
               note: null,
@@ -569,10 +574,10 @@ test.describe('library multi-format browser regressions', () => {
               mutationEnabled: true,
               fields: [
                 {
-                  fieldPath: 'media.title',
-                  label: 'Title',
-                  currentValue: title,
-                  proposedValue: 'Observed Provider Title',
+                  fieldPath: 'media.poster_path',
+                  label: 'Cover',
+                  currentValue: currentCoverPath,
+                  proposedValue: observedCoverPath,
                   eligible: true,
                   blocker: null,
                   control: {
@@ -604,17 +609,27 @@ test.describe('library multi-format browser regressions', () => {
           planFingerprint: 'b'.repeat(64),
           appliedAt: '2026-11-24T12:00:00Z',
           fieldCount: 1,
-          fields: [{ fieldPath: 'media.title', label: 'Title', previousValue: title, appliedValue: 'Observed Provider Title' }]
+          fields: [{ fieldPath: 'media.poster_path', label: 'Cover', previousValue: currentCoverPath, appliedValue: observedCoverPath }]
         };
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({
             applyEvent,
-            media: { id: mediaId, title: 'Observed Provider Title', mediaType: 'comic_book', typeDetails: {} }
+            media: { id: mediaId, title, mediaType: 'comic_book', posterPath: observedCoverPath, typeDetails: {} }
           })
         });
       });
+      const coverSvg = (label, color) =>
+        `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300"><rect width="200" height="300" fill="${color}"/><text x="100" y="150" fill="white" text-anchor="middle" font-size="18">${label}</text></svg>`;
+      await page.route(`**${currentCoverPath}`, (route) =>
+        route.fulfill({ status: 200, contentType: 'image/svg+xml', body: coverSvg('Current', '#334155') })
+      );
+      await page.route('**/api/media/bookorbit-cover/**', (route) =>
+        showPartialCoverState
+          ? route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'Cover unavailable' }) })
+          : route.fulfill({ status: 200, contentType: 'image/svg+xml', body: coverSvg('Observed', '#9f1239') })
+      );
 
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
@@ -637,8 +652,10 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByText(/Cover: comicvine · 600×900/i)).toBeVisible();
       await expect(page.getByText('1 difference', { exact: true })).toBeVisible();
       await expect(page.getByText('manual', { exact: true })).toBeVisible();
-      await expect(page.getByText(`Current: ${title}`, { exact: true })).toBeVisible();
-      await expect(page.getByText('Observed: Observed Provider Title', { exact: true })).toBeVisible();
+      await expect(page.getByText('Current cover', { exact: true })).toBeVisible();
+      await expect(page.getByText('Observed cover', { exact: true })).toBeVisible();
+      await expect(page.getByAltText('Current cover preview')).toBeVisible();
+      await expect(page.getByAltText('Observed cover preview')).toBeVisible();
       await page.getByRole('button', { name: 'Approve', exact: true }).click();
       await expect(page.getByText('Review: approved', { exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Preview approved changes', exact: true }).click();
@@ -647,22 +664,35 @@ test.describe('library multi-format browser regressions', () => {
       await page.getByRole('button', { name: 'Continue to confirmation', exact: true }).click();
       await expect(page.getByText('Apply 1 approved field?', { exact: true })).toBeVisible();
       await expect(page.getByText(/Future provider syncs will not overwrite them automatically/i)).toBeVisible();
-      await page.getByRole('button', { name: 'Apply approved fields', exact: true }).click();
-      await expect(page.getByText('Applied changes', { exact: true })).toBeVisible();
-      await expect(page.getByText(`${title} → Observed Provider Title`, { exact: false })).toBeVisible();
       if (process.env.PROVIDER_APPLY_UI_EVIDENCE_DIR) {
         fs.mkdirSync(process.env.PROVIDER_APPLY_UI_EVIDENCE_DIR, { recursive: true });
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.screenshot({
-          path: `${process.env.PROVIDER_APPLY_UI_EVIDENCE_DIR}/provider-apply-desktop.png`,
+          path: `${process.env.PROVIDER_APPLY_UI_EVIDENCE_DIR}/provider-cover-review-desktop.png`,
           fullPage: true
         });
         await page.setViewportSize({ width: 390, height: 844 });
         await page.screenshot({
-          path: `${process.env.PROVIDER_APPLY_UI_EVIDENCE_DIR}/provider-apply-mobile.png`,
+          path: `${process.env.PROVIDER_APPLY_UI_EVIDENCE_DIR}/provider-cover-review-mobile.png`,
           fullPage: true
         });
+        await page.setViewportSize({ width: 1440, height: 900 });
       }
+      await page.getByRole('button', { name: 'Apply approved fields', exact: true }).click();
+      await expect(page.getByText('Applied changes', { exact: true })).toBeVisible();
+      await expect(page.getByText('Previous cover', { exact: true })).toBeVisible();
+      await expect(page.getByText('Applied cover', { exact: true })).toBeVisible();
+      applyEvent = null;
+      showPartialCoverState = true;
+      await page.reload();
+      await getLibrarySearchInput(page).fill(title);
+      await page
+        .locator('article')
+        .filter({ has: page.getByText(title, { exact: true }) })
+        .first()
+        .click();
+      await expect(page.getByText('Cover unavailable', { exact: true })).toBeVisible();
+      await expect(page.getByText('No cover set', { exact: true })).toBeVisible();
     } finally {
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
       await requestContext.dispose();

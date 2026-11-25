@@ -56,6 +56,10 @@ _Avoid_: Canonical metadata, provider identity
 An atomic, audited promotion of current approved Source Observation differences into a Canonical Object as reviewed, preserve-only values.
 _Avoid_: Provider refresh, provider writeback, automatic rematch
 
+**Reviewed Cover Apply**:
+A Reviewed Observation Apply whose value is a credential-safe CollectZ cover reference that a person compared visually before promotion.
+_Avoid_: Remote image import, automatic cover refresh, provider image URL
+
 **Provider Adapter**:
 Provider-specific interpretation that converts transport responses into typed external identities, observations, links, and candidate facts without hiding provider-specific behavior.
 _Avoid_: Generic provider, collector

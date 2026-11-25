@@ -1223,7 +1223,7 @@
       "ProviderObservationComparison": {
         "type": "object",
         "additionalProperties": false,
-        "description": "Read-only comparison of allowlisted observed bibliographic facts with the current canonical record. Only differing fields are included in fields.",
+        "description": "Read-only comparison of allowlisted observed bibliographic facts and credential-safe CollectZ cover proxy references with the current canonical record. Only differing fields are included in fields; arbitrary or upstream cover URLs are excluded.",
         "properties": {
           "status": { "type": "string", "enum": ["matches", "differs", "no_comparable_facts"] },
           "comparedFieldCount": { "type": "integer", "minimum": 0 },
@@ -11687,7 +11687,7 @@
       "get": {
         "tags": ["Media"],
         "summary": "List immutable provider observations for a media record",
-        "description": "Returns newest-first, normalized provider evidence attached to identities currently linked to the media record, plus a read-only allowlisted comparison with the current canonical record. The projection omits workspace implementation ids, actors, field-control connection ids, idempotency keys, credentials, connection endpoints, raw provider payloads, and authorization data.",
+        "description": "Returns newest-first, normalized provider evidence attached to identities currently linked to the media record, plus a read-only allowlisted comparison with the current canonical record. Cover differences are included only for BookOrbit or Kavita references served through credential-safe CollectZ proxy paths. The projection omits workspace implementation ids, actors, field-control connection ids, idempotency keys, credentials, connection endpoints, raw provider payloads, upstream cover URLs, and authorization data.",
         "security": [
           { "cookieSession": [] },
           { "bearerAuth": [] }
@@ -11770,7 +11770,7 @@
       "post": {
         "tags": ["Media"],
         "summary": "Apply an approved provider observation preview",
-        "description": "Revalidates one exact preview inside the authorized transaction, atomically applies all still-current approved unlocked fields, marks them reviewed and preserve-only, and appends immutable apply evidence. It never writes back to the provider or rematches identities.",
+        "description": "Revalidates one exact preview inside the authorized transaction, atomically applies all still-current approved unlocked fields, including a visually reviewed credential-safe cover proxy reference when present, marks them reviewed and preserve-only, and appends immutable apply evidence. It never imports arbitrary remote cover URLs, writes back to the provider, or rematches identities.",
         "security": [
           { "cookieSession": [], "csrfHeader": [] },
           { "bearerAuth": [] }

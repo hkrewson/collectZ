@@ -410,7 +410,10 @@ async function main() {
       );
       const mediaId = Number(identity.rows[0]?.media_id || 0);
       assert.ok(mediaId, 'BookOrbit smoke could not resolve the first canonical row');
-      await db.query('UPDATE media SET title = $3 WHERE id = $1 AND space_id = $2', [mediaId, spaceId, 'Manual BookOrbit Title']);
+      await db.query(
+        'UPDATE media SET title = $3, poster_path = $4 WHERE id = $1 AND space_id = $2',
+        [mediaId, spaceId, 'Manual BookOrbit Title', '/uploads/manual-bookorbit-cover.jpg']
+      );
       await setCanonicalFieldControl(db, {
         spaceId,
         mediaId,
@@ -418,6 +421,16 @@ async function main() {
         authority: 'manual',
         providerWriteMode: 'preserve',
         locked: true,
+        providerConnectionId: null,
+        actorId: userId
+      });
+      await setCanonicalFieldControl(db, {
+        spaceId,
+        mediaId,
+        fieldPath: 'media.poster_path',
+        authority: 'manual',
+        providerWriteMode: 'preserve',
+        locked: false,
         providerConnectionId: null,
         actorId: userId
       });
@@ -660,6 +673,7 @@ async function main() {
     assert.equal(firstBook?.type_details?.isbn, firstIsbn);
     assert.notEqual(firstBook?.type_details?.isbn, originalIsbn);
     assert.equal(firstBook?.title, 'Manual BookOrbit Title');
+    assert.equal(firstBook?.poster_path, '/uploads/manual-bookorbit-cover.jpg');
     assert.equal(firstBook?.type_details?.series, 'Orbit Saga');
     assert.equal(firstBook?.type_details?.series_index, '2');
     assert.equal(firstBook?.type_details?.issue_number || null, null);
@@ -736,12 +750,17 @@ async function main() {
     ));
     const lockedTitleDifference = lockedTitleObservation?.comparison?.fields
       .find((field) => field.fieldPath === 'media.title');
+    const coverDifference = lockedTitleObservation?.comparison?.fields
+      .find((field) => field.fieldPath === 'media.poster_path');
     assert.equal(lockedTitleReadback.observations.some((observation) => observation.comparison?.status === 'differs'), true);
     assert.equal(lockedTitleDifference?.currentValue, 'Manual BookOrbit Title');
     assert.equal(lockedTitleDifference?.control?.authority, 'manual');
     assert.equal(lockedTitleDifference?.control?.locked, true);
     assert.equal(lockedTitleDifference?.control?.sameProvider, false);
     assert.equal(lockedTitleDifference?.review, null);
+    assert.equal(coverDifference?.currentValue, '/uploads/manual-bookorbit-cover.jpg');
+    assert.match(coverDifference?.observedValue || '', /^\/api\/media\/bookorbit-cover\//);
+    assert.equal(coverDifference?.control?.locked, false);
     const titleReview = await client.request(
       `/api/media/${firstBook.id}/provider-observations/${lockedTitleObservation.id}/reviews`,
       {
@@ -786,10 +805,22 @@ async function main() {
         actorId: userId
       });
     });
+    const coverReview = await client.request(
+      `/api/media/${firstBook.id}/provider-observations/${lockedTitleObservation.id}/reviews`,
+      {
+        method: 'POST',
+        csrf: true,
+        body: JSON.stringify({ fieldPath: 'media.poster_path', decision: 'approved', note: 'Visual cover review' }),
+        status: 201
+      }
+    );
+    assert.equal(coverReview.review.decision, 'approved');
+    assert.equal(coverReview.review.current, true);
     const eligibleApplyPreview = await client.request(
       `/api/media/${firstBook.id}/provider-observations/${lockedTitleObservation.id}/apply-preview`
     );
     const eligibleApplyTitle = eligibleApplyPreview.fields.find((field) => field.fieldPath === 'media.title');
+    const eligibleApplyCover = eligibleApplyPreview.fields.find((field) => field.fieldPath === 'media.poster_path');
     assert.equal(eligibleApplyPreview.status, 'ready');
     assert.ok(eligibleApplyPreview.eligibleCount >= 1);
     assert.equal(eligibleApplyPreview.mutationEnabled, true);
@@ -798,6 +829,10 @@ async function main() {
     assert.notEqual(eligibleApplyTitle?.proposedValue, 'Manual BookOrbit Title');
     assert.equal(eligibleApplyTitle?.eligible, true);
     assert.equal(eligibleApplyTitle?.blocker, null);
+    assert.equal(eligibleApplyCover?.currentValue, '/uploads/manual-bookorbit-cover.jpg');
+    assert.match(eligibleApplyCover?.proposedValue || '', /^\/api\/media\/bookorbit-cover\//);
+    assert.equal(eligibleApplyCover?.eligible, true);
+    assert.equal(eligibleApplyCover?.blocker, null);
     const unchangedTitle = await client.request(`/api/media/${firstBook.id}`);
     assert.equal(unchangedTitle.title, 'Manual BookOrbit Title');
     const applied = await client.request(
@@ -813,10 +848,12 @@ async function main() {
     assert.equal(JSON.stringify(applied).includes('appliedBy'), false);
     const appliedTitle = await client.request(`/api/media/${firstBook.id}`);
     assert.equal(appliedTitle.title, eligibleApplyTitle.proposedValue);
+    assert.equal(appliedTitle.poster_path, eligibleApplyCover.proposedValue);
     const appliedHistory = await client.request(`/api/media/${firstBook.id}/provider-observations?page=1&limit=10`);
     const appliedObservation = appliedHistory.observations.find((observation) => observation.id === lockedTitleObservation.id);
     assert.equal(appliedObservation.applies[0].id, applied.applyEvent.id);
     assert.equal(appliedObservation.applies[0].fields.some((field) => field.fieldPath === 'media.title'), true);
+    assert.equal(appliedObservation.applies[0].fields.some((field) => field.fieldPath === 'media.poster_path'), true);
     assert.equal(JSON.stringify(appliedObservation.applies).includes('reviewId'), false);
     const titleControl = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
       const selected = await db.query(
@@ -831,6 +868,19 @@ async function main() {
     assert.equal(titleControl.provider_write_mode, 'preserve');
     assert.equal(titleControl.locked, false);
     assert.equal(titleControl.source_provider_connection_id, firstConnectionId);
+    const coverControl = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+      const selected = await db.query(
+        `SELECT authority, provider_write_mode, locked, source_provider_connection_id
+           FROM canonical_media_field_controls
+          WHERE space_id = $1 AND media_id = $2 AND field_path = 'media.poster_path'`,
+        [spaceId, firstMediaId]
+      );
+      return selected.rows[0];
+    });
+    assert.equal(coverControl.authority, 'reviewed');
+    assert.equal(coverControl.provider_write_mode, 'preserve');
+    assert.equal(coverControl.locked, false);
+    assert.equal(coverControl.source_provider_connection_id, firstConnectionId);
     await client.request(
       `/api/media/${firstBook.id}/provider-observations/${lockedTitleObservation.id}/apply`,
       {
@@ -962,6 +1012,7 @@ async function main() {
       providerObservationFieldReviews: 'append-only-approved-review-with-safe-readback-proven',
       providerObservationApplyPreview: 'locked-blocker-and-approved-current-eligibility-proven',
       providerObservationApply: 'atomic-reviewed-preserve-only-update-with-immutable-safe-history-proven',
+      providerCoverApply: 'credential-safe-visual-candidate-reviewed-and-preserved',
       normalizedSeriesMemberships: 'multi-series-retirement-proven',
       nativeCoverProxy: 'authenticated-and-versioned',
       lockedTypeTransition: 'review-required-existing-preserved',
