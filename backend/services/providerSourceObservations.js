@@ -1,6 +1,8 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { MEDIA_FIELD_COLUMNS, normalizeFieldPath, setCanonicalFieldControl } = require('./canonicalMediaFieldControls');
+const { TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE, normalizeTypeDetails } = require('./typeDetails');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SOURCE_KIND_PATTERN = /^[a-z][a-z0-9_.:-]{1,79}$/;
@@ -274,12 +276,62 @@ function providerApplyBlocker(field) {
   return null;
 }
 
-function buildProviderObservationApplyPreview(observation) {
+function publicProviderObservationApplyEvent(row) {
+  const changes = Array.isArray(row?.field_changes) ? row.field_changes : [];
+  return Object.freeze({
+    id: row.id,
+    observationId: row.provider_observation_id,
+    observationFingerprint: row.observation_fingerprint,
+    planFingerprint: row.plan_fingerprint,
+    appliedAt: row.applied_at,
+    fieldCount: changes.length,
+    fields: Object.freeze(changes.map((change) => Object.freeze({
+      fieldPath: change.fieldPath,
+      label: change.label,
+      previousValue: change.previousValue ?? null,
+      appliedValue: change.appliedValue ?? null
+    })))
+  });
+}
+
+function buildProviderObservationApplyPreview(observation, { canonicalMedia = null } = {}) {
   if (!observation?.comparison) {
     throw new TypeError('Provider observation apply preview requires a current comparison');
   }
+  const mediaTypeField = observation.comparison.fields.find((field) => field.fieldPath === 'media.media_type');
+  const mediaTypeBaseBlocker = mediaTypeField ? providerApplyBlocker(mediaTypeField) : null;
+  const proposedMediaType = mediaTypeField && !mediaTypeBaseBlocker
+    ? String(mediaTypeField.observedValue || '').trim()
+    : String(canonicalMedia?.media_type || mediaTypeField?.currentValue || '').trim();
+  const currentTypeDetails = canonicalMedia?.type_details && typeof canonicalMedia.type_details === 'object'
+    ? canonicalMedia.type_details
+    : {};
+  const typeTransition = mediaTypeField && !mediaTypeBaseBlocker
+    ? normalizeTypeDetails(proposedMediaType, currentTypeDetails, { strict: true })
+    : null;
+  const transitionUnsafe = Boolean(
+    mediaTypeField
+    && !mediaTypeBaseBlocker
+    && (
+      !['book', 'comic_book'].includes(String(mediaTypeField.currentValue || '').trim())
+      || !['book', 'comic_book'].includes(proposedMediaType)
+      || typeTransition.invalidKeys.length > 0
+      || typeTransition.errors.length > 0
+    )
+  );
+  const targetMediaType = transitionUnsafe
+    ? String(canonicalMedia?.media_type || mediaTypeField?.currentValue || '').trim()
+    : proposedMediaType;
+  const allowedTypeDetails = new Set(TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE[targetMediaType] || []);
   const fields = observation.comparison.fields.map((field) => {
-    const blocker = providerApplyBlocker(field);
+    let blocker = providerApplyBlocker(field);
+    if (!blocker && field.fieldPath === 'media.media_type' && transitionUnsafe) {
+      blocker = 'unsafe_type_transition';
+    }
+    if (!blocker && field.fieldPath.startsWith('type_details.')) {
+      const fieldName = field.fieldPath.slice('type_details.'.length);
+      if (!allowedTypeDetails.has(fieldName)) blocker = 'field_invalid_for_media_type';
+    }
     return Object.freeze({
       fieldPath: field.fieldPath,
       label: field.label,
@@ -293,14 +345,28 @@ function buildProviderObservationApplyPreview(observation) {
   });
   const eligibleCount = fields.filter((field) => field.eligible).length;
   const blockedCount = fields.length - eligibleCount;
+  const planFingerprint = sha256(JSON.stringify({
+    observationId: observation.id,
+    observationFingerprint: observation.fingerprint,
+    fields: fields.map((field) => ({
+      fieldPath: field.fieldPath,
+      currentValue: field.currentValue,
+      proposedValue: field.proposedValue,
+      eligible: field.eligible,
+      blocker: field.blocker,
+      control: field.control,
+      review: field.review
+    }))
+  }));
   return Object.freeze({
     observationId: observation.id,
     observationFingerprint: observation.fingerprint,
+    planFingerprint,
     providerConnection: observation.providerConnection,
     status: fields.length === 0 ? 'no_changes' : eligibleCount > 0 ? 'ready' : 'blocked',
     eligibleCount,
     blockedCount,
-    mutationEnabled: false,
+    mutationEnabled: eligibleCount > 0,
     fields: Object.freeze(fields)
   });
 }
@@ -342,7 +408,7 @@ async function loadProviderObservationApplyPreview(client, {
     ),
     client.query(
       `SELECT DISTINCT ON (field_path)
-              provider_observation_id, field_path, observation_fingerprint,
+              id, provider_observation_id, field_path, observation_fingerprint,
               canonical_value_fingerprint, decision, note, deferred_until, created_at
          FROM provider_observation_field_reviews
         WHERE space_id = $1 AND media_id = $2 AND provider_observation_id = $3
@@ -358,7 +424,177 @@ async function loadProviderObservationApplyPreview(client, {
     controls: controlsResult.rows,
     reviews
   });
-  return buildProviderObservationApplyPreview(observation);
+  return buildProviderObservationApplyPreview(observation, { canonicalMedia });
+}
+
+async function applyProviderObservationPreview(client, {
+  spaceId: spaceIdValue,
+  libraryId: libraryIdValue,
+  mediaId: mediaIdValue,
+  observationId: observationIdValue,
+  actorId: actorIdValue,
+  planFingerprint: planFingerprintValue
+} = {}) {
+  if (!client || typeof client.query !== 'function') {
+    throw new TypeError('Provider observation apply requires a transaction client');
+  }
+  const spaceId = positiveInteger(spaceIdValue, 'Workspace');
+  const libraryId = positiveInteger(libraryIdValue, 'Library');
+  const mediaId = positiveInteger(mediaIdValue, 'Canonical object');
+  const actorId = positiveInteger(actorIdValue, 'Actor');
+  const observationId = uuid(observationIdValue, 'Provider observation');
+  const requestedPlanFingerprint = boundedText(
+    planFingerprintValue,
+    64,
+    'Provider observation apply plan fingerprint',
+    { required: true }
+  );
+  if (!/^[0-9a-f]{64}$/.test(requestedPlanFingerprint)) {
+    throw new TypeError('Provider observation apply plan fingerprint is invalid');
+  }
+
+  const mediaResult = await client.query(
+    `SELECT * FROM media
+      WHERE id = $1 AND space_id = $2 AND library_id = $3
+      FOR UPDATE`,
+    [mediaId, spaceId, libraryId]
+  );
+  const canonicalMedia = mediaResult.rows[0];
+  if (!canonicalMedia) return null;
+
+  const preview = await loadProviderObservationApplyPreview(client, {
+    spaceId,
+    mediaId,
+    observationId,
+    canonicalMedia
+  });
+  if (!preview) return null;
+  if (preview.planFingerprint !== requestedPlanFingerprint) {
+    const error = new Error('Provider observation apply preview is stale; build a new preview before applying');
+    error.code = 'PROVIDER_OBSERVATION_APPLY_PREVIEW_STALE';
+    error.status = 409;
+    throw error;
+  }
+  const eligibleFields = preview.fields.filter((field) => field.eligible);
+  if (eligibleFields.length === 0) {
+    const error = new Error('Provider observation apply has no eligible approved fields');
+    error.code = 'PROVIDER_OBSERVATION_APPLY_EMPTY';
+    error.status = 409;
+    throw error;
+  }
+
+  const reviewResult = await client.query(
+    `SELECT DISTINCT ON (field_path)
+            id, field_path, observation_fingerprint, canonical_value_fingerprint,
+            decision, created_at
+       FROM provider_observation_field_reviews
+      WHERE space_id = $1 AND library_id = $2 AND media_id = $3
+        AND provider_observation_id = $4
+        AND field_path = ANY($5::varchar[])
+      ORDER BY field_path, created_at DESC, id DESC`,
+    [spaceId, libraryId, mediaId, observationId, eligibleFields.map((field) => field.fieldPath)]
+  );
+  const reviews = new Map(reviewResult.rows.map((row) => [row.field_path, row]));
+  const changes = [];
+  let targetMediaType = canonicalMedia.media_type;
+  const mediaTypeField = eligibleFields.find((field) => field.fieldPath === 'media.media_type');
+  if (mediaTypeField) targetMediaType = String(mediaTypeField.proposedValue || '').trim();
+
+  for (const field of eligibleFields) {
+    const review = reviews.get(field.fieldPath);
+    if (!review || review.decision !== 'approved'
+      || review.observation_fingerprint !== preview.observationFingerprint
+      || review.canonical_value_fingerprint !== canonicalValueFingerprint(field.fieldPath, field.currentValue)) {
+      const error = new Error('Provider observation approval changed; build a new preview before applying');
+      error.code = 'PROVIDER_OBSERVATION_APPLY_REVIEW_STALE';
+      error.status = 409;
+      throw error;
+    }
+    let appliedValue = field.proposedValue;
+    if (field.fieldPath === 'media.media_type') {
+      const normalized = normalizeTypeDetails(targetMediaType, canonicalMedia.type_details || {}, { strict: true });
+      if (!['book', 'comic_book'].includes(targetMediaType)
+        || normalized.invalidKeys.length > 0 || normalized.errors.length > 0) {
+        const error = new Error('Provider observation media type transition is no longer safe');
+        error.code = 'PROVIDER_OBSERVATION_APPLY_TYPE_UNSAFE';
+        error.status = 409;
+        throw error;
+      }
+      await client.query(
+        `UPDATE media SET media_type = $4, type_details = $5::jsonb
+          WHERE id = $1 AND space_id = $2 AND library_id = $3`,
+        [mediaId, spaceId, libraryId, targetMediaType, JSON.stringify(normalized.value || {})]
+      );
+      canonicalMedia.media_type = targetMediaType;
+      canonicalMedia.type_details = normalized.value || {};
+      appliedValue = targetMediaType;
+    } else {
+      const normalizedPath = normalizeFieldPath(field.fieldPath, targetMediaType);
+      if (normalizedPath.storage === 'media') {
+        await client.query(
+          `UPDATE media SET ${MEDIA_FIELD_COLUMNS[normalizedPath.field]} = $4
+            WHERE id = $1 AND space_id = $2 AND library_id = $3`,
+          [mediaId, spaceId, libraryId, appliedValue]
+        );
+        canonicalMedia[normalizedPath.field] = appliedValue;
+      } else {
+        const normalized = normalizeTypeDetails(targetMediaType, { [normalizedPath.field]: appliedValue }, { strict: true });
+        if (normalized.invalidKeys.length > 0 || normalized.errors.length > 0 || !normalized.value) {
+          const error = new Error(`Provider observation field ${field.label} is no longer valid for this media type`);
+          error.code = 'PROVIDER_OBSERVATION_APPLY_FIELD_INVALID';
+          error.status = 409;
+          throw error;
+        }
+        appliedValue = normalized.value[normalizedPath.field];
+        await client.query(
+          `UPDATE media
+              SET type_details = jsonb_set(COALESCE(type_details, '{}'::jsonb), ARRAY[$4]::text[], $5::jsonb, true)
+            WHERE id = $1 AND space_id = $2 AND library_id = $3`,
+          [mediaId, spaceId, libraryId, normalizedPath.field, JSON.stringify(appliedValue)]
+        );
+        canonicalMedia.type_details = { ...(canonicalMedia.type_details || {}), [normalizedPath.field]: appliedValue };
+      }
+    }
+    await setCanonicalFieldControl(client, {
+      spaceId,
+      mediaId,
+      fieldPath: field.fieldPath,
+      authority: 'reviewed',
+      providerWriteMode: 'preserve',
+      locked: false,
+      providerConnectionId: preview.providerConnection.id,
+      actorId
+    });
+    changes.push({
+      fieldPath: field.fieldPath,
+      label: field.label,
+      previousValue: field.currentValue,
+      appliedValue,
+      reviewId: review.id
+    });
+  }
+
+  const inserted = await client.query(
+    `INSERT INTO provider_observation_apply_events
+       (space_id, library_id, media_id, provider_observation_id,
+        observation_fingerprint, plan_fingerprint, field_changes, applied_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+     RETURNING *`,
+    [spaceId, libraryId, mediaId, observationId, preview.observationFingerprint,
+      preview.planFingerprint, JSON.stringify(changes), actorId]
+  );
+  return Object.freeze({
+    applyEvent: publicProviderObservationApplyEvent(inserted.rows[0]),
+    media: Object.freeze({
+      id: mediaId,
+      mediaType: canonicalMedia.media_type,
+      title: canonicalMedia.title,
+      year: canonicalMedia.year,
+      releaseDate: canonicalMedia.release_date,
+      format: canonicalMedia.format,
+      typeDetails: canonicalMedia.type_details || {}
+    })
+  });
 }
 
 async function listProviderSourceObservations(client, {
@@ -434,7 +670,7 @@ async function listProviderSourceObservations(client, {
   const reviewsResult = observationIds.length > 0
     ? await client.query(
         `SELECT DISTINCT ON (provider_observation_id, field_path)
-                provider_observation_id, field_path, observation_fingerprint,
+                id, provider_observation_id, field_path, observation_fingerprint,
                 canonical_value_fingerprint, decision, note, deferred_until, created_at
            FROM provider_observation_field_reviews
           WHERE space_id = $1
@@ -445,13 +681,33 @@ async function listProviderSourceObservations(client, {
       )
     : { rows: [] };
   const reviews = new Map(reviewsResult.rows.map((row) => [`${row.provider_observation_id}:${row.field_path}`, row]));
+  const applyResult = observationIds.length > 0
+    ? await client.query(
+        `SELECT id, provider_observation_id, observation_fingerprint,
+                plan_fingerprint, field_changes, applied_at
+           FROM provider_observation_apply_events
+          WHERE space_id = $1 AND media_id = $2
+            AND provider_observation_id = ANY($3::uuid[])
+          ORDER BY applied_at DESC, id DESC`,
+        [spaceId, mediaId, observationIds]
+      )
+    : { rows: [] };
+  const applies = new Map();
+  for (const row of applyResult.rows) {
+    const current = applies.get(row.provider_observation_id) || [];
+    current.push(publicProviderObservationApplyEvent(row));
+    applies.set(row.provider_observation_id, current);
+  }
   const total = Number(countResult.rows[0]?.total || 0);
   const totalPages = total > 0 ? Math.ceil(total / limit) : 1;
   return Object.freeze({
-    observations: Object.freeze(rowsResult.rows.map((row) => publicObservationReadback(row, {
-      canonicalMedia,
-      controls: controlsResult.rows,
-      reviews
+    observations: Object.freeze(rowsResult.rows.map((row) => Object.freeze({
+      ...publicObservationReadback(row, {
+        canonicalMedia,
+        controls: controlsResult.rows,
+        reviews
+      }),
+      applies: Object.freeze(applies.get(row.id) || [])
     }))),
     pagination: Object.freeze({
       page,
@@ -769,6 +1025,7 @@ function buildKavitaSourceObservation(item = {}, identity = {}) {
 
 module.exports = {
   OBSERVATION_COMPARISON_FIELDS,
+  applyProviderObservationPreview,
   appendProviderObservationFieldReview,
   appendProviderSourceObservation,
   buildProviderObservationApplyPreview,
@@ -779,5 +1036,6 @@ module.exports = {
   loadProviderObservationApplyPreview,
   normalizeFacts,
   publicObservation,
-  publicObservationReadback
+  publicObservationReadback,
+  publicProviderObservationApplyEvent
 };

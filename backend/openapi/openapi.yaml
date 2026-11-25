@@ -1211,10 +1211,14 @@
             "description": "Provider-specific normalized facts. BookOrbit native observations may include metadataSource.provider and metadataSource.providerItemId only when BookOrbit explicitly reports a pair consistent with providerIdentifiers."
           },
           "comparison": { "$ref": "#/components/schemas/ProviderObservationComparison" },
+          "applies": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ProviderObservationApplyEvent" }
+          },
           "sourceUpdatedAt": { "type": ["string", "null"], "format": "date-time" },
           "observedAt": { "type": "string", "format": "date-time" }
         },
-        "required": ["id", "providerConnection", "identity", "observedMediaPublicId", "sourceKind", "schemaVersion", "fingerprint", "facts", "comparison", "sourceUpdatedAt", "observedAt"]
+        "required": ["id", "providerConnection", "identity", "observedMediaPublicId", "sourceKind", "schemaVersion", "fingerprint", "facts", "comparison", "applies", "sourceUpdatedAt", "observedAt"]
       },
       "ProviderObservationComparison": {
         "type": "object",
@@ -1308,7 +1312,7 @@
           "eligible": { "type": "boolean" },
           "blocker": {
             "type": ["string", "null"],
-            "enum": ["not_reviewed", "review_outdated", "review_rejected", "review_deferred", "not_approved", "field_locked", null]
+            "enum": ["not_reviewed", "review_outdated", "review_rejected", "review_deferred", "not_approved", "field_locked", "unsafe_type_transition", "field_invalid_for_media_type", null]
           },
           "control": { "$ref": "#/components/schemas/ProviderObservationComparisonField/properties/control" },
           "review": {
@@ -1323,10 +1327,11 @@
       "ProviderObservationApplyPreview": {
         "type": "object",
         "additionalProperties": false,
-        "description": "Read-only plan for currently differing fields. mutationEnabled is always false in this contract.",
+        "description": "Read-only plan for currently differing fields. mutationEnabled indicates that a separate explicit apply request may use this exact plan fingerprint.",
         "properties": {
           "observationId": { "type": "string", "format": "uuid" },
           "observationFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "planFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
           "providerConnection": {
             "type": "object",
             "additionalProperties": false,
@@ -1340,13 +1345,57 @@
           "status": { "type": "string", "enum": ["ready", "blocked", "no_changes"] },
           "eligibleCount": { "type": "integer", "minimum": 0 },
           "blockedCount": { "type": "integer", "minimum": 0 },
-          "mutationEnabled": { "const": false },
+          "mutationEnabled": { "type": "boolean" },
           "fields": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/ProviderObservationApplyPreviewField" }
           }
         },
-        "required": ["observationId", "observationFingerprint", "providerConnection", "status", "eligibleCount", "blockedCount", "mutationEnabled", "fields"]
+        "required": ["observationId", "observationFingerprint", "planFingerprint", "providerConnection", "status", "eligibleCount", "blockedCount", "mutationEnabled", "fields"]
+      },
+      "ProviderObservationApplyEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "observationId": { "type": "string", "format": "uuid" },
+          "observationFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "planFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "appliedAt": { "type": "string", "format": "date-time" },
+          "fieldCount": { "type": "integer", "minimum": 1 },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "fieldPath": { "type": "string" },
+                "label": { "type": "string" },
+                "previousValue": { "type": ["string", "number", "boolean", "null"] },
+                "appliedValue": { "type": ["string", "number", "boolean", "null"] }
+              },
+              "required": ["fieldPath", "label", "previousValue", "appliedValue"]
+            }
+          }
+        },
+        "required": ["id", "observationId", "observationFingerprint", "planFingerprint", "appliedAt", "fieldCount", "fields"]
+      },
+      "ProviderObservationApplyRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "planFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        },
+        "required": ["planFingerprint"]
+      },
+      "ProviderObservationApplyResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "applyEvent": { "$ref": "#/components/schemas/ProviderObservationApplyEvent" },
+          "media": { "type": "object", "additionalProperties": true }
+        },
+        "required": ["applyEvent", "media"]
       },
       "ProviderSourceObservationListResponse": {
         "type": "object",
@@ -11714,6 +11763,33 @@
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProviderObservationApplyPreview" } } }
           },
           "404": { "description": "Media or observation not found in the active scope", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/media/{id}/provider-observations/{observationId}/apply": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Apply an approved provider observation preview",
+        "description": "Revalidates one exact preview inside the authorized transaction, atomically applies all still-current approved unlocked fields, marks them reviewed and preserve-only, and appends immutable apply evidence. It never writes back to the provider or rematches identities.",
+        "security": [
+          { "cookieSession": [], "csrfHeader": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "observationId", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProviderObservationApplyRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Approved fields applied and immutable evidence appended",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProviderObservationApplyResponse" } } }
+          },
+          "404": { "description": "Media or observation not found in the active scope", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Preview, review, current value, lock, or type-transition safety changed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
         }
       }
     },

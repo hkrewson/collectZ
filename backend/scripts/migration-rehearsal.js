@@ -102,7 +102,8 @@ async function verifyCriticalColumns(client) {
     ['provider_sync_targets', 'library_id'],
     ['provider_source_observations', 'normalized_facts'],
     ['provider_source_observations', 'content_hash'],
-    ['provider_observation_field_reviews', 'canonical_value_fingerprint']
+    ['provider_observation_field_reviews', 'canonical_value_fingerprint'],
+    ['provider_observation_apply_events', 'plan_fingerprint']
   ];
   for (const [table, column] of checks) {
     const r = await client.query(

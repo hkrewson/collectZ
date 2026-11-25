@@ -4,7 +4,49 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.9` reliability and provider-observation milestones are complete locally. No later backlog slice is selected yet.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.10` reliability and provider-observation milestones are complete locally. The next numbered milestone has not been selected.
+
+---
+
+## 3.29.10 — Reviewed Provider Observation Apply
+
+**Goal:** Atomically apply the still-current approved fields from one provider-observation preview to canonical metadata, retain immutable provenance, and make the exact result understandable in Library Provider history.
+**Status:** Complete locally; hosted certification awaits an authorized push.
+
+### Selected scope
+
+- Require an explicit apply-preview fingerprint and recompute the observation, current canonical values, latest review fingerprints, field locks, and type-transition safety inside one authorized transaction.
+- Apply every still-eligible approved field atomically or apply nothing when the preview is stale or unsafe.
+- Mark applied fields as `reviewed`, `preserve`, and unlocked while retaining the source Provider Connection and acting user.
+- Append an immutable exact-library-scoped apply event containing bounded before/after field evidence and the exact approved review ids used by the transaction.
+- Show current/proposed values, eligibility/blockers, explicit confirmation, progress, failure recovery, and post-apply history in the existing Library Provider history surface.
+- Keep provider identifiers, selected metadata-provider provenance, multi-series memberships, and cover provenance visible as evidence without treating them as ordinary canonical apply fields.
+
+### Acceptance criteria
+
+- Apply fails closed with a non-mutating conflict when the preview fingerprint, observation, review, current value, lock, scope, or type-transition safety changed.
+- One successful apply updates only current approved unlocked fields, creates reviewed preserve-only field controls, records one immutable apply event, and returns committed canonical and audit readback.
+- Repeating an already-consumed preview cannot create a second mutation or partial audit event.
+- Cross-workspace or cross-library access remains non-disclosing, and ordinary readback omits actor ids, internal ownership ids, credentials, endpoints, raw payloads, and internal Provider Connection ids beyond the existing safe provider projection.
+- Browser behavior is usable at narrow and wide viewports with loading, blocked, confirmation, error, and success states.
+- OpenAPI, provider contract, migration and ownership inventories, provider runtime smoke, version metadata, release note/feed, and canonical runtime remain aligned.
+
+### Milestone boundary
+
+This slice is a deliberate one-time reviewed update to CollectZ. It does not enable automatic provider refresh, write metadata back to BookOrbit or Kavita, apply covers, choose a metadata provider, rematch identities, backfill historical observations, or introduce work/edition/owned-copy modeling.
+
+### 3.29.10 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.29.10 — Reviewed Provider Observation Apply`, atomic reviewed metadata promotion, immutable before/after history, Library Provider review UI, and version closeout.
+- **Project docs/checklists used:** `AGENTS.md`, `GLOSSARY.md`, `docs/wiki/07-Release-Roadmap.md`, `docs/wiki/08-Backlog.md`, `docs/wiki/10-CI-CD-and-Registry-Deploy.md`, `docs/wiki/12-Migration-Rehearsal-Runbook.md`, `docs/wiki/17-Release-Go-No-Go-Checklist.md`, `docs/wiki/50-Staged-Row-Level-Security.md`, `docs/wiki/53-Digital-Library-Provider-Identity-Contract.md`, and `docs/releases/v3.29.10.md`.
+- **Verified facts:** The exact-library-authorized apply endpoint locks the canonical row, recomputes the observation, canonical values, latest review fingerprints, field controls, and safe book/comic transition, and requires the exact preview plan fingerprint. A valid request applies every still-eligible field atomically, records reviewed preserve-only controls, and appends one immutable safe event; stale replay and any changed prerequisite fail without mutation. Provider ids, selected metadata provenance, ordered series, and cover provenance remain evidence rather than implicit canonical writes.
+- **Runtime verification used:** The canonical `collectz-private` stack was migrated, rebuilt, and recreated in place on port `3201`; health and the running backend environment report `3.29.10`, migration `147` is current, the Playwright bypass is unset after testing, and Help > Releases serves `3.29.10` first. Live workspace ownership certifies `82` tables, `359` routes, and `12` maintained execution paths. The BookOrbit smoke proved locked blocking, current approval, exact-plan apply, reviewed preserve-only authority, immutable safe history, stale replay rejection, append-only enforcement, and sibling-scope non-disclosure. Migration-built Platform authority passed `5/5`, RBAC passed with a runtime-generated ephemeral admin, and observability evidence passed `9/9`.
+- **CI/checks run:** JavaScript source/unit assertions and Node tests; OpenAPI; frontend unit/build; changed-file ESLint and Prettier; desktop/mobile rendered UI inspection and evidence validation; zero-finding backend/frontend production dependency audits; complete maintained browser regression (`56` passed, `6` edition-inapplicable skips); workspace ownership; Help release smoke; BookOrbit authoritative import smoke; RBAC regression; migration-chain authority, migration rehearsal, identity-upgrade, runtime-role, and external-identity certification through migration `147`; control-plane runtime authority (`5/5`); observability evidence (`9/9`); production-shaped local Compose preflight; diff hygiene; and the standard local release gate.
+- **Files changed:** Migration `147` and ownership inventories; provider-observation apply service/API/OpenAPI; Library Provider confirmation and applied-history UI; provider runtime/unit/browser coverage; provider identity contract and glossary; roadmap/backlog; synchronized `3.29.10` metadata and lockfiles; release note/feed; and refreshed migration, runtime, identity, control-plane, observability, dependency-audit, preflight, quality, and local-gate evidence.
+- **Blocked/unverified:** Local CodeQL, gitleaks, and Trivy/SBOM tools are unavailable. The full local gate's isolated Core/runtime projects are intentionally not run because repository policy requires reuse of the retained canonical stack. Hosted CI must still certify CodeQL, secret scan, image security/SBOM, hosted Core runtime, Compose, RBAC, browser, release preflight, image publication, and tagging after an authorized push.
+- **Risks or follow-ups:** Apply is deliberately one-time and preserve-only. It does not apply cover bytes, choose a provider, consume review history, refresh providers, write back upstream, or automatically rematch identities. Those policies and the broader work/edition/owned-copy model remain separate backlog work.
+- **What remains in the milestone:** Nothing for `3.29.10`; select the next numbered milestone from the backlog before beginning later scope.
+- **Recommended commit message:** `Release 3.29.10 with reviewed provider observation apply`.
 
 ---
 

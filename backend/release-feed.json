@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.29.10",
+      "version": "3.29.10",
+      "date": "2026-11-24",
+      "status": null,
+      "summary": "Adds an explicit, atomic way to apply still-current approved BookOrbit or Kavita observation fields to CollectZ while preserving immutable before/after evidence and preventing automatic future overwrite.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added exact-preview fingerprints and stale-plan rejection for approved provider metadata.",
+            "Applies all still-eligible approved fields atomically and records reviewed, preserve-only field authority.",
+            "Added immutable exact-library-scoped apply events with bounded before/after field evidence.",
+            "Added Provider history confirmation, loading, blocker, success, and applied-history states.",
+            "Surfaces selected metadata-provider ids, observed series memberships, and cover provenance alongside reviewable canonical differences.",
+            "Keeps provider writeback, automatic refresh, cover application, identity rematching, and provider selection out of scope."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.29.9",
       "version": "3.29.9",
       "date": "2026-11-24",
@@ -176,27 +196,6 @@
             "Successful single deletion now updates media total, total pages, current page, and `hasMore` with the same shared pagination logic used by bulk deletion.",
             "Server-backed Library pages clamp when deletion or filtering removes the final result from the last page.",
             "Focused unit and browser coverage proves aggregate count composition, immediate deletion delta, reload persistence, stale-response rejection, and exact-title absence."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.29.0",
-      "version": "3.29.0",
-      "date": "2026-11-21",
-      "status": null,
-      "summary": "Makes the append-only migration chain the sole authoritative path for fresh installation, retained upgrade, restored runtime, Core startup, and Platform startup, then retires the hand-maintained duplicate schema.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Expanded fresh-install certification across relations, columns, indexes, constraints, triggers, functions, row-level security objects, migration rows, feature flags, and required bootstrap rows.",
-            "Certified exact non-owner runtime and broker role attributes, memberships, database/schema/table/sequence/function grants, default privileges, and broker mappings through a redacted provisioning inventory.",
-            "Added hosted Core evidence proving the database was empty before migration startup and that the production backend runs through a non-owner credential in external migration mode after every migration is applied.",
-            "Added restored-runtime authority evidence for database-native snapshots of migration-built databases, including exact retained counts, complete migration history, required bootstrap state, and non-owner runtime behavior.",
-            "Added contained Platform certification that starts a production-mode control-plane backend from an empty migration-built scratch database inside the canonical stack and passes the complete edition boundary.",
-            "Retired `init.sql` after the migration-built Core, Platform, retained-upgrade, restore, bootstrap, and ownership contracts were certified. The compatibility-named parity artifact now fails if that duplicate schema source reappears.",
-            "Moved workspace-ownership table discovery from duplicate-schema parsing to a direct comparison between reviewed classifications and the live migration-built PostgreSQL catalog."
           ]
         }
       ]

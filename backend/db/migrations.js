@@ -5010,7 +5010,9 @@ CREATE INDEX IF NOT EXISTS idx_tv_device_expiry ON tv_device_authorizations(expi
   { version: 145, description: 'Add immutable provider source observations',
     up: require('fs').readFileSync(require('path').join(__dirname, 'providerSourceObservations.sql'), 'utf8') },
   { version: 146, description: 'Add provider observation field review decisions',
-    up: require('fs').readFileSync(require('path').join(__dirname, 'providerObservationFieldReviews.sql'), 'utf8') }
+    up: require('fs').readFileSync(require('path').join(__dirname, 'providerObservationFieldReviews.sql'), 'utf8') },
+  { version: 147, description: 'Add immutable provider observation apply events',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'providerObservationApplyEvents.sql'), 'utf8') }
 ];
 
 async function runMigrationsForClient(client, options = {}) {

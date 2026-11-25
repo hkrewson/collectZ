@@ -450,6 +450,7 @@ test.describe('library multi-format browser regressions', () => {
     const requestContext = await createAuthenticatedRequestContext(credentials);
     const title = `Playwright Provider History ${Date.now()}`;
     let mediaId = null;
+    let applyEvent = null;
 
     await deleteMediaByExactTitle(requestContext, title).catch(() => {});
 
@@ -492,28 +493,33 @@ test.describe('library multi-format browser regressions', () => {
                   identity: { kind: 'book', externalId: 'urn:bookorbit:book:1264' },
                   bibliographic: { title: 'Observed Provider Title' },
                   metadataSource: { provider: 'comicvine', providerItemId: '315507' },
-                  providerIdentifiers: { comicvine: '315507' }
+                  providerIdentifiers: { comicvine: '315507' },
+                  seriesMemberships: [{ name: 'Groo: Death and Taxes', issueNumber: '3' }],
+                  cover: { source: 'comicvine', width: 600, height: 900 }
                 },
-                comparison: {
-                  status: 'differs',
-                  comparedFieldCount: 1,
-                  differenceCount: 1,
-                  fields: [
-                    {
-                      fieldPath: 'media.title',
-                      label: 'Title',
-                      currentValue: title,
-                      observedValue: 'Observed Provider Title',
-                      control: {
-                        authority: 'manual',
-                        providerWriteMode: 'preserve',
-                        locked: true,
-                        sameProvider: false
-                      },
-                      review: null
-                    }
-                  ]
-                },
+                comparison: applyEvent
+                  ? { status: 'matches', comparedFieldCount: 1, differenceCount: 0, fields: [] }
+                  : {
+                      status: 'differs',
+                      comparedFieldCount: 1,
+                      differenceCount: 1,
+                      fields: [
+                        {
+                          fieldPath: 'media.title',
+                          label: 'Title',
+                          currentValue: title,
+                          observedValue: 'Observed Provider Title',
+                          control: {
+                            authority: 'manual',
+                            providerWriteMode: 'preserve',
+                            locked: false,
+                            sameProvider: false
+                          },
+                          review: null
+                        }
+                      ]
+                    },
+                applies: applyEvent ? [applyEvent] : [],
                 sourceUpdatedAt: '2026-11-22T12:00:00Z',
                 observedAt: '2026-11-22T12:01:00Z'
               }
@@ -551,27 +557,28 @@ test.describe('library multi-format browser regressions', () => {
             body: JSON.stringify({
               observationId: 'f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5',
               observationFingerprint: 'a'.repeat(64),
+              planFingerprint: 'b'.repeat(64),
               providerConnection: {
                 id: '4915dc42-c0cc-41ba-bfa5-b037ab5ae5a2',
                 providerType: 'bookorbit',
                 displayName: 'BookOrbit Shelf'
               },
-              status: 'blocked',
-              eligibleCount: 0,
-              blockedCount: 1,
-              mutationEnabled: false,
+              status: 'ready',
+              eligibleCount: 1,
+              blockedCount: 0,
+              mutationEnabled: true,
               fields: [
                 {
                   fieldPath: 'media.title',
                   label: 'Title',
                   currentValue: title,
                   proposedValue: 'Observed Provider Title',
-                  eligible: false,
-                  blocker: 'field_locked',
+                  eligible: true,
+                  blocker: null,
                   control: {
                     authority: 'manual',
                     providerWriteMode: 'preserve',
-                    locked: true,
+                    locked: false,
                     sameProvider: false
                   },
                   review: {
@@ -587,6 +594,27 @@ test.describe('library multi-format browser regressions', () => {
           });
         }
       );
+      await page.route(`**/api/media/${mediaId}/provider-observations/f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5/apply`, async (route) => {
+        expect(route.request().method()).toBe('POST');
+        expect(route.request().postDataJSON()).toEqual({ planFingerprint: 'b'.repeat(64) });
+        applyEvent = {
+          id: '37cc5f46-f94f-45d4-9680-4162b20c6436',
+          observationId: 'f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5',
+          observationFingerprint: 'a'.repeat(64),
+          planFingerprint: 'b'.repeat(64),
+          appliedAt: '2026-11-24T12:00:00Z',
+          fieldCount: 1,
+          fields: [{ fieldPath: 'media.title', label: 'Title', previousValue: title, appliedValue: 'Observed Provider Title' }]
+        };
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            applyEvent,
+            media: { id: mediaId, title: 'Observed Provider Title', mediaType: 'comic_book', typeDetails: {} }
+          })
+        });
+      });
 
       const storageState = await requestContext.storageState();
       await page.context().addCookies(storageState.cookies || []);
@@ -605,16 +633,36 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByText(/Metadata source: ComicVine #315507/i)).toBeVisible();
       await expect(page.getByText(/ComicVine: 315507/i)).toBeVisible();
       await expect(page.getByText(/Provider ID urn:bookorbit:book:1264/i)).toBeVisible();
+      await expect(page.getByText(/Series: Groo: Death and Taxes/i)).toBeVisible();
+      await expect(page.getByText(/Cover: comicvine · 600×900/i)).toBeVisible();
       await expect(page.getByText('1 difference', { exact: true })).toBeVisible();
-      await expect(page.getByText('manual · locked', { exact: true })).toBeVisible();
+      await expect(page.getByText('manual', { exact: true })).toBeVisible();
       await expect(page.getByText(`Current: ${title}`, { exact: true })).toBeVisible();
       await expect(page.getByText('Observed: Observed Provider Title', { exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Approve', exact: true }).click();
       await expect(page.getByText('Review: approved', { exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Preview approved changes', exact: true }).click();
-      await expect(page.getByText('Read-only apply preview', { exact: true })).toBeVisible();
-      await expect(page.getByText('0 eligible · 1 blocked · no changes applied', { exact: true })).toBeVisible();
-      await expect(page.getByText('Field is locked', { exact: true })).toBeVisible();
+      await expect(page.getByText('Approved update preview', { exact: true })).toBeVisible();
+      await expect(page.getByText('1 eligible · 0 blocked', { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Continue to confirmation', exact: true }).click();
+      await expect(page.getByText('Apply 1 approved field?', { exact: true })).toBeVisible();
+      await expect(page.getByText(/Future provider syncs will not overwrite them automatically/i)).toBeVisible();
+      await page.getByRole('button', { name: 'Apply approved fields', exact: true }).click();
+      await expect(page.getByText('Applied changes', { exact: true })).toBeVisible();
+      await expect(page.getByText(`${title} → Observed Provider Title`, { exact: false })).toBeVisible();
+      if (process.env.PROVIDER_APPLY_UI_EVIDENCE_DIR) {
+        fs.mkdirSync(process.env.PROVIDER_APPLY_UI_EVIDENCE_DIR, { recursive: true });
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.screenshot({
+          path: `${process.env.PROVIDER_APPLY_UI_EVIDENCE_DIR}/provider-apply-desktop.png`,
+          fullPage: true
+        });
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.screenshot({
+          path: `${process.env.PROVIDER_APPLY_UI_EVIDENCE_DIR}/provider-apply-mobile.png`,
+          fullPage: true
+        });
+      }
     } finally {
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
       await requestContext.dispose();

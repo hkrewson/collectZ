@@ -53,6 +53,7 @@ const TABLE_OVERRIDES = Object.freeze({
   provider_connection_credentials: ['workspace_owned', 'space_id', 'Encrypted provider credentials inherit the owning connection workspace and are never ordinary readback.'],
   provider_source_observations: ['workspace_owned', 'space_id', 'Append-only normalized provider facts inherit one provider identity and workspace without retaining raw payloads.'],
   provider_observation_field_reviews: ['library_owned', 'library_id', 'Append-only field review decisions inherit exact media, observation, workspace, and library ownership.'],
+  provider_observation_apply_events: ['library_owned', 'library_id', 'Append-only reviewed apply evidence inherits exact media, observation, workspace, and library ownership.'],
   provider_series_records: ['workspace_owned', 'space_id', 'Provider-scoped series identity and provenance owned by one workspace and provider connection.'],
   media_series_memberships: ['workspace_owned', 'space_id', 'Canonical-media series membership with provider-scoped provenance and lifecycle in the same workspace.'],
   external_media_identities: ['workspace_owned', 'space_id', 'Provider-instance identity attached to a canonical media target in the same workspace.'],

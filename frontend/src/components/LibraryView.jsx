@@ -888,6 +888,7 @@ function MediaDetail({
   onRating,
   apiCall,
   onValuationUpdated,
+  onMetadataApplied,
   onToast,
   onFindPossibleDuplicates,
   canWritePlex = false
@@ -903,6 +904,8 @@ function MediaDetail({
   const [providerReviewSaving, setProviderReviewSaving] = useState({});
   const [providerApplyPreviews, setProviderApplyPreviews] = useState({});
   const [providerApplyPreviewLoading, setProviderApplyPreviewLoading] = useState({});
+  const [providerApplyConfirming, setProviderApplyConfirming] = useState({});
+  const [providerApplySaving, setProviderApplySaving] = useState({});
   const [, setSeasonDrafts] = useState({});
   const [seasonSaving, setSeasonSaving] = useState({});
   const [openSeason, setOpenSeason] = useState(null);
@@ -1003,6 +1006,8 @@ function MediaDetail({
     const identity = facts.identity && typeof facts.identity === 'object' ? facts.identity : {};
     const identifiers = facts.providerIdentifiers && typeof facts.providerIdentifiers === 'object' ? facts.providerIdentifiers : {};
     const metadataSource = facts.metadataSource && typeof facts.metadataSource === 'object' ? facts.metadataSource : {};
+    const observedSeries = Array.isArray(facts.seriesMemberships) ? facts.seriesMemberships : [];
+    const cover = facts.cover && typeof facts.cover === 'object' ? facts.cover : {};
     const kavita = facts.kavita && typeof facts.kavita === 'object' ? facts.kavita : {};
     const metadataProviderLabels = {
       amazon: 'Amazon',
@@ -1026,6 +1031,14 @@ function MediaDetail({
         ? `Metadata source: ${metadataProviderLabels[metadataProvider] || metadataProvider} #${metadataProviderItemId}`
         : null,
       identity.externalId ? `Provider ID ${identity.externalId}` : null,
+      observedSeries.length > 0
+        ? `Series: ${observedSeries
+            .slice(0, 3)
+            .map((membership) => membership.name)
+            .filter(Boolean)
+            .join(', ')}${observedSeries.length > 3 ? ` +${observedSeries.length - 3}` : ''}`
+        : null,
+      cover.source ? `Cover: ${String(cover.source)}${cover.width && cover.height ? ` · ${cover.width}×${cover.height}` : ''}` : null,
       kavita?.series?.name ? `Series ${kavita.series.name}` : null,
       kavita?.chapter?.number ? `Chapter ${kavita.chapter.number}` : null,
       ...Object.entries(identifiers)
@@ -1104,6 +1117,44 @@ function MediaDetail({
       setProviderApplyPreviewLoading((current) => ({ ...current, [observationId]: false }));
     }
   };
+  const applyProviderObservationPreview = async (observationId) => {
+    const preview = providerApplyPreviews[observationId];
+    if (!preview?.mutationEnabled || providerApplySaving[observationId]) return;
+    setProviderApplySaving((current) => ({ ...current, [observationId]: true }));
+    try {
+      const payload = await apiCall('post', `/media/${item.id}/provider-observations/${observationId}/apply`, {
+        planFingerprint: preview.planFingerprint
+      });
+      setProviderObservations((current) =>
+        current.map((observation) =>
+          observation.id === observationId ? { ...observation, applies: [payload.applyEvent, ...(observation.applies || [])] } : observation
+        )
+      );
+      setProviderApplyPreviews((current) => {
+        const next = { ...current };
+        delete next[observationId];
+        return next;
+      });
+      setProviderApplyConfirming((current) => ({ ...current, [observationId]: false }));
+      await onMetadataApplied?.(item.id);
+      const history = await apiCall('get', `/media/${item.id}/provider-observations?limit=10`);
+      setProviderObservations(Array.isArray(history?.observations) ? history.observations : []);
+      setProviderObservationTotal(Number(history?.pagination?.total || 0));
+      onToast?.(`${payload.applyEvent.fieldCount} approved ${payload.applyEvent.fieldCount === 1 ? 'field' : 'fields'} applied`);
+    } catch (error) {
+      if (Number(error?.response?.status) === 409) {
+        setProviderApplyPreviews((current) => {
+          const next = { ...current };
+          delete next[observationId];
+          return next;
+        });
+        setProviderApplyConfirming((current) => ({ ...current, [observationId]: false }));
+      }
+      onToast?.(error?.response?.data?.error || 'Failed to apply approved provider changes', 'error');
+    } finally {
+      setProviderApplySaving((current) => ({ ...current, [observationId]: false }));
+    }
+  };
   const providerApplyBlockerLabel = (blocker) => {
     const labels = {
       not_reviewed: 'Not reviewed',
@@ -1111,7 +1162,9 @@ function MediaDetail({
       review_rejected: 'Rejected',
       review_deferred: 'Deferred',
       not_approved: 'Not approved',
-      field_locked: 'Field is locked'
+      field_locked: 'Field is locked',
+      unsafe_type_transition: 'Media type change is unsafe',
+      field_invalid_for_media_type: 'Not valid for this media type'
     };
     return labels[blocker] || 'Blocked';
   };
@@ -2436,6 +2489,35 @@ function MediaDetail({
                         {providerObservationSummary(observation) ? (
                           <p className="mt-2 break-words text-xs text-dim">{providerObservationSummary(observation)}</p>
                         ) : null}
+                        {Array.isArray(observation.applies) && observation.applies.length > 0 ? (
+                          <div className="mt-3 border-t border-edge/60 pt-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-xs font-medium text-ink">Applied changes</p>
+                              <span className="badge badge-dim">
+                                {observation.applies.length} {observation.applies.length === 1 ? 'update' : 'updates'}
+                              </span>
+                            </div>
+                            <div className="mt-2 space-y-2">
+                              {observation.applies.map((applyEvent) => (
+                                <div key={applyEvent.id} className="border-l-2 border-emerald-500/60 pl-2.5">
+                                  <p className="text-[11px] text-ghost">
+                                    {applyEvent.appliedAt ? new Date(applyEvent.appliedAt).toLocaleString() : 'Applied'} ·{' '}
+                                    {applyEvent.fieldCount} {applyEvent.fieldCount === 1 ? 'field' : 'fields'}
+                                  </p>
+                                  <div className="mt-1 space-y-1">
+                                    {applyEvent.fields.map((field) => (
+                                      <p key={`${applyEvent.id}:${field.fieldPath}`} className="break-words text-xs text-dim">
+                                        <span className="font-medium text-ink">{field.label}:</span>{' '}
+                                        {providerObservationComparisonValue(field.previousValue)} →{' '}
+                                        {providerObservationComparisonValue(field.appliedValue)}
+                                      </p>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
                         {observation.comparison ? (
                           <div className="mt-3 border-t border-edge/60 pt-3">
                             <p className="text-xs font-medium text-ink">{providerObservationComparisonLabel(observation.comparison)}</p>
@@ -2490,11 +2572,14 @@ function MediaDetail({
                                   {providerApplyPreviewLoading[observation.id] ? 'Building preview…' : 'Preview approved changes'}
                                 </button>
                                 {providerApplyPreviews[observation.id] ? (
-                                  <div className="mt-2 rounded-md border border-edge/60 bg-surface/40 px-2.5 py-2">
-                                    <p className="text-xs font-medium text-ink">Read-only apply preview</p>
+                                  <div className="mt-2 rounded-md border border-edge/60 bg-surface/40 px-2.5 py-2.5">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p className="text-xs font-medium text-ink">Approved update preview</p>
+                                      <span className="badge badge-dim">No changes yet</span>
+                                    </div>
                                     <p className="mt-1 text-[11px] text-ghost">
                                       {providerApplyPreviews[observation.id].eligibleCount} eligible ·{' '}
-                                      {providerApplyPreviews[observation.id].blockedCount} blocked · no changes applied
+                                      {providerApplyPreviews[observation.id].blockedCount} blocked
                                     </p>
                                     <div className="mt-2 space-y-1.5">
                                       {providerApplyPreviews[observation.id].fields.map((previewField) => (
@@ -2512,6 +2597,57 @@ function MediaDetail({
                                         </div>
                                       ))}
                                     </div>
+                                    {providerApplyPreviews[observation.id].mutationEnabled ? (
+                                      providerApplyConfirming[observation.id] ? (
+                                        <div
+                                          className="mt-3 border-t border-edge/60 pt-3"
+                                          role="group"
+                                          aria-label="Confirm approved provider update"
+                                        >
+                                          <p className="text-xs font-medium text-ink">
+                                            Apply {providerApplyPreviews[observation.id].eligibleCount} approved{' '}
+                                            {providerApplyPreviews[observation.id].eligibleCount === 1 ? 'field' : 'fields'}?
+                                          </p>
+                                          <p className="mt-1 text-[11px] text-dim">
+                                            These values become reviewed and preserve-only. Future provider syncs will not overwrite them
+                                            automatically.
+                                          </p>
+                                          <div className="mt-2 flex flex-wrap gap-2">
+                                            <button
+                                              type="button"
+                                              className="btn btn-secondary px-2.5 py-1.5 text-xs"
+                                              disabled={Boolean(providerApplySaving[observation.id])}
+                                              onClick={() =>
+                                                setProviderApplyConfirming((current) => ({ ...current, [observation.id]: false }))
+                                              }
+                                            >
+                                              Cancel
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className="btn btn-primary px-2.5 py-1.5 text-xs"
+                                              disabled={Boolean(providerApplySaving[observation.id])}
+                                              onClick={() => applyProviderObservationPreview(observation.id)}
+                                            >
+                                              {providerApplySaving[observation.id] ? <Spinner size={13} /> : null}
+                                              {providerApplySaving[observation.id] ? 'Applying…' : 'Apply approved fields'}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          className="btn btn-primary mt-3 px-2.5 py-1.5 text-xs"
+                                          onClick={() => setProviderApplyConfirming((current) => ({ ...current, [observation.id]: true }))}
+                                        >
+                                          Continue to confirmation
+                                        </button>
+                                      )
+                                    ) : (
+                                      <p className="mt-3 border-t border-edge/60 pt-2 text-[11px] text-amber-500">
+                                        Review or unlock at least one field before applying.
+                                      </p>
+                                    )}
                                   </div>
                                 ) : null}
                               </div>
@@ -7009,6 +7145,7 @@ export default function LibraryView({
           onRating={rate}
           apiCall={apiCall}
           onValuationUpdated={refreshDetailItem}
+          onMetadataApplied={refreshDetailItem}
           onToast={onToast}
           onFindPossibleDuplicates={onFindPossibleDuplicates}
           canWritePlex={canWritePlex}

@@ -52,6 +52,10 @@ _Avoid_: Media type
 An external provider's facts as observed at a particular time, preserved separately from the reviewed current state of a Canonical Object.
 _Avoid_: Canonical metadata, provider identity
 
+**Reviewed Observation Apply**:
+An atomic, audited promotion of current approved Source Observation differences into a Canonical Object as reviewed, preserve-only values.
+_Avoid_: Provider refresh, provider writeback, automatic rematch
+
 **Provider Adapter**:
 Provider-specific interpretation that converts transport responses into typed external identities, observations, links, and candidate facts without hiding provider-specific behavior.
 _Avoid_: Generic provider, collector

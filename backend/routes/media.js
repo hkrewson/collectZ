@@ -181,6 +181,7 @@ const {
 const { buildCollectibleTraits } = require('../services/collectibleTraits');
 const { loadTraitRecords, loadTraitRecordsForOwner } = require('../services/collectibleTraitRecords');
 const {
+  applyProviderObservationPreview,
   appendProviderObservationFieldReview,
   listProviderSourceObservations,
   loadProviderObservationApplyPreview
@@ -11433,6 +11434,33 @@ router.get('/:id/provider-observations/:observationId/apply-preview', asyncHandl
   );
   if (!preview) return res.status(404).json({ error: 'Provider observation not found in the active scope' });
   return res.json(preview);
+}));
+
+router.post('/:id/provider-observations/:observationId/apply', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  if (!Number.isInteger(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+  const result = await withAuthorizedScopeTransaction(
+    pool,
+    { spaceId: scopeContext.spaceId, libraryId: scopeContext.libraryId || null },
+    req.user.id,
+    async (client) => {
+      const media = await loadScopedMediaItem(mediaId, scopeContext, client);
+      if (!media) return null;
+      return applyProviderObservationPreview(client, {
+        spaceId: scopeContext.spaceId,
+        libraryId: media.library_id,
+        mediaId,
+        observationId: req.params.observationId,
+        actorId: req.user.id,
+        planFingerprint: req.body?.planFingerprint
+      });
+    }
+  );
+  if (!result) return res.status(404).json({ error: 'Provider observation not found in the active scope' });
+  return res.json(result);
 }));
 
 router.get('/:id/merge-details', asyncHandler(async (req, res) => {

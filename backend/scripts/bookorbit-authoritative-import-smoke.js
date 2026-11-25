@@ -792,13 +792,54 @@ async function main() {
     const eligibleApplyTitle = eligibleApplyPreview.fields.find((field) => field.fieldPath === 'media.title');
     assert.equal(eligibleApplyPreview.status, 'ready');
     assert.ok(eligibleApplyPreview.eligibleCount >= 1);
-    assert.equal(eligibleApplyPreview.mutationEnabled, false);
+    assert.equal(eligibleApplyPreview.mutationEnabled, true);
+    assert.match(eligibleApplyPreview.planFingerprint, /^[0-9a-f]{64}$/);
     assert.equal(eligibleApplyTitle?.currentValue, 'Manual BookOrbit Title');
     assert.notEqual(eligibleApplyTitle?.proposedValue, 'Manual BookOrbit Title');
     assert.equal(eligibleApplyTitle?.eligible, true);
     assert.equal(eligibleApplyTitle?.blocker, null);
     const unchangedTitle = await client.request(`/api/media/${firstBook.id}`);
     assert.equal(unchangedTitle.title, 'Manual BookOrbit Title');
+    const applied = await client.request(
+      `/api/media/${firstBook.id}/provider-observations/${lockedTitleObservation.id}/apply`,
+      {
+        method: 'POST',
+        csrf: true,
+        body: JSON.stringify({ planFingerprint: eligibleApplyPreview.planFingerprint })
+      }
+    );
+    assert.equal(applied.applyEvent.fieldCount, eligibleApplyPreview.eligibleCount);
+    assert.equal(JSON.stringify(applied).includes('reviewId'), false);
+    assert.equal(JSON.stringify(applied).includes('appliedBy'), false);
+    const appliedTitle = await client.request(`/api/media/${firstBook.id}`);
+    assert.equal(appliedTitle.title, eligibleApplyTitle.proposedValue);
+    const appliedHistory = await client.request(`/api/media/${firstBook.id}/provider-observations?page=1&limit=10`);
+    const appliedObservation = appliedHistory.observations.find((observation) => observation.id === lockedTitleObservation.id);
+    assert.equal(appliedObservation.applies[0].id, applied.applyEvent.id);
+    assert.equal(appliedObservation.applies[0].fields.some((field) => field.fieldPath === 'media.title'), true);
+    assert.equal(JSON.stringify(appliedObservation.applies).includes('reviewId'), false);
+    const titleControl = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+      const selected = await db.query(
+        `SELECT authority, provider_write_mode, locked, source_provider_connection_id
+           FROM canonical_media_field_controls
+          WHERE space_id = $1 AND media_id = $2 AND field_path = 'media.title'`,
+        [spaceId, firstMediaId]
+      );
+      return selected.rows[0];
+    });
+    assert.equal(titleControl.authority, 'reviewed');
+    assert.equal(titleControl.provider_write_mode, 'preserve');
+    assert.equal(titleControl.locked, false);
+    assert.equal(titleControl.source_provider_connection_id, firstConnectionId);
+    await client.request(
+      `/api/media/${firstBook.id}/provider-observations/${lockedTitleObservation.id}/apply`,
+      {
+        method: 'POST',
+        csrf: true,
+        body: JSON.stringify({ planFingerprint: eligibleApplyPreview.planFingerprint }),
+        status: 409
+      }
+    );
     const reviewRow = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
       const selected = await db.query(
         `SELECT id FROM provider_observation_field_reviews
@@ -827,6 +868,25 @@ async function main() {
       [reviewRow.id]
     );
     assert.equal(Number(unscopedReviews.rows[0]?.count || 0), 0);
+    await assert.rejects(
+      withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, (db) => db.query(
+        'UPDATE provider_observation_apply_events SET plan_fingerprint = $2 WHERE id = $1',
+        [applied.applyEvent.id, '0'.repeat(64)]
+      )),
+      /(append-only|scope access denied)/
+    );
+    await assert.rejects(
+      withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, (db) => db.query(
+        'DELETE FROM provider_observation_apply_events WHERE id = $1',
+        [applied.applyEvent.id]
+      )),
+      /(append-only|scope access denied)/
+    );
+    const unscopedApplies = await pool.query(
+      'SELECT COUNT(*)::int AS count FROM provider_observation_apply_events WHERE id = $1',
+      [applied.applyEvent.id]
+    );
+    assert.equal(Number(unscopedApplies.rows[0]?.count || 0), 0);
     const coverResponse = await fetch(`${BASE_URL}${comic.poster_path}`, {
       headers: { Cookie: client.cookieHeader(), Accept: 'image/png' }
     });
@@ -900,7 +960,8 @@ async function main() {
       providerObservationReadback: 'paginated-sanitized-and-workspace-authorized',
       providerObservationComparison: 'read-only-current-observed-and-lock-context-proven',
       providerObservationFieldReviews: 'append-only-approved-review-with-safe-readback-proven',
-      providerObservationApplyPreview: 'locked-blocker-and-approved-current-eligibility-proven-without-mutation',
+      providerObservationApplyPreview: 'locked-blocker-and-approved-current-eligibility-proven',
+      providerObservationApply: 'atomic-reviewed-preserve-only-update-with-immutable-safe-history-proven',
       normalizedSeriesMemberships: 'multi-series-retirement-proven',
       nativeCoverProxy: 'authenticated-and-versioned',
       lockedTypeTransition: 'review-required-existing-preserved',

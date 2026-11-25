@@ -57,7 +57,8 @@ const {
   buildBookOrbitSourceObservation,
   buildKavitaSourceObservation,
   normalizeFacts: normalizeProviderObservationFacts,
-  publicObservationReadback
+  publicObservationReadback,
+  publicProviderObservationApplyEvent
 } = require('../services/providerSourceObservations');
 const {
   buildKavitaSeriesWebUrl,
@@ -520,6 +521,7 @@ const providerSyncTargetsSource = fs.readFileSync(require.resolve('../services/p
 const providerSourceObservationsSource = fs.readFileSync(require.resolve('../services/providerSourceObservations'), 'utf8');
 const providerSourceObservationsSqlSource = fs.readFileSync(path.resolve(__dirname, '../db/providerSourceObservations.sql'), 'utf8');
 const providerObservationFieldReviewsSqlSource = fs.readFileSync(path.resolve(__dirname, '../db/providerObservationFieldReviews.sql'), 'utf8');
+const providerObservationApplyEventsSqlSource = fs.readFileSync(path.resolve(__dirname, '../db/providerObservationApplyEvents.sql'), 'utf8');
 const kavitaImportIdentitySource = fs.readFileSync(require.resolve('../services/kavitaImportIdentity'), 'utf8');
 const plexAuthoritativeSyncSmokeSource = fs.readFileSync(require.resolve('../scripts/plex-authoritative-sync-smoke'), 'utf8');
 const plexImportIdentitySource = fs.readFileSync(require.resolve('../services/plexImportIdentity'), 'utf8');
@@ -810,7 +812,7 @@ results.push(run('workspace ownership contract classifies every schema table, ro
   const contract = buildWorkspaceOwnershipContract();
   const snapshot = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'workspace-ownership-contract.json'), 'utf8'));
   assert.deepStrictEqual(contract, snapshot);
-  assert.strictEqual(contract.tables.length, 81);
+  assert.strictEqual(contract.tables.length, 82);
   assert.ok(contract.tables.filter(t => t.name.startsWith('collectz_scope.')).every(t => t.category === 'authorization_control_plane'));
   assert.ok(contract.routes.length >= 300);
   assert.ok(contract.routes.filter((route) => route.authentication === 'required').length >= 300);
@@ -829,6 +831,11 @@ results.push(run('workspace ownership contract classifies every schema table, ro
   ].includes(entry.name)).every((entry) => entry.category === 'workspace_owned'));
   assert.ok(contract.tables.some((entry) => (
     entry.name === 'provider_observation_field_reviews'
+    && entry.category === 'library_owned'
+    && entry.ownershipKey === 'library_id'
+  )));
+  assert.ok(contract.tables.some((entry) => (
+    entry.name === 'provider_observation_apply_events'
     && entry.category === 'library_owned'
     && entry.ownershipKey === 'library_id'
   )));
@@ -5931,7 +5938,8 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   assert.strictEqual(applyPreview.status, 'ready');
   assert.strictEqual(applyPreview.eligibleCount, 1);
   assert.strictEqual(applyPreview.blockedCount, 4);
-  assert.strictEqual(applyPreview.mutationEnabled, false);
+  assert.strictEqual(applyPreview.mutationEnabled, true);
+  assert.match(applyPreview.planFingerprint, /^[0-9a-f]{64}$/);
   assert.strictEqual(applyPreview.fields[0].eligible, true);
   assert.strictEqual(applyPreview.fields[0].blocker, null);
   assert.deepStrictEqual(applyPreview.fields.slice(1).map((field) => field.blocker), [
@@ -5939,12 +5947,17 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   ]);
   assert.ok(migrationsSource.includes('version: 145'));
   assert.ok(migrationsSource.includes('version: 146'));
+  assert.ok(migrationsSource.includes('version: 147'));
   assert.ok(initSqlSource.includes("(145, 'Add immutable provider source observations')"));
+  assert.ok(initSqlSource.includes("(147, 'Add immutable provider observation apply events')"));
   assert.ok(providerSourceObservationsSqlSource.includes('provider_source_observations_append_only'));
   assert.ok(providerSourceObservationsSqlSource.includes('provider_source_observations_scope'));
   assert.ok(providerObservationFieldReviewsSqlSource.includes('provider_observation_field_reviews_append_only'));
   assert.ok(providerObservationFieldReviewsSqlSource.includes('provider_observation_field_reviews_scope'));
   assert.ok(providerObservationFieldReviewsSqlSource.includes('allows_library(space_id, library_id)'));
+  assert.ok(providerObservationApplyEventsSqlSource.includes('provider_observation_apply_events_append_only'));
+  assert.ok(providerObservationApplyEventsSqlSource.includes('provider_observation_apply_events_scope'));
+  assert.ok(providerObservationApplyEventsSqlSource.includes('allows_library(space_id, library_id)'));
   assert.ok(providerSourceObservationsSource.includes('normalized_facts'));
   assert.ok(providerSourceObservationsSource.includes('idempotencyKey'));
   assert.ok(providerSourceObservationsSource.includes('listProviderSourceObservations'));
@@ -5952,6 +5965,7 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   assert.ok(mediaRoutesSource.includes("router.get('/:id/provider-observations'"));
   assert.ok(mediaRoutesSource.includes("router.post('/:id/provider-observations/:observationId/reviews'"));
   assert.ok(mediaRoutesSource.includes("router.get('/:id/provider-observations/:observationId/apply-preview'"));
+  assert.ok(mediaRoutesSource.includes("router.post('/:id/provider-observations/:observationId/apply'"));
   assert.ok(mediaRoutesSource.includes("const client = await pool.connect();"));
   assert.ok(mediaRoutesSource.includes("client.query('SELECT pg_advisory_unlock(hashtext($1))'"));
   assert.ok(openApiSource.includes('"/api/media/{id}/provider-observations"'));
@@ -5959,6 +5973,9 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   assert.ok(libraryViewSource.includes('Provider history'));
   assert.ok(libraryViewSource.includes('Defer 7 days'));
   assert.ok(libraryViewSource.includes('Preview approved changes'));
+  assert.ok(libraryViewSource.includes('Apply approved fields'));
+  assert.ok(libraryViewSource.includes('Future provider syncs will not overwrite them'));
+  assert.ok(libraryViewSource.includes('automatically.'));
   assert.ok(libraryViewSource.includes('Metadata source:'));
   assert.ok(openApiSource.includes('metadataSource.providerItemId'));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('immutableSourceObservations'));
@@ -5970,6 +5987,19 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   assert.ok(kavitaImportIdentitySource.includes('appendProviderSourceObservation'));
   assert.ok(kavitaImportSyncSmokeSource.includes('immutableSourceObservations'));
   assert.ok(kavitaImportSyncSmokeSource.includes('providerObservationReadback'));
+  const publicApply = publicProviderObservationApplyEvent({
+    id: '809e11d7-f96e-48cc-b245-bff12ae54fca',
+    provider_observation_id: 'f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5',
+    observation_fingerprint: 'a'.repeat(64),
+    plan_fingerprint: 'b'.repeat(64),
+    applied_at: '2026-11-24T12:00:00.000Z',
+    field_changes: [{
+      fieldPath: 'media.title', label: 'Title', previousValue: 'Current', appliedValue: 'Observed',
+      reviewId: '52e287ef-c6a0-40d4-b59f-f0a9f506e416'
+    }]
+  });
+  assert.strictEqual(publicApply.fieldCount, 1);
+  assert.strictEqual(publicApply.fields[0].reviewId, undefined);
 }));
 
 results.push(run('migration authority evidence certifies fresh install after init.sql retirement', () => {
