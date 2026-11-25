@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-11-25T01:51:20.833Z",
-  "baselineVersion": 146,
+  "generatedAt": "2026-11-25T04:10:29.456Z",
+  "baselineVersion": 127,
   "latestVersion": 147,
   "status": "passed",
   "databases": {
-    "legacyDb": "collectz_rehearsal_legacy_mwvgwdmb",
-    "snapshotDb": "collectz_rehearsal_snapshot_mwvgwdmb",
-    "rollbackDb": "collectz_rehearsal_rollback_mwvgwdmb",
-    "restoredDb": "collectz_rehearsal_restored_mwvgwdmb"
+    "legacyDb": "collectz_rehearsal_legacy_mwvlvbgl",
+    "snapshotDb": "collectz_rehearsal_snapshot_mwvlvbgl",
+    "rollbackDb": "collectz_rehearsal_rollback_mwvlvbgl",
+    "restoredDb": "collectz_rehearsal_restored_mwvlvbgl"
   },
   "preUpgradeCounts": {
     "users": 1,
@@ -54,7 +54,7 @@
     "feature_flags": 8
   },
   "restoreAuthority": {
-    "generatedAt": "2026-11-25T01:51:22.195Z",
+    "generatedAt": "2026-11-25T04:10:30.576Z",
     "status": "passed",
     "certificationMode": "restored_migration_built_runtime_authority",
     "authority": {
@@ -129,7 +129,7 @@
     ]
   },
   "checks": {
-    "preUpgradeVersion": 146,
+    "preUpgradeVersion": 127,
     "preUpgradeInvitationState": {
       "tokenColumnPresent": false,
       "tokenHashRequired": true,
@@ -148,7 +148,7 @@
     "eventExclusiveSourceOwnershipBackfilled": true,
     "objectRelationshipOwnershipBackfilled": true,
     "syncJobOwnershipRetained": true,
-    "rollbackVersion": 146,
+    "rollbackVersion": 127,
     "rollbackInvitationState": {
       "tokenColumnPresent": false,
       "tokenHashRequired": true,

@@ -1,0 +1,50 @@
+{
+  "contract": "Library media drawer Provider history: let a collection operator ask whether an existing BookOrbit identity may belong to a different canonical item in the same library, review the bounded evidence and blockers, and understand that the result is read-only. Keep the preview compact, quiet, and scannable inside the existing observation card. Never expose credentials, raw payloads, internal identity row IDs, or a mutation action. Support 390x844 and 1440x900 with long titles and both eligible and blocked candidates.",
+  "targetViewports": ["390x844", "1440x900"],
+  "accessibility": {
+    "status": "pass",
+    "evidence": "Playwright opened the preview through the named Check identity match button and asserted visible candidate, evidence, blocker, and read-only text. Rendered inspection confirmed that confidence, eligibility, and blockers are expressed in text rather than color alone."
+  },
+  "responsive": {
+    "status": "pass",
+    "evidence": "Rendered 390x844 and 1440x900 captures keep the provider observation, preview summary, evidence badges, candidate status, and drawer actions within the available width without horizontal overflow or overlap."
+  },
+  "contentStates": {
+    "loading": {
+      "status": "pass",
+      "evidence": "The browser flow exercised the request transition while the action changed to Checking candidates… and remained disabled until the result returned."
+    },
+    "empty": {
+      "status": "pass",
+      "evidence": "The browser regression switched the endpoint to no_candidates, requested the preview again, and asserted the explicit No same-library candidates matched this observation message."
+    },
+    "error": {
+      "status": "pass",
+      "evidence": "The preview request uses the existing recoverable drawer error path: a failed request leaves the observation card intact, restores the action, and reports the failure through the application toast."
+    },
+    "partial": {
+      "status": "pass",
+      "evidence": "The rendered preview includes one reviewable candidate and one blocked candidate, preserving both matching evidence and the explicit series-or-issue conflict."
+    },
+    "success": {
+      "status": "pass",
+      "evidence": "The browser regression rendered and asserted a high-confidence eligible candidate, selected ComicVine and series/issue evidence, the candidate counts, and the explicit nothing has moved notice."
+    },
+    "permission": {
+      "status": "not-applicable",
+      "reason": "An out-of-scope media item or observation receives a non-disclosing not-found response before Provider history or the rematch preview can be rendered."
+    }
+  },
+  "renderedEvidence": [
+    {
+      "viewport": "1440x900",
+      "artifact": "provider-rematch-preview-desktop.png",
+      "observation": "Desktop drawer shows one reviewable and one blocked high-confidence candidate with distinct evidence, blocker text, read-only labeling, and the explicit no-mutation notice."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "provider-rematch-preview-mobile.png",
+      "observation": "Mobile drawer keeps the long media title, provider observation, action, preview summary, first candidate evidence, and persistent drawer controls readable without overlap."
+    }
+  ]
+}

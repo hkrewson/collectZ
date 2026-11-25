@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-25T01:51:28.685Z",
+  "generated_at": "2026-11-25T04:10:36.939Z",
   "certification": "runtime-role",
   "latest_migration": 147,
   "legacy_baseline": 146,
@@ -95,7 +95,7 @@
     "brokerMappingCount": 1
   },
   "runtime_authority": {
-    "generatedAt": "2026-11-25T01:51:29.502Z",
+    "generatedAt": "2026-11-25T04:10:37.642Z",
     "status": "passed",
     "certificationMode": "migration_built_runtime_authority",
     "authority": {

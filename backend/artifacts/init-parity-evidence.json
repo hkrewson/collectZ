@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-25T01:51:20.665Z",
+  "generatedAt": "2026-11-25T04:10:29.346Z",
   "status": "passed",
   "certificationMode": "migration_chain_authority_after_init_sql_retirement",
   "authority": {
     "source": "append_only_migration_chain",
-    "database": "collectz_migration_authority_mwvgwcqs",
+    "database": "collectz_migration_authority_mwvlvat5",
     "expectedMigrationVersion": 147,
     "appliedMigrationVersion": 147,
     "fingerprintCounts": {

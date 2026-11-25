@@ -454,6 +454,7 @@ test.describe('library multi-format browser regressions', () => {
     let mediaId = null;
     let applyEvent = null;
     let showPartialCoverState = false;
+    let showEmptyRematchState = false;
 
     await deleteMediaByExactTitle(requestContext, title).catch(() => {});
 
@@ -599,6 +600,66 @@ test.describe('library multi-format browser regressions', () => {
           });
         }
       );
+      await page.route(
+        `**/api/media/${mediaId}/provider-observations/f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5/rematch-preview?limit=5`,
+        async (route) => {
+          expect(route.request().method()).toBe('GET');
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              observationId: 'f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5',
+              observationFingerprint: 'a'.repeat(64),
+              previewFingerprint: 'c'.repeat(64),
+              providerConnection: {
+                id: '4915dc42-c0cc-41ba-bfa5-b037ab5ae5a2',
+                providerType: 'bookorbit',
+                displayName: 'BookOrbit Shelf'
+              },
+              status: showEmptyRematchState ? 'no_candidates' : 'candidates',
+              candidateCount: showEmptyRematchState ? 0 : 2,
+              eligibleCount: showEmptyRematchState ? 0 : 1,
+              blockedCount: showEmptyRematchState ? 0 : 1,
+              mutationEnabled: false,
+              candidates: showEmptyRematchState
+                ? []
+                : [
+                    {
+                      media: {
+                        id: 1277,
+                        publicId: '87ab48f4-6b20-4f12-bdd7-294cd7d23185',
+                        title: 'Groo: Death and Taxes #3',
+                        mediaType: 'comic_book',
+                        year: 1994
+                      },
+                      confidence: 'high',
+                      eligible: true,
+                      evidence: [
+                        { code: 'selected_provider_id', label: 'Selected comicvine record matches' },
+                        { code: 'series_issue', label: 'Series and issue match' }
+                      ],
+                      blockers: [],
+                      candidateFingerprint: 'd'.repeat(64)
+                    },
+                    {
+                      media: {
+                        id: 1278,
+                        publicId: '9063ff45-266d-42c0-aa46-956792e270ed',
+                        title: 'Groo: Death and Taxes, collected edition',
+                        mediaType: 'comic_book',
+                        year: 1995
+                      },
+                      confidence: 'high',
+                      eligible: false,
+                      evidence: [{ code: 'provider_id', label: 'comicvine identifier matches' }],
+                      blockers: [{ code: 'comic_position_conflict', label: 'Series or issue conflicts with the candidate' }],
+                      candidateFingerprint: 'e'.repeat(64)
+                    }
+                  ]
+            })
+          });
+        }
+      );
       await page.route(`**/api/media/${mediaId}/provider-observations/f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5/apply`, async (route) => {
         expect(route.request().method()).toBe('POST');
         expect(route.request().postDataJSON()).toEqual({ planFingerprint: 'b'.repeat(64) });
@@ -656,6 +717,31 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByText('Observed cover', { exact: true })).toBeVisible();
       await expect(page.getByAltText('Current cover preview')).toBeVisible();
       await expect(page.getByAltText('Observed cover preview')).toBeVisible();
+      await page.getByRole('button', { name: 'Check identity match', exact: true }).click();
+      await expect(page.getByLabel('Identity match preview')).toBeVisible();
+      await expect(page.getByText('Read-only', { exact: true })).toBeVisible();
+      await expect(page.getByText('1 reviewable · 1 blocked', { exact: true })).toBeVisible();
+      await expect(page.getByText('Groo: Death and Taxes #3', { exact: true })).toBeVisible();
+      await expect(page.getByText('Selected comicvine record matches', { exact: true })).toBeVisible();
+      await expect(page.getByText('Candidate for later review; nothing has moved.', { exact: true })).toBeVisible();
+      await expect(page.getByText('Series or issue conflicts with the candidate', { exact: true })).toBeVisible();
+      if (process.env.PROVIDER_REMATCH_UI_EVIDENCE_DIR) {
+        fs.mkdirSync(process.env.PROVIDER_REMATCH_UI_EVIDENCE_DIR, { recursive: true });
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.screenshot({
+          path: `${process.env.PROVIDER_REMATCH_UI_EVIDENCE_DIR}/provider-rematch-preview-desktop.png`,
+          fullPage: true
+        });
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.screenshot({
+          path: `${process.env.PROVIDER_REMATCH_UI_EVIDENCE_DIR}/provider-rematch-preview-mobile.png`,
+          fullPage: true
+        });
+        await page.setViewportSize({ width: 1440, height: 900 });
+      }
+      showEmptyRematchState = true;
+      await page.getByRole('button', { name: 'Check identity match', exact: true }).click();
+      await expect(page.getByText('No same-library records matched this observation.', { exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Approve', exact: true }).click();
       await expect(page.getByText('Review: approved', { exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Preview approved changes', exact: true }).click();

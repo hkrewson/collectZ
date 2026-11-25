@@ -60,6 +60,10 @@ _Avoid_: Provider refresh, provider writeback, automatic rematch
 A Reviewed Observation Apply whose value is a credential-safe CollectZ cover reference that a person compared visually before promotion.
 _Avoid_: Remote image import, automatic cover refresh, provider image URL
 
+**Identity Rematch Candidate**:
+A Canonical Object suggested as a possible new target for an existing External Identity from bounded Source Observation evidence, without implying approval or mutation.
+_Avoid_: Duplicate, automatic match, reassigned identity
+
 **Provider Adapter**:
 Provider-specific interpretation that converts transport responses into typed external identities, observations, links, and candidate facts without hiding provider-specific behavior.
 _Avoid_: Generic provider, collector

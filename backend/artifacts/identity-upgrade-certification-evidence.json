@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-25T01:51:22.639Z",
+  "generatedAt": "2026-11-25T04:10:30.946Z",
   "status": "passed",
   "manifestSchemaVersion": 1,
   "baselineVersion": 127,
@@ -166,13 +166,13 @@
       {
         "id": 1,
         "user_id": 1,
-        "expires_at": "2026-12-02T01:51:23.492Z",
+        "expires_at": "2026-12-02T04:10:31.699Z",
         "storedCredentialPresent": true
       },
       {
         "id": 2,
         "user_id": 1,
-        "expires_at": "2026-12-02T01:51:23.493Z",
+        "expires_at": "2026-12-02T04:10:31.700Z",
         "storedCredentialPresent": true
       }
     ],
@@ -228,7 +228,7 @@
             "libraries:read"
           ],
           "revoked_at": null,
-          "expires_at": "2026-12-02T01:51:23.495Z",
+          "expires_at": "2026-12-02T04:10:31.702Z",
           "storedCredentialPresent": true
         }
       ],
@@ -244,7 +244,7 @@
             "/api/libraries"
           ],
           "revoked_at": null,
-          "expires_at": "2026-12-02T01:51:23.495Z",
+          "expires_at": "2026-12-02T04:10:31.703Z",
           "storedCredentialPresent": true
         }
       ]

@@ -744,6 +744,42 @@ async function main() {
     assert.equal(serializedObservationReadback.includes('spaceId'), false);
     assert.ok(observationReadbackPageOne.observations.every((observation) => observation.comparison));
     assert.equal(serializedObservationReadback.includes('sourceProviderConnectionId'), false);
+    const rematchTargetId = await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, async (db) => {
+      const inserted = await db.query(
+        `INSERT INTO media
+           (title, media_type, year, type_details, library_id, space_id, added_by, import_source)
+         VALUES ($1, 'comic_book', 2026, $2::jsonb, $3, $4, $5, 'manual')
+         RETURNING id`,
+        [
+          `BookOrbit Rematch Candidate ${suffix}`,
+          JSON.stringify({
+            series: 'Orbit Native Comics',
+            issue_number: '3',
+            bookorbit_comicvine_id: '315507'
+          }),
+          libraryId,
+          spaceId,
+          userId
+        ]
+      );
+      return Number(inserted.rows[0].id);
+    });
+    const rematchPreview = await client.request(
+      `/api/media/${comic.id}/provider-observations/${observationReadbackPageOne.observations[0].id}/rematch-preview?limit=5`
+    );
+    assert.equal(rematchPreview.status, 'candidates');
+    assert.equal(rematchPreview.mutationEnabled, false);
+    assert.equal(rematchPreview.eligibleCount, 1);
+    assert.equal(rematchPreview.candidates[0].media.id, rematchTargetId);
+    assert.equal(rematchPreview.candidates[0].confidence, 'high');
+    assert.equal(rematchPreview.candidates[0].eligible, true);
+    assert.ok(rematchPreview.candidates[0].evidence.some((entry) => entry.code === 'selected_provider_id'));
+    assert.equal(JSON.stringify(rematchPreview).includes('external_identity_id'), false);
+    assert.equal(JSON.stringify(rematchPreview).includes(fake.baseUrl), false);
+    await withAuthorizedScopeTransaction(pool, { spaceId, libraryId }, userId, (db) => db.query(
+      'DELETE FROM media WHERE id = $1 AND space_id = $2 AND library_id = $3',
+      [rematchTargetId, spaceId, libraryId]
+    ));
     const lockedTitleReadback = await client.request(`/api/media/${firstBook.id}/provider-observations?page=1&limit=10`);
     const lockedTitleObservation = lockedTitleReadback.observations.find((observation) => (
       observation.comparison?.fields?.some((field) => field.fieldPath === 'media.title')
@@ -1013,6 +1049,7 @@ async function main() {
       providerObservationApplyPreview: 'locked-blocker-and-approved-current-eligibility-proven',
       providerObservationApply: 'atomic-reviewed-preserve-only-update-with-immutable-safe-history-proven',
       providerCoverApply: 'credential-safe-visual-candidate-reviewed-and-preserved',
+      providerIdentityRematchPreview: 'same-library-evidence-bound-and-read-only',
       normalizedSeriesMemberships: 'multi-series-retirement-proven',
       nativeCoverProxy: 'authenticated-and-versioned',
       lockedTypeTransition: 'review-required-existing-preserved',

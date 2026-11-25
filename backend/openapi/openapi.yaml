@@ -1353,6 +1353,77 @@
         },
         "required": ["observationId", "observationFingerprint", "planFingerprint", "providerConnection", "status", "eligibleCount", "blockedCount", "mutationEnabled", "fields"]
       },
+      "ProviderIdentityRematchEvidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": { "type": "string" },
+          "label": { "type": "string" }
+        },
+        "required": ["code", "label"]
+      },
+      "ProviderIdentityRematchCandidate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "media": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "integer", "minimum": 1 },
+              "publicId": { "type": "string", "format": "uuid" },
+              "title": { "type": "string" },
+              "mediaType": { "type": "string", "enum": ["book", "comic_book"] },
+              "year": { "type": ["integer", "null"] }
+            },
+            "required": ["id", "publicId", "title", "mediaType", "year"]
+          },
+          "confidence": { "type": "string", "enum": ["high", "medium"] },
+          "eligible": { "type": "boolean" },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/components/schemas/ProviderIdentityRematchEvidence" }
+          },
+          "blockers": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ProviderIdentityRematchEvidence" }
+          },
+          "candidateFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        },
+        "required": ["media", "confidence", "eligible", "evidence", "blockers", "candidateFingerprint"]
+      },
+      "ProviderIdentityRematchPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Read-only BookOrbit candidate discovery. mutationEnabled is always false; no external identity or canonical record is changed.",
+        "properties": {
+          "observationId": { "type": "string", "format": "uuid" },
+          "observationFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "previewFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "providerConnection": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "providerType": { "type": "string" },
+              "displayName": { "type": "string" }
+            },
+            "required": ["id", "providerType", "displayName"]
+          },
+          "status": { "type": "string", "enum": ["candidates", "no_candidates", "insufficient_evidence", "unsupported_source"] },
+          "candidateCount": { "type": "integer", "minimum": 0 },
+          "eligibleCount": { "type": "integer", "minimum": 0 },
+          "blockedCount": { "type": "integer", "minimum": 0 },
+          "mutationEnabled": { "type": "boolean", "enum": [false] },
+          "candidates": {
+            "type": "array",
+            "maxItems": 10,
+            "items": { "$ref": "#/components/schemas/ProviderIdentityRematchCandidate" }
+          }
+        },
+        "required": ["observationId", "observationFingerprint", "previewFingerprint", "providerConnection", "status", "candidateCount", "eligibleCount", "blockedCount", "mutationEnabled", "candidates"]
+      },
       "ProviderObservationApplyEvent": {
         "type": "object",
         "additionalProperties": false,
@@ -11741,6 +11812,29 @@
           },
           "404": { "description": "Media or observation not found in the active scope", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
           "409": { "description": "The field is no longer a current difference", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/media/{id}/provider-observations/{observationId}/rematch-preview": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Preview BookOrbit identity rematch candidates",
+        "description": "Searches only the active exact library for bounded canonical candidates using explicit BookOrbit observation evidence. It returns confidence, evidence, and blockers without exposing internal identity ids, connection settings, credentials, or raw provider payloads. This endpoint is advisory and never reassigns an External Identity, changes canonical metadata, or writes a lifecycle event.",
+        "security": [
+          { "cookieSession": [] },
+          { "bearerAuth": [] }
+        ],
+        "parameters": [
+          { "in": "path", "name": "id", "required": true, "schema": { "type": "integer", "minimum": 1 } },
+          { "in": "path", "name": "observationId", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "in": "query", "name": "limit", "schema": { "type": "integer", "minimum": 1, "maximum": 10, "default": 5 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only same-library BookOrbit identity rematch preview",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProviderIdentityRematchPreview" } } }
+          },
+          "404": { "description": "Media or observation not found in the active scope", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
         }
       }
     },

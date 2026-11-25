@@ -56,6 +56,7 @@ const {
   buildProviderObservationComparison,
   buildBookOrbitSourceObservation,
   buildKavitaSourceObservation,
+  loadBookOrbitIdentityRematchPreview,
   normalizeFacts: normalizeProviderObservationFacts,
   publicObservationReadback,
   publicProviderObservationApplyEvent
@@ -6012,6 +6013,7 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   assert.ok(mediaRoutesSource.includes("router.get('/:id/provider-observations'"));
   assert.ok(mediaRoutesSource.includes("router.post('/:id/provider-observations/:observationId/reviews'"));
   assert.ok(mediaRoutesSource.includes("router.get('/:id/provider-observations/:observationId/apply-preview'"));
+  assert.ok(mediaRoutesSource.includes("router.get('/:id/provider-observations/:observationId/rematch-preview'"));
   assert.ok(mediaRoutesSource.includes("router.post('/:id/provider-observations/:observationId/apply'"));
   assert.ok(mediaRoutesSource.includes("const client = await pool.connect();"));
   assert.ok(mediaRoutesSource.includes("client.query('SELECT pg_advisory_unlock(hashtext($1))'"));
@@ -6020,6 +6022,8 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   assert.ok(libraryViewSource.includes('Provider history'));
   assert.ok(libraryViewSource.includes('Defer 7 days'));
   assert.ok(libraryViewSource.includes('Preview approved changes'));
+  assert.ok(libraryViewSource.includes('Check identity match'));
+  assert.ok(libraryViewSource.includes('Candidate for later review; nothing has moved.'));
   assert.ok(libraryViewSource.includes('Apply approved fields'));
   assert.ok(libraryViewSource.includes('Future provider syncs will not overwrite them'));
   assert.ok(libraryViewSource.includes('automatically.'));
@@ -6050,6 +6054,97 @@ results.push(run('provider source observations are immutable, sanitized, and mig
   });
   assert.strictEqual(publicApply.fieldCount, 1);
   assert.strictEqual(publicApply.fields[0].reviewId, undefined);
+}));
+
+results.push(run('BookOrbit identity rematch preview is exact-library, evidence-bound, and read-only', async () => {
+  const connectionId = '4915dc42-c0cc-41ba-bfa5-b037ab5ae5a2';
+  const observationId = 'f95ae47d-ecf2-4984-bfdb-24d35ea9fdd5';
+  const queries = [];
+  const client = {
+    async query(sql, params) {
+      queries.push({ sql, params });
+      if (queries.length === 1) {
+        return { rows: [{
+          id: observationId,
+          content_hash: 'a'.repeat(64),
+          source_kind: 'bookorbit_native',
+          provider_connection_id: connectionId,
+          provider_type: 'bookorbit',
+          display_name: 'BookOrbit Shelf',
+          normalized_facts: {
+            bibliographic: {
+              title: 'Groo - Death and Taxes 03',
+              mediaType: 'comic_book',
+              isbn: '978-1-4028-9462-6',
+              series: 'Groo: Death and Taxes',
+              issueNumber: '3',
+              volume: '1'
+            },
+            metadataSource: { provider: 'comicvine', providerItemId: '315507' },
+            providerIdentifiers: { comicvine: '315507' }
+          }
+        }] };
+      }
+      return { rows: [
+        {
+          id: 1277,
+          public_id: '87ab48f4-6b20-4f12-bdd7-294cd7d23185',
+          title: 'Groo: Death and Taxes #3',
+          media_type: 'comic_book',
+          year: 2025,
+          type_details: {
+            isbn: '9781402894626',
+            series: 'Groo: Death and Taxes',
+            issue_number: '3',
+            volume: '1',
+            bookorbit_comicvine_id: '315507'
+          },
+          has_connection_identity: false
+        },
+        {
+          id: 1300,
+          public_id: '0fb50cbe-4c1f-4bea-9604-b370df5e7ec5',
+          title: 'Conflicting Groo Candidate',
+          media_type: 'comic_book',
+          year: 2025,
+          type_details: {
+            isbn: '9780000000002',
+            series: 'Groo: Death and Taxes',
+            issue_number: '3',
+            volume: '1',
+            bookorbit_comicvine_id: '315507'
+          },
+          has_connection_identity: true
+        }
+      ] };
+    }
+  };
+  const preview = await loadBookOrbitIdentityRematchPreview(client, {
+    spaceId: 42,
+    libraryId: 7,
+    mediaId: 1264,
+    observationId,
+    limit: 5
+  });
+  assert.strictEqual(preview.status, 'candidates');
+  assert.strictEqual(preview.mutationEnabled, false);
+  assert.strictEqual(preview.candidateCount, 2);
+  assert.strictEqual(preview.eligibleCount, 1);
+  assert.strictEqual(preview.blockedCount, 1);
+  assert.strictEqual(preview.candidates[0].media.id, 1277);
+  assert.strictEqual(preview.candidates[0].confidence, 'high');
+  assert.strictEqual(preview.candidates[0].eligible, true);
+  assert.ok(preview.candidates[0].evidence.some((entry) => entry.code === 'selected_provider_id'));
+  assert.deepStrictEqual(
+    preview.candidates[1].blockers.map((entry) => entry.code),
+    ['isbn_conflict', 'target_identity_conflict']
+  );
+  assert.match(preview.previewFingerprint, /^[0-9a-f]{64}$/);
+  assert.ok(queries[0].sql.includes('attached.library_id = $2'));
+  assert.ok(queries[1].sql.includes('m.library_id = $2'));
+  assert.strictEqual(queries[1].params.at(-1), connectionId);
+  assert.strictEqual(JSON.stringify(preview).includes('normalized_facts'), false);
+  assert.strictEqual(JSON.stringify(preview).includes('external_identity_id'), false);
 }));
 
 results.push(run('migration authority evidence certifies fresh install after init.sql retirement', () => {

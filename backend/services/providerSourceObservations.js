@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 const { MEDIA_FIELD_COLUMNS, normalizeFieldPath, setCanonicalFieldControl } = require('./canonicalMediaFieldControls');
 const { buildBookOrbitCoverProxyPath } = require('./bookOrbit');
+const { normalizeDigits, normalizeIssueToken, normalizeText } = require('./bookComicNormalization');
 const { TYPE_DETAILS_ALLOWED_BY_MEDIA_TYPE, normalizeTypeDetails } = require('./typeDetails');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -43,6 +44,9 @@ const OBSERVATION_COMPARISON_FIELDS = Object.freeze([
 ]);
 const OBSERVATION_COMPARISON_FIELD_PATHS = Object.freeze(
   OBSERVATION_COMPARISON_FIELDS.map(({ fieldPath }) => fieldPath)
+);
+const BOOKORBIT_PROVIDER_FIELD_BY_ID = Object.freeze(
+  Object.fromEntries(BOOKORBIT_PROVIDER_ID_FIELDS)
 );
 
 function positiveInteger(value, label) {
@@ -232,6 +236,296 @@ function buildProviderObservationComparison({
     comparedFieldCount,
     differenceCount: differences.length,
     fields: Object.freeze(differences)
+  });
+}
+
+function normalizedLookupToken(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function buildBookOrbitRematchEvidence(facts = {}, candidate = {}) {
+  const bibliographic = facts?.bibliographic && typeof facts.bibliographic === 'object'
+    ? facts.bibliographic
+    : {};
+  const providerIdentifiers = facts?.providerIdentifiers && typeof facts.providerIdentifiers === 'object'
+    ? facts.providerIdentifiers
+    : {};
+  const metadataSource = facts?.metadataSource && typeof facts.metadataSource === 'object'
+    ? facts.metadataSource
+    : {};
+  const details = candidate?.type_details && typeof candidate.type_details === 'object'
+    ? candidate.type_details
+    : {};
+  const evidence = [];
+  const blockers = [];
+  let score = 0;
+  let strong = false;
+
+  const selectedProvider = String(metadataSource.provider || '').trim();
+  const selectedProviderItemId = String(metadataSource.providerItemId || '').trim();
+  const selectedField = BOOKORBIT_PROVIDER_FIELD_BY_ID[selectedProvider];
+  if (selectedField && selectedProviderItemId && String(details[selectedField] || '').trim() === selectedProviderItemId) {
+    evidence.push({ code: 'selected_provider_id', label: `Selected ${selectedProvider} record matches` });
+    score += 100;
+    strong = true;
+  }
+
+  let providerConflictCount = 0;
+  for (const [provider, field] of BOOKORBIT_PROVIDER_ID_FIELDS) {
+    const observed = String(providerIdentifiers[provider] || '').trim();
+    const current = String(details[field] || '').trim();
+    if (!observed || !current) continue;
+    if (observed === current) {
+      if (!(provider === selectedProvider && observed === selectedProviderItemId)) {
+        evidence.push({ code: 'provider_id', label: `${provider} identifier matches` });
+        score += 80;
+      }
+      strong = true;
+    } else {
+      providerConflictCount += 1;
+    }
+  }
+  if (providerConflictCount > 0) {
+    blockers.push({ code: 'provider_identifier_conflict', label: 'Provider identifier conflicts with the candidate' });
+  }
+
+  const observedIsbn = normalizeDigits(bibliographic.isbn || '');
+  const candidateIsbn = normalizeDigits(details.isbn || '');
+  if (observedIsbn && candidateIsbn) {
+    if (observedIsbn === candidateIsbn) {
+      evidence.push({ code: 'isbn', label: 'ISBN matches' });
+      score += 70;
+      strong = true;
+    } else {
+      blockers.push({ code: 'isbn_conflict', label: 'ISBN conflicts with the candidate' });
+    }
+  }
+
+  const observedType = String(bibliographic.mediaType || '').trim();
+  const candidateType = String(candidate.media_type || '').trim();
+  if (observedType && candidateType && observedType !== candidateType) {
+    blockers.push({ code: 'media_type_conflict', label: 'Media type conflicts with the candidate' });
+  }
+
+  const observedTitle = normalizeText(bibliographic.title || '');
+  const candidateTitle = normalizeText(candidate.title || '');
+  const observedAuthor = normalizeText(bibliographic.author || '');
+  const candidateAuthor = normalizeText(details.author || '');
+  if (observedTitle && candidateTitle && observedTitle === candidateTitle
+    && observedAuthor && candidateAuthor && observedAuthor === candidateAuthor) {
+    evidence.push({ code: 'title_author', label: 'Title and author match' });
+    score += 40;
+  }
+
+  const observedSeries = normalizeText(bibliographic.series || '');
+  const candidateSeries = normalizeText(details.series || '');
+  const observedIssue = normalizeIssueToken(bibliographic.issueNumber || '');
+  const candidateIssue = normalizeIssueToken(details.issue_number || '');
+  const observedVolume = normalizeText(bibliographic.volume || '');
+  const candidateVolume = normalizeText(details.volume || '');
+  if (observedSeries && candidateSeries && observedIssue && candidateIssue) {
+    if (observedSeries === candidateSeries && observedIssue === candidateIssue) {
+      if (observedVolume && candidateVolume && observedVolume === candidateVolume) {
+        evidence.push({ code: 'series_issue_volume', label: 'Series, issue, and volume match' });
+        score += 60;
+        strong = true;
+      } else {
+        evidence.push({ code: 'series_issue', label: 'Series and issue match' });
+        score += 40;
+      }
+    } else if (observedSeries !== candidateSeries || observedIssue !== candidateIssue) {
+      blockers.push({ code: 'comic_position_conflict', label: 'Series or issue conflicts with the candidate' });
+    }
+  }
+
+  if (candidate.has_connection_identity) {
+    blockers.push({ code: 'target_identity_conflict', label: 'Candidate already has a different identity from this BookOrbit connection' });
+  }
+
+  return Object.freeze({
+    evidence: Object.freeze(evidence.map(Object.freeze)),
+    blockers: Object.freeze(blockers.map(Object.freeze)),
+    score,
+    confidence: strong ? 'high' : 'medium',
+    eligible: evidence.length > 0 && blockers.length === 0
+  });
+}
+
+function bookOrbitRematchSearch(facts = {}) {
+  const bibliographic = facts?.bibliographic && typeof facts.bibliographic === 'object'
+    ? facts.bibliographic
+    : {};
+  const providerIdentifiers = facts?.providerIdentifiers && typeof facts.providerIdentifiers === 'object'
+    ? facts.providerIdentifiers
+    : {};
+  const metadataSource = facts?.metadataSource && typeof facts.metadataSource === 'object'
+    ? facts.metadataSource
+    : {};
+  const predicates = [];
+  const values = [];
+  const add = (sql, ...entries) => {
+    const offset = values.length;
+    values.push(...entries);
+    predicates.push(sql.replace(/\$(\d+)/g, (_, index) => `$${offset + Number(index) + 3}`));
+  };
+
+  for (const [provider, field] of BOOKORBIT_PROVIDER_ID_FIELDS) {
+    const observed = String(providerIdentifiers[provider] || '').trim();
+    if (observed) add(`COALESCE(m.type_details->>'${field}', '') = $1`, observed);
+  }
+  const selectedProvider = String(metadataSource.provider || '').trim();
+  const selectedItemId = String(metadataSource.providerItemId || '').trim();
+  const selectedField = BOOKORBIT_PROVIDER_FIELD_BY_ID[selectedProvider];
+  if (selectedField && selectedItemId && !String(providerIdentifiers[selectedProvider] || '').trim()) {
+    add(`COALESCE(m.type_details->>'${selectedField}', '') = $1`, selectedItemId);
+  }
+  const isbn = normalizeDigits(bibliographic.isbn || '');
+  if (isbn) add("regexp_replace(COALESCE(m.type_details->>'isbn', ''), '\\D+', '', 'g') = $1", isbn);
+
+  const title = normalizedLookupToken(bibliographic.title);
+  const author = normalizedLookupToken(bibliographic.author);
+  if (title && author) {
+    add("regexp_replace(lower(COALESCE(m.title, '')), '[^a-z0-9]+', '', 'g') = $1 AND regexp_replace(lower(COALESCE(m.type_details->>'author', '')), '[^a-z0-9]+', '', 'g') = $2", title, author);
+  }
+  const series = normalizedLookupToken(bibliographic.series);
+  const issue = normalizedLookupToken(normalizeIssueToken(bibliographic.issueNumber || ''));
+  if (series && issue) {
+    add("regexp_replace(lower(COALESCE(m.type_details->>'series', '')), '[^a-z0-9]+', '', 'g') = $1 AND regexp_replace(lower(COALESCE(m.type_details->>'issue_number', '')), '[^a-z0-9]+', '', 'g') = $2", series, issue);
+  }
+  return Object.freeze({ predicates: Object.freeze(predicates), values: Object.freeze(values) });
+}
+
+async function loadBookOrbitIdentityRematchPreview(client, {
+  spaceId: spaceIdValue,
+  libraryId: libraryIdValue,
+  mediaId: mediaIdValue,
+  observationId: observationIdValue,
+  limit: limitValue = 5
+} = {}) {
+  if (!client || typeof client.query !== 'function') {
+    throw new TypeError('BookOrbit identity rematch preview requires a transaction client');
+  }
+  const spaceId = positiveInteger(spaceIdValue, 'Workspace');
+  const libraryId = positiveInteger(libraryIdValue, 'Library');
+  const mediaId = positiveInteger(mediaIdValue, 'Canonical object');
+  const observationId = uuid(observationIdValue, 'Provider observation');
+  const limit = Math.min(10, positiveInteger(limitValue, 'Rematch preview limit'));
+  const observationResult = await client.query(
+    `SELECT pso.id, pso.content_hash, pso.normalized_facts, pso.source_kind,
+            pso.provider_connection_id, pc.provider_type, pc.display_name
+       FROM provider_source_observations pso
+       JOIN external_media_identities emi
+         ON emi.space_id = pso.space_id
+        AND emi.provider_connection_id = pso.provider_connection_id
+        AND emi.id = pso.external_identity_id
+       JOIN media attached
+         ON attached.id = emi.media_id
+        AND attached.space_id = emi.space_id
+        AND attached.library_id = $2
+       JOIN provider_connections pc
+         ON pc.space_id = pso.space_id
+        AND pc.id = pso.provider_connection_id
+      WHERE pso.space_id = $1 AND pso.id = $3 AND emi.media_id = $4`,
+    [spaceId, libraryId, observationId, mediaId]
+  );
+  const observation = observationResult.rows[0];
+  if (!observation) return null;
+
+  const supported = observation.provider_type === 'bookorbit'
+    && ['bookorbit_native', 'bookorbit_opds'].includes(observation.source_kind);
+  const base = {
+    observationId,
+    observationFingerprint: observation.content_hash,
+    providerConnection: Object.freeze({
+      id: observation.provider_connection_id,
+      providerType: observation.provider_type,
+      displayName: observation.display_name
+    }),
+    mutationEnabled: false
+  };
+  if (!supported) {
+    return Object.freeze({
+      ...base,
+      status: 'unsupported_source',
+      candidateCount: 0,
+      eligibleCount: 0,
+      blockedCount: 0,
+      candidates: Object.freeze([]),
+      previewFingerprint: sha256(JSON.stringify({ observationId, sourceKind: observation.source_kind, candidates: [] }))
+    });
+  }
+
+  const search = bookOrbitRematchSearch(observation.normalized_facts);
+  if (search.predicates.length === 0) {
+    return Object.freeze({
+      ...base,
+      status: 'insufficient_evidence',
+      candidateCount: 0,
+      eligibleCount: 0,
+      blockedCount: 0,
+      candidates: Object.freeze([]),
+      previewFingerprint: sha256(JSON.stringify({ observationId, evidence: 'insufficient', candidates: [] }))
+    });
+  }
+
+  const candidateResult = await client.query(
+    `SELECT m.id, m.public_id, m.title, m.media_type, m.year, m.type_details,
+            EXISTS (
+              SELECT 1 FROM external_media_identities target_identity
+               WHERE target_identity.space_id = m.space_id
+                 AND target_identity.media_id = m.id
+                 AND target_identity.provider_connection_id = $${search.values.length + 4}
+                 AND target_identity.active
+            ) AS has_connection_identity
+       FROM media m
+      WHERE m.space_id = $1 AND m.library_id = $2 AND m.id <> $3
+        AND m.media_type IN ('book', 'comic_book')
+        AND (${search.predicates.join(' OR ')})
+      ORDER BY m.id
+      LIMIT 100`,
+    [spaceId, libraryId, mediaId, ...search.values, observation.provider_connection_id]
+  );
+  const candidates = candidateResult.rows
+    .map((row) => ({ row, assessment: buildBookOrbitRematchEvidence(observation.normalized_facts, row) }))
+    .filter(({ assessment }) => assessment.evidence.length > 0)
+    .sort((left, right) => right.assessment.score - left.assessment.score
+      || Number(left.row.id) - Number(right.row.id))
+    .slice(0, limit)
+    .map(({ row, assessment }) => Object.freeze({
+      media: Object.freeze({
+        id: Number(row.id),
+        publicId: row.public_id,
+        title: row.title,
+        mediaType: row.media_type,
+        year: row.year === null || row.year === undefined ? null : Number(row.year)
+      }),
+      confidence: assessment.confidence,
+      eligible: assessment.eligible,
+      evidence: assessment.evidence,
+      blockers: assessment.blockers,
+      candidateFingerprint: sha256(JSON.stringify({
+        publicId: row.public_id,
+        title: row.title,
+        mediaType: row.media_type,
+        year: row.year ?? null,
+        typeDetails: row.type_details || {},
+        hasConnectionIdentity: Boolean(row.has_connection_identity)
+      }))
+    }));
+  const eligibleCount = candidates.filter((candidate) => candidate.eligible).length;
+  const blockedCount = candidates.length - eligibleCount;
+  return Object.freeze({
+    ...base,
+    status: candidates.length > 0 ? 'candidates' : 'no_candidates',
+    candidateCount: candidates.length,
+    eligibleCount,
+    blockedCount,
+    candidates: Object.freeze(candidates),
+    previewFingerprint: sha256(JSON.stringify({
+      observationId,
+      observationFingerprint: observation.content_hash,
+      candidates
+    }))
   });
 }
 
@@ -1067,6 +1361,7 @@ module.exports = {
   buildBookOrbitSourceObservation,
   buildKavitaSourceObservation,
   listProviderSourceObservations,
+  loadBookOrbitIdentityRematchPreview,
   loadProviderObservationApplyPreview,
   normalizeFacts,
   publicObservation,

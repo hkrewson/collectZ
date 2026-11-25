@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.29.12",
+      "version": "3.29.12",
+      "date": "2026-11-24",
+      "status": null,
+      "summary": "Adds a read-only, exact-library preview of possible canonical targets for an existing BookOrbit External Identity, using bounded observation evidence and explicit conflict blockers without moving anything.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Added deterministic candidate discovery from explicit BookOrbit provider identifiers, normalized ISBN, book title/author, and comic series/issue/volume evidence.",
+            "Restricts discovery to the active workspace and exact library, excludes the currently attached record, and returns no internal identity ids or provider configuration.",
+            "Labels candidate confidence, matched evidence, and conflicts such as mismatched identifiers, ISBN, media type, comic position, or an existing different BookOrbit identity.",
+            "Added a compact read-only Identity match preview to Library Provider history, including loading, empty, eligible, and blocked states.",
+            "Fingerprints the immutable observation and candidate state for a later reviewed-rematch contract while keeping `mutationEnabled` false."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.29.11",
       "version": "3.29.11",
       "date": "2026-11-24",
@@ -177,25 +196,6 @@
             "Retrying the same durable job with unchanged facts reuses its observation; a later batch or changed normalized facts appends new history.",
             "Database triggers reject observation updates and deletes, RLS hides rows without an authorized workspace transaction, and same-workspace foreign keys prevent identity/connection crossover.",
             "The BookOrbit runtime smoke now proves normalized persistence, idempotency, immutability, RLS isolation, and credential-free observation facts alongside the existing identity, metadata, cover, scheduler, and series checks."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.29.2",
-      "version": "3.29.2",
-      "date": "2026-11-22",
-      "status": null,
-      "summary": "Makes scheduled BookOrbit target advancement and durable job creation one atomic workspace-authorized operation.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Scheduled provider enqueue now locks and rechecks the due target inside the owning transaction.",
-            "The same transaction creates or reuses the durable job and advances the target's `last_enqueued_at` timestamp.",
-            "Workspace, library, provider connection, provider type, and actor ownership are derived from the locked target and authorized scheduler context rather than copied from the caller.",
-            "A concurrent or repeated sweep sees the target as no longer due after the first committed enqueue and cannot create a second job for the cadence window.",
-            "The BookOrbit authoritative import smoke proves failed-enqueue rollback, same-transaction writes, concurrent-sweep exclusion, successful worker processing, cadence reuse, and secret-free payloads."
           ]
         }
       ]

@@ -4,7 +4,45 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.11` reliability and provider-observation milestones are complete locally. No later milestone is selected; unscheduled candidates remain in the backlog.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.12` reliability and provider-observation milestones are complete locally. Hosted certification for `3.29.12` awaits an authorized push.
+
+---
+
+## 3.29.12 — BookOrbit Identity Rematch Preview
+
+**Goal:** Show whether one immutable BookOrbit observation has credible same-library canonical targets for its existing External Identity, with explicit evidence and blockers, without moving the identity or changing any record.
+**Status:** Complete locally; hosted certification awaits an authorized push.
+
+### Selected scope
+
+- Derive bounded BookOrbit-only target candidates from explicit native provider identifiers, normalized ISBN, book title/author, or comic series/issue/volume evidence already retained in the observation.
+- Search only the active workspace and exact library, exclude the currently attached Canonical Object, and return a small deterministic candidate set.
+- Explain confidence, matched evidence, and conflicts without exposing connection settings, credentials, raw provider payloads, internal identity ids, or records outside the active scope.
+- Add a read-only candidate preview to Library Provider history with loading, empty, partial, and error behavior suitable for narrow and wide viewports.
+- Keep the preview fingerprinted for later reviewed-rematch design while declaring mutation disabled in every response.
+
+### Acceptance criteria
+
+- Unsupported provider/source kinds and observations outside the active media/workspace/library scope are non-disclosing and cannot nominate targets.
+- Exact provider identifiers and normalized ISBN are strong evidence; title/author and series/issue evidence remain review-only and never trigger automatic reassignment.
+- Conflicting ISBN, provider identifiers, comic position, incompatible media type, or an existing different BookOrbit identity on the target are explicit blockers rather than hidden ranking penalties.
+- Candidate ordering is deterministic, bounded, and stable for the same observation and canonical state.
+- The API and UI make clear that the result is advisory: no External Identity, Source Observation, canonical metadata, field control, or lifecycle event changes.
+- Version `3.29.12`, release note/feed, canonical runtime, desktop/mobile evidence, and relevant release gates remain aligned.
+
+### Milestone boundary
+
+This slice discovers and explains possible targets only. It does not approve a candidate, reassign an External Identity, merge Canonical Objects, apply metadata, refresh BookOrbit, infer a metadata provider, or enable automatic rematching.
+
+### 3.29.12 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.29.12 — BookOrbit Identity Rematch Preview` is complete locally as a read-only, exact-library candidate discovery and explanation surface.
+- **Project docs/checklists used:** `AGENTS.md`; `GLOSSARY.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/releases/v3.29.12.md`.
+- **Runtime verification used:** rebuilt and recreated the canonical `collectz-private` stack on port `3201`; verified Platform `3.29.12` health; exercised the real BookOrbit authoritative-import path; proved same-library candidate discovery and no identity mutation; verified Core and Platform edition boundaries; refreshed migration-built control-plane authority through migration `147`; and confirmed Help > Releases serves `3.29.12` first.
+- **CI/checks run:** backend unit (`390` source assertions and `57` Node tests), OpenAPI, frontend unit (`7` tests), frontend build, changed-file quality, desktop/mobile evidence validation, targeted Provider history browser test, maintained Core browser regression (`56` passed, `6` edition-specific skips), Core RBAC, workspace ownership (`82` tables, `360` routes, `12` execution paths), workspace authorization, tenancy boundaries, BookOrbit authoritative import, row-level isolation suites, worker broker (`22/22`), external identity (`21` checks), saved-view RLS (`17` checks), migration authority/rehearsal, identity upgrade, runtime role (`32/32`), control-plane runtime authority (`5/5`), observability (`9/9`), dependency audits, secure-cookie Compose smoke, release preflight, and standard local release gate all pass. Local gitleaks and Trivy/SBOM are blocked because those tools are not installed; local CodeQL is blocked by an incompatible downloaded query pack; hosted Core empty-database runtime authority remains a hosted-CI confirmation because project policy forbids a parallel local stack.
+- **Files changed:** BookOrbit observation/rematch service and media route; OpenAPI; Provider history UI; backend/unit/browser/runtime smoke coverage; workspace ownership contract; glossary, roadmap, backlog, release note/feed; version manifests; rendered UI and release evidence artifacts.
+- **Risks or follow-ups:** candidates are intentionally advisory and bounded to BookOrbit observations; provider evidence quality can still be ambiguous; reviewed approval, stale-preview revalidation, atomic reassignment, lifecycle audit, and undo remain future work. Hosted CodeQL, secret scan, image security/SBOM, and Core runtime smoke must pass after push.
+- **What remains in the milestone:** no local implementation remains. Only hosted certification and publication remain, contingent on an authorized push.
 
 ---
 

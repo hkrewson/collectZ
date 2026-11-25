@@ -184,6 +184,7 @@ const {
   applyProviderObservationPreview,
   appendProviderObservationFieldReview,
   listProviderSourceObservations,
+  loadBookOrbitIdentityRematchPreview,
   loadProviderObservationApplyPreview
 } = require('../services/providerSourceObservations');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
@@ -11366,6 +11367,33 @@ router.get('/:id/provider-observations', asyncHandler(async (req, res) => {
   );
   if (!result) return res.status(404).json({ error: 'Media item not found' });
   return res.json(result);
+}));
+
+router.get('/:id/provider-observations/:observationId/rematch-preview', asyncHandler(async (req, res) => {
+  const scopeContext = resolveScopeContext(req);
+  const mediaId = Number(req.params.id);
+  if (!Number.isInteger(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+  const limit = Math.max(1, Math.min(10, Number.parseInt(String(req.query?.limit || '5'), 10) || 5));
+  const preview = await withAuthorizedScopeTransaction(
+    pool,
+    { spaceId: scopeContext.spaceId, libraryId: scopeContext.libraryId || null },
+    req.user.id,
+    async (client) => {
+      const media = await loadScopedMediaItem(mediaId, scopeContext, client);
+      if (!media) return null;
+      return loadBookOrbitIdentityRematchPreview(client, {
+        spaceId: scopeContext.spaceId,
+        libraryId: media.library_id,
+        mediaId,
+        observationId: req.params.observationId,
+        limit
+      });
+    }
+  );
+  if (!preview) return res.status(404).json({ error: 'Provider observation not found in the active scope' });
+  return res.json(preview);
 }));
 
 router.post('/:id/provider-observations/:observationId/reviews',

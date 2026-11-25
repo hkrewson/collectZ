@@ -936,6 +936,8 @@ function MediaDetail({
   const [providerApplyPreviewLoading, setProviderApplyPreviewLoading] = useState({});
   const [providerApplyConfirming, setProviderApplyConfirming] = useState({});
   const [providerApplySaving, setProviderApplySaving] = useState({});
+  const [providerRematchPreviews, setProviderRematchPreviews] = useState({});
+  const [providerRematchPreviewLoading, setProviderRematchPreviewLoading] = useState({});
   const [, setSeasonDrafts] = useState({});
   const [seasonSaving, setSeasonSaving] = useState({});
   const [openSeason, setOpenSeason] = useState(null);
@@ -1145,6 +1147,18 @@ function MediaDetail({
       onToast?.(error?.response?.data?.error || 'Failed to preview approved provider changes', 'error');
     } finally {
       setProviderApplyPreviewLoading((current) => ({ ...current, [observationId]: false }));
+    }
+  };
+  const previewProviderIdentityRematch = async (observationId) => {
+    if (providerRematchPreviewLoading[observationId]) return;
+    setProviderRematchPreviewLoading((current) => ({ ...current, [observationId]: true }));
+    try {
+      const payload = await apiCall('get', `/media/${item.id}/provider-observations/${observationId}/rematch-preview?limit=5`);
+      setProviderRematchPreviews((current) => ({ ...current, [observationId]: payload }));
+    } catch (error) {
+      onToast?.(error?.response?.data?.error || 'Failed to check identity match candidates', 'error');
+    } finally {
+      setProviderRematchPreviewLoading((current) => ({ ...current, [observationId]: false }));
     }
   };
   const applyProviderObservationPreview = async (observationId) => {
@@ -2518,6 +2532,79 @@ function MediaDetail({
                         </div>
                         {providerObservationSummary(observation) ? (
                           <p className="mt-2 break-words text-xs text-dim">{providerObservationSummary(observation)}</p>
+                        ) : null}
+                        {observation.providerConnection?.providerType === 'bookorbit' &&
+                        ['bookorbit_native', 'bookorbit_opds'].includes(observation.sourceKind) ? (
+                          <div className="mt-3 border-t border-edge/60 pt-3">
+                            <button
+                              type="button"
+                              className="btn btn-secondary px-2.5 py-1.5 text-xs"
+                              disabled={Boolean(providerRematchPreviewLoading[observation.id])}
+                              onClick={() => previewProviderIdentityRematch(observation.id)}
+                            >
+                              {providerRematchPreviewLoading[observation.id] ? 'Checking candidates…' : 'Check identity match'}
+                            </button>
+                            {providerRematchPreviews[observation.id] ? (
+                              <div className="mt-2 border-l-2 border-sky-500/60 pl-3" aria-label="Identity match preview">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="text-xs font-medium text-ink">Identity match preview</p>
+                                  <span className="badge badge-dim">Read-only</span>
+                                </div>
+                                {providerRematchPreviews[observation.id].status === 'insufficient_evidence' ? (
+                                  <p className="mt-2 text-xs text-ghost">
+                                    This observation does not contain enough identity evidence to search safely.
+                                  </p>
+                                ) : providerRematchPreviews[observation.id].status === 'no_candidates' ? (
+                                  <p className="mt-2 text-xs text-ghost">No same-library records matched this observation.</p>
+                                ) : providerRematchPreviews[observation.id].status === 'unsupported_source' ? (
+                                  <p className="mt-2 text-xs text-ghost">Identity matching is not available for this provider source.</p>
+                                ) : (
+                                  <>
+                                    <p className="mt-1 text-[11px] text-ghost">
+                                      {providerRematchPreviews[observation.id].eligibleCount} reviewable ·{' '}
+                                      {providerRematchPreviews[observation.id].blockedCount} blocked
+                                    </p>
+                                    <div className="mt-2 divide-y divide-edge/60 border-y border-edge/60">
+                                      {providerRematchPreviews[observation.id].candidates.map((candidate) => (
+                                        <div key={candidate.media.publicId} className="py-2.5 first:pt-2 last:pb-2">
+                                          <div className="flex flex-wrap items-start justify-between gap-2">
+                                            <div className="min-w-0">
+                                              <p className="break-words text-xs font-medium text-ink">{candidate.media.title}</p>
+                                              <p className="mt-0.5 text-[11px] text-ghost">
+                                                {String(candidate.media.mediaType || 'item').replace(/_/g, ' ')}
+                                                {candidate.media.year ? ` · ${candidate.media.year}` : ''}
+                                              </p>
+                                            </div>
+                                            <span className={`badge ${candidate.eligible ? 'badge-ok' : 'badge-dim'}`}>
+                                              {candidate.confidence} confidence
+                                            </span>
+                                          </div>
+                                          <div className="mt-2 flex flex-wrap gap-1.5">
+                                            {candidate.evidence.map((entry) => (
+                                              <span key={entry.code} className="badge badge-dim">
+                                                {entry.label}
+                                              </span>
+                                            ))}
+                                          </div>
+                                          {candidate.blockers.length > 0 ? (
+                                            <div className="mt-2 space-y-1">
+                                              {candidate.blockers.map((blocker) => (
+                                                <p key={blocker.code} className="text-[11px] text-amber-500">
+                                                  {blocker.label}
+                                                </p>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <p className="mt-2 text-[11px] text-sky-500">Candidate for later review; nothing has moved.</p>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            ) : null}
+                          </div>
                         ) : null}
                         {Array.isArray(observation.applies) && observation.applies.length > 0 ? (
                           <div className="mt-3 border-t border-edge/60 pt-3">
