@@ -4,7 +4,52 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, the `3.29.0` through `3.29.12` reliability and provider-observation milestones, and `3.30.0` BookOrbit edition provenance are complete and hosted-certified. `3.31.0` begins the broader Work/Edition/Owned Copy program with reviewed native Blu-ray intake, and `3.31.1` completes its local authenticated collection traversal and batch edition-review slice pending hosted certification.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, the `3.29.0` through `3.29.12` reliability and provider-observation milestones, and `3.30.0` BookOrbit edition provenance are complete and hosted-certified. `3.31.0` begins the broader Work/Edition/Owned Copy program, `3.31.1` establishes authenticated collection traversal and batch receipts, and `3.31.2` makes those receipts reviewable and actionable with exact-product edition enrichment.
+
+---
+
+## 3.31.2 — Enriched Blu-ray Edition Review and Explicit Apply
+
+**Goal:** Enrich each discovered Blu-ray.com collection row from its exact product page, expose the bounded edition evidence before import, and require an explicit reviewer Include decision before canonical or ownership mutation.
+**Status:** Complete locally; hosted certification awaits an authorized push.
+
+### Selected scope
+
+- Keep one user-initiated collection traversal in one batch by following numeric pages only within the same filtered collection.
+- Treat a verified Blu-ray.com `My Collection` page as explicit owned-collection evidence while retaining `collection_page` as the ownership basis.
+- Fetch exact product pages sequentially in the existing browser session with conservative delay; validate that the returned Blu-ray product id matches the collection row before accepting detail evidence.
+- Preserve bounded edition title, format, edition label, country, UPC/EAN, ASIN, IMDb and Blu-ray identifiers, release details, cover, technical specs, provider ratings, source URLs, extension version, enrichment state, and capture time.
+- Show Overview, Editions, Technical, Source, and Provenance evidence in the batch drawer, including clear partial/error states and direct source links.
+- Begin every enriched owned row Pending, require explicit Include or Skip, reject Apply when nothing is included, and keep partial/failed enrichment ineligible.
+- Version CollectZ `3.31.2` with browser companion `0.3.0`; preserve existing exact-library authorization and reviewed Work/Edition/Owned Copy apply behavior.
+
+### Acceptance criteria
+
+- A collection row and its detail response must have the same Blu-ray product id before enrichment is marked complete.
+- Review visibly distinguishes collection ownership evidence from exact-product detail evidence and shows unavailable fields honestly.
+- Format is derived from the product detail page rather than defaulting unknown releases to Blu-ray; UPC/EAN and other identifiers remain nullable.
+- No row is automatically included. Apply with zero included rows returns a clear conflict instead of a false success.
+- A multi-page collection produces one duplicate-safe batch and advances through the next numeric page without leaving the selected collection filters.
+- Provider credentials, cookies, authorization headers, and raw private HTML remain browser-local.
+- Version, release note/feed, OpenAPI, browser companion, canonical runtime, and relevant release gates are aligned before closeout.
+
+### Milestone boundary
+
+This slice enriches and reviews the existing manual owned-collection workflow. It does not add scheduled crawling, non-owned status mapping, price history, upgrade discovery, notifications, Plex writeback, or another provider.
+
+### 3.31.2 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.31.2 — Enriched Blu-ray Edition Review and Explicit Apply` is complete locally.
+- **Project docs/checklists used:** `AGENTS.md`; `GLOSSARY.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/54-Work-Edition-Owned-Copy-Contract.md`; `docs/releases/v3.31.2.md`; browser companion `README.md`; browser companion `docs/capture-contract.md`; browser companion `docs/collectz-compatibility.md`.
+- **Verified facts:** browser companion `0.3.0` preserves one batch across numeric collection pages, enriches each collection row from its exact product page, rejects mismatched Blu-ray product ids, sends bounded allowlisted evidence in safe chunks, and keeps session material browser-local. CollectZ exposes release title, format, edition, country, year, Blu-ray id, UPC/EAN, ASIN, IMDb id, cover, technical facts, source links, ownership basis, enrichment state, extension version, and capture time. Every enriched row begins Pending; Include is explicit; failed or partial enrichment cannot be included; Apply with no included rows returns a conflict.
+- **Inference:** exact-product enrichment plus explicit staging is sufficient for a trustworthy first collection intake without expanding CollectZ into provider-session custody, background crawling, or automatic ownership mutation.
+- **Runtime verification used:** rebuilt and recreated the canonical `collectz-private` project in place on port `3201`; verified application/frontend/backend/build `3.31.2`, migration `150`, and healthy retained Platform runtime. Live batch proof passed exact enrichment review, duplicate-safe receipt, zero-included conflict, explicit-owned-only Include, independent apply, and exactly one Work, Edition, Owned Copy, and immutable observation. Platform edition boundary and Core RBAC passed against the retained stack. Help > Releases rendered the current release in the maintained Platform browser suite. The prior review scope was then intentionally cleared at the user's request: `7` batches and `127` child review rows were removed, with both post-delete counts verified as zero.
+- **CI/checks run:** backend unit (`390` source assertions plus `57` maintained Node tests), OpenAPI, frontend unit (`9` tests), changed-file ESLint/Prettier, frontend production build, browser companion typecheck, Chrome/Firefox builds, and `18` tests; targeted enriched batch browser coverage (`3/3` including setup); maintained Core browser regression (`57` passed, `6` expected skips); Platform browser boundary (`8` passed, `2` expected skips); Core RBAC; Platform edition boundary; live enriched batch smoke; zero-finding backend/frontend production dependency audits; CodeQL (`5` results, `0` active); desktop/mobile rendered review evidence and evidence-policy validation; diff hygiene; version/release-feed sync; and the standard local release gate, whose feature, version, unit, OpenAPI, quality, build, audit, and diff checks passed.
+- **Blocked/unverified:** the release-preflight helper remains NO-GO only because its observability artifact is stale. Refreshing that artifact would create and tear down separate Loki, Graylog, syslog, and monitoring stacks and volumes, which current project policy forbids without explicit authorization. Its built-in Compose probe also assumes host resolution of the Compose-only `frontend` name; direct host health and in-stack runtime checks passed instead. `gitleaks` and Trivy are not installed locally, so `secret-scan` and `image-security-and-sbom` remain hosted-CI gates. The isolated Core runtime-smoke harness also creates a separate Compose project and volume, so it remains hosted-only under the canonical-stack policy. Hosted CI must rerun observability/release-preflight, production `compose-smoke`, Core and control-plane `runtime-smoke`, `secret-scan`, `image-security-and-sbom`, migration, RBAC, browser, publication, and tag gates after push.
+- **Files changed:** enriched browser-companion collection parsing, exact-product adapter, bounded chunked submission, manifests, tests, and contract docs; capture-batch evidence normalization, explicit review/apply behavior, OpenAPI, and smoke coverage; Capture Inbox evidence tabs, partial/error handling, and browser/unit coverage; version `3.31.2` manifests/lockfiles, release note/feed, glossary, model contract, roadmap/backlog, UI evidence, quality evidence, and local preflight artifacts.
+- **Risks or follow-ups:** Blu-ray.com markup remains an external dependency; conservative parsing will surface failed/partial enrichment instead of guessing. A collector run now waits while each product page is fetched sequentially, and old proof-of-concept rows must be recollected. Non-owned provider states, scheduled collection refresh, normalized pricing/history, upgrade discovery, notifications, Plex propagation, other providers, and broader historical backfill remain backlog work.
+- **What remains in the milestone:** no local feature implementation remains. The user must reload browser companion `0.3.0` and run a fresh collection capture; hosted certification and publication require an authorized push.
+- **Recommended commit message:** `release: ship v3.31.2 enriched Blu-ray edition review and explicit apply`.
 
 ---
 

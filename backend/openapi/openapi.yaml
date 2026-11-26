@@ -4417,13 +4417,14 @@
         "properties": {
           "id": { "type": "integer" }, "item_key": { "type": "string" }, "position": { "type": "integer" },
           "title": { "type": ["string", "null"] }, "source_status": { "type": ["string", "null"] },
+          "source_context": { "type": "object", "description": "Sanitized list and detail-page edition evidence, identifiers, enrichment state, and provenance.", "additionalProperties": true },
           "classification": { "type": "string", "enum": ["exact_edition", "existing_work", "new_work", "needs_choice", "missing_identity", "needs_review"] },
           "decision": { "type": "string", "enum": ["include", "skip", "pending"] },
           "selected_media_id": { "type": ["integer", "null"] },
           "candidates": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
           "reason": { "type": ["string", "null"] }, "apply_status": { "type": ["string", "null"] }, "apply_error": { "type": ["string", "null"] }
         },
-        "required": ["id", "item_key", "classification", "decision", "candidates"]
+        "required": ["id", "item_key", "source_context", "classification", "decision", "candidates"]
       },
       "CaptureBatchResponse": { "type": "object", "properties": { "batch": { "$ref": "#/components/schemas/CaptureBatch" } }, "required": ["batch"] },
       "CaptureBatchDetailResponse": {
@@ -5892,7 +5893,7 @@
       "tags": ["Capture"], "summary": "Submit one bounded page of normalized Blu-ray collection items",
       "security": [{ "cookieSession": [], "csrfHeader": [] }, { "bearerAuth": [] }, { "mobileBearerAuth": [] }],
       "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
-      "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "page": { "type": "integer", "minimum": 1 }, "total_pages": { "type": ["integer", "null"] }, "expected_item_count": { "type": ["integer", "null"] }, "items": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "type": "object", "properties": { "item_key": { "type": "string" }, "product_id": { "type": "string" }, "title": { "type": "string" }, "url": { "type": "string", "format": "uri" }, "status": { "type": ["string", "null"] }, "format": { "type": ["string", "null"] }, "year": { "type": ["integer", "null"] } }, "required": ["item_key", "title", "url"] } } }, "required": ["items"] } } } },
+      "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "page": { "type": "integer", "minimum": 1 }, "total_pages": { "type": ["integer", "null"] }, "expected_item_count": { "type": ["integer", "null"] }, "items": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "type": "object", "properties": { "item_key": { "type": "string" }, "product_id": { "type": "string" }, "title": { "type": "string" }, "release_title": { "type": ["string", "null"] }, "url": { "type": "string", "format": "uri" }, "status": { "type": ["string", "null"] }, "ownership_basis": { "type": ["string", "null"], "enum": ["row_status", "collection_page", null] }, "format": { "type": ["string", "null"] }, "year": { "type": ["integer", "null"] }, "identifiers": { "type": "object", "additionalProperties": { "type": "string" } }, "page_metadata": { "type": "object", "additionalProperties": true }, "enrichment_status": { "type": "string", "enum": ["list_only", "enriched", "failed"] }, "enrichment_error": { "type": ["string", "null"] }, "extension_version": { "type": ["string", "null"] } }, "required": ["item_key", "product_id", "title", "url", "enrichment_status"] } } }, "required": ["items"] } } } },
       "responses": { "201": { "description": "Page accepted idempotently", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } } }
     } },
     "/api/capture-batches/{id}/progress": { "patch": {
@@ -5914,7 +5915,7 @@
       "description": "Each included row uses the existing single-title reviewed import path. Successful rows stay committed if another row fails.",
       "security": [{ "cookieSession": [], "csrfHeader": [] }, { "bearerAuth": [] }, { "mobileBearerAuth": [] }],
       "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
-      "responses": { "200": { "description": "All included rows applied", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } }, "207": { "description": "Some rows failed and remain retryable", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } } }
+      "responses": { "200": { "description": "All included rows applied", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } }, "207": { "description": "Some rows failed and remain retryable", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } }, "409": { "description": "No enriched, reviewed editions are included", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } } }
     } },
     "/api/capture-items": {
       "get": {

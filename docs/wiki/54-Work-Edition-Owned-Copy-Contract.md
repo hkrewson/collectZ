@@ -29,11 +29,13 @@ CollectZ must distinguish a creative title from a market release and from the ph
 1. A user starts collection traversal explicitly in the browser companion while already signed in to Blu-ray.com. CollectZ never stores or receives the provider password, cookie, or session token.
 2. One client batch id identifies one exact-library traversal receipt. One provider product key identifies at most one child capture inside that batch, so retrying a batch or page is duplicate-safe.
 3. Traversal is sequential and bounded. Authentication prompts, challenges, forbidden or rate-limited responses, empty result pages, and network failures pause the batch instead of triggering bypass behavior.
-4. Only an explicit `Owned` or `In collection` source status can be staged for Include. Missing, unsupported, or ambiguous status remains excluded from canonical mutation.
-5. Page replay may refresh automatic classification evidence, but it cannot overwrite an explicit reviewer Include or Skip decision.
-6. Batch review defaults to conflicts while retaining a full-set view. Staging decisions does not mutate Work, Edition, Owned Copy, compatibility, or observation records.
-7. Apply processes included rows independently through the reviewed single-title path. A successful row remains committed when another row fails, and the failed row remains retryable with its review evidence.
-8. Batch child captures stay grouped under the batch receipt and do not appear as duplicate rows in the ordinary Capture Inbox list.
+4. An explicit provider row status or a verified provider `My Collection` page may establish `Owned` collection evidence. The ownership basis is retained separately from detail-page edition evidence.
+5. An exact-product detail page must be identity-validated and normalized into Edition Enrichment Evidence before a row can be staged for Include. Failed or partial enrichment remains visible but ineligible for import.
+6. Every enriched owned row begins Pending. Only an explicit reviewer Include decision makes it eligible for apply; missing, unsupported, or ambiguous evidence remains excluded from canonical mutation.
+7. Page replay may refresh automatic classification evidence, but it cannot overwrite an explicit reviewer Include or Skip decision.
+8. Batch review defaults to review-required items while retaining a full-set view and exposes edition identity, format, label, identifiers, release facts, technical details, source links, and provenance before apply.
+9. Apply processes included rows independently through the reviewed single-title path. A successful row remains committed when another row fails, and the failed row remains retryable with its review evidence.
+10. Batch child captures stay grouped under the batch receipt and do not appear as duplicate rows in the ordinary Capture Inbox list.
 
 ## Review and compatibility behavior
 

@@ -76,6 +76,10 @@ _Avoid_: Crawl job, automatic sync
 One provider collection entry within a Collection Capture Batch, carrying its own staged decision and apply outcome.
 _Avoid_: Imported title, child job
 
+**Edition Enrichment Evidence**:
+Bounded release-level facts fetched from the exact provider product page after a collection entry is discovered and before it can be included for import. It supplements collection ownership evidence without becoming canonical metadata until reviewed apply.
+_Avoid_: Automatic metadata import, raw product page, canonical edition
+
 **Provider Edition Group**:
 A provider's observation that distinct External Identities represent editions of one work, retained as provenance without asserting a CollectZ-owned Work or Edition relationship.
 _Avoid_: Duplicate set, canonical merge, identity match

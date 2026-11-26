@@ -1,0 +1,50 @@
+{
+  "contract": "3.31.2 evidence-first Blu-ray edition review: dense, quiet, scannable; exact identifiers and edition facts precede Include; partial enrichment is visible and ineligible; usable at desktop 1440x900 and mobile 390x844.",
+  "targetViewports": ["1440x900", "390x844"],
+  "accessibility": {
+    "status": "pass",
+    "evidence": "Playwright exercised named tabs, labeled previous/next edition controls, the labeled full-set checkbox, visible disabled and enabled Include states, keyboard-native buttons, and readable focusable source actions."
+  },
+  "responsive": {
+    "status": "pass",
+    "evidence": "Desktop uses a restrained right-side review drawer; the 390x844 capture shows the same evidence hierarchy without horizontal overflow, clipped identifiers, or inaccessible actions."
+  },
+  "contentStates": {
+    "loading": {
+      "status": "pass",
+      "evidence": "The existing stable drawer shell retains the Loading batch review message while detail is fetched."
+    },
+    "empty": {
+      "status": "pass",
+      "evidence": "The existing no-conflicts state explains that the full set remains available for review."
+    },
+    "error": {
+      "status": "pass",
+      "evidence": "The browser regression presents a bounded detail enrichment failure reason and disables Include with a rerun-collector recovery path."
+    },
+    "partial": {
+      "status": "pass",
+      "evidence": "Missing cover and nullable identifiers render as explicit Not supplied/No cover states; failed detail evidence stays visible but ineligible."
+    },
+    "success": {
+      "status": "pass",
+      "evidence": "Enriched edition evidence shows verified status, release title, format, edition, country, year, Blu-ray ID, UPC/EAN, and ASIN before Include."
+    },
+    "permission": {
+      "status": "not-applicable",
+      "reason": "The drawer is reachable only after the existing authenticated exact-library admin route succeeds; unauthorized access is handled by the shared application boundary rather than this component."
+    }
+  },
+  "renderedEvidence": [
+    {
+      "viewport": "1440x900",
+      "artifact": "desktop-1440x900.png",
+      "observation": "The desktop drawer keeps collection context, edition navigation, verification state, identity fields, review controls, and Apply status in one scan path."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "mobile-390x844.png",
+      "observation": "The narrow drawer wraps evidence into two compact columns, keeps all tabs visible, and anchors Refresh and Apply without covering review content."
+    }
+  ]
+}

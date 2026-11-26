@@ -12,6 +12,7 @@ import {
   posterUrl,
   supportsBarcodeCapture
 } from './app/AppPrimitives';
+import { batchEditionEvidence, canIncludeBatchEdition } from '../lib/batchEditionEvidence';
 
 const BATCH_REVIEW_TABS = ['Overview', 'Editions', 'Technical', 'Source', 'Provenance'];
 
@@ -85,6 +86,29 @@ const EMPTY_FORM_LOOKUP = {
   lookedUp: false
 };
 
+function EvidenceField({ label, value, mono = false }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-ghost">{label}</dt>
+      <dd className={cx('mt-1 break-words text-sm text-ink', mono && 'font-mono text-xs')}>{value || 'Not supplied'}</dd>
+    </div>
+  );
+}
+
+function EvidenceList({ entries, emptyMessage }) {
+  if (!entries.length) return <p className="text-sm text-ghost">{emptyMessage}</p>;
+  return (
+    <dl className="divide-y divide-edge rounded-lg border border-edge">
+      {entries.map(({ label, value }) => (
+        <div key={label} className="grid gap-1 px-3 py-2 sm:grid-cols-[9rem_1fr]">
+          <dt className="text-xs font-medium capitalize text-ghost">{label.replaceAll('_', ' ')}</dt>
+          <dd className="break-words text-sm text-ink">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function typeLabel(value, options) {
   return options.find((option) => option.value === value)?.label || value || 'Item';
 }
@@ -108,6 +132,7 @@ function BatchReviewDrawer({ detail, loading, working, onClose, onDecision, onAp
   );
   const visibleItems = showFull ? allItems : conflictItems;
   const item = visibleItems.length ? visibleItems[Math.min(cursor, visibleItems.length - 1)] : null;
+  const evidence = batchEditionEvidence(item || {});
   const batch = detail?.batch;
   return (
     <DetailDrawerShell onClose={onClose} panelClassName="max-w-2xl" testId="capture-batch-review-drawer">
@@ -117,7 +142,9 @@ function BatchReviewDrawer({ detail, loading, working, onClose, onDecision, onAp
             <div>
               <h2 className="text-lg font-semibold text-ink">Blu-ray edition review</h2>
               <p className="mt-1 text-sm text-ghost">
-                {batch ? `${batch.received_item_count} received · ${batch.applied_item_count} applied · ${batch.status}` : 'Loading batch…'}
+                {batch
+                  ? `${batch.received_item_count} received · ${allItems.filter((entry) => entry.decision === 'include').length} included · ${batch.applied_item_count} applied · ${batch.status}`
+                  : 'Loading batch…'}
               </p>
             </div>
             <button type="button" className="btn-icon" aria-label="Close batch review" onClick={onClose}>
@@ -205,7 +232,17 @@ function BatchReviewDrawer({ detail, loading, working, onClose, onDecision, onAp
                         {item.classification.replaceAll('_', ' ')} · {item.source_status || 'status not provided'}
                       </p>
                     </div>
-                    <span className="rounded-full border border-edge px-2 py-1 text-xs text-ghost">{item.decision}</span>
+                    <div className="flex flex-wrap gap-2">
+                      <span
+                        className={cx(
+                          'rounded-full border px-2 py-1 text-xs',
+                          evidence.enrichmentStatus === 'enriched' ? 'border-ok/40 text-ok' : 'border-warn/40 text-warn'
+                        )}
+                      >
+                        {evidence.enrichmentStatus === 'enriched' ? 'Details verified' : 'Details incomplete'}
+                      </span>
+                      <span className="rounded-full border border-edge px-2 py-1 text-xs text-ghost">{item.decision}</span>
+                    </div>
                   </div>
                   {item.reason ? <p className="mt-3 text-sm text-dim">{item.reason}</p> : null}
                   {item.candidates?.length ? (
@@ -214,12 +251,42 @@ function BatchReviewDrawer({ detail, loading, working, onClose, onDecision, onAp
                       {item.candidates.map((candidate) => `${candidate.title}${candidate.year ? ` (${candidate.year})` : ''}`).join(' · ')}
                     </div>
                   ) : null}
+                  <div className="mt-4 grid gap-4 sm:grid-cols-[5rem_1fr]">
+                    {evidence.coverUrl ? (
+                      <img
+                        className="h-auto w-20 rounded border border-edge object-cover"
+                        src={evidence.coverUrl}
+                        alt={`Cover for ${evidence.releaseTitle || item.title}`}
+                      />
+                    ) : (
+                      <div className="flex h-28 w-20 items-center justify-center rounded border border-dashed border-edge px-2 text-center text-[10px] text-ghost">
+                        No cover supplied
+                      </div>
+                    )}
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+                      <EvidenceField label="Release title" value={evidence.releaseTitle} />
+                      <EvidenceField label="Media format" value={evidence.mediaFormat} />
+                      <EvidenceField label="Edition" value={evidence.edition} />
+                      <EvidenceField label="Country" value={evidence.country} />
+                      <EvidenceField label="Release year" value={evidence.year} />
+                      <EvidenceField label="Blu-ray ID" value={evidence.blurayProductId} mono />
+                      <EvidenceField label="UPC / EAN" value={evidence.upc || evidence.ean} mono />
+                      <EvidenceField label="ASIN" value={evidence.asin} mono />
+                    </dl>
+                  </div>
+                  {evidence.enrichmentStatus !== 'enriched' ? (
+                    <div className="mt-4 rounded-md border border-warn/40 bg-warn/5 p-3 text-sm text-warn">
+                      Detail enrichment did not complete
+                      {evidence.enrichmentError ? `: ${evidence.enrichmentError.replaceAll('_', ' ')}` : ''}. This edition cannot be
+                      included yet; run the collector again to retry it.
+                    </div>
+                  ) : null}
                   {item.apply_error ? <div className="mt-3 text-sm text-err">{item.apply_error}</div> : null}
                   <div className="mt-4 flex gap-2">
                     <button
                       type="button"
                       className="btn-secondary btn-sm"
-                      disabled={working || !item.source_status || !['owned', 'in collection'].includes(item.source_status.toLowerCase())}
+                      disabled={working || item.decision === 'include' || !canIncludeBatchEdition(item)}
                       onClick={() => onDecision(item, 'include')}
                     >
                       Include
@@ -236,35 +303,99 @@ function BatchReviewDrawer({ detail, loading, working, onClose, onDecision, onAp
               )}
             </div>
           ) : null}
-          {!loading && ['Technical', 'Source', 'Provenance'].includes(tab) ? (
-            <div className="space-y-3 text-sm text-dim">
-              <p>
-                {tab === 'Technical'
-                  ? 'Technical edition facts are preserved with each provider observation when an included row is applied.'
-                  : tab === 'Source'
-                    ? 'The source URL and provider product ID are retained; browser credentials and cookies are never submitted.'
-                    : 'Each applied row records its reviewed Work, Edition, Owned Copy, and immutable source observation.'}
-              </p>
-              {tab === 'Source' && batch?.source_url ? (
-                <a className="text-accent" href={batch.source_url} target="_blank" rel="noreferrer">
-                  Open collection source
-                </a>
-              ) : null}
-            </div>
+          {!loading && tab === 'Technical' ? (
+            item ? (
+              <div className="space-y-5">
+                <dl className="grid grid-cols-2 gap-4">
+                  <EvidenceField label="Studio" value={evidence.studio} />
+                  <EvidenceField label="Runtime" value={evidence.runtime} />
+                  <EvidenceField label="Content rating" value={evidence.contentRating} />
+                  <EvidenceField label="Release date" value={evidence.releaseDate} />
+                </dl>
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ghost">Disc specifications</h3>
+                  <EvidenceList entries={evidence.specs} emptyMessage="No technical specifications were supplied by the detail page." />
+                </div>
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ghost">Provider ratings</h3>
+                  <EvidenceList entries={evidence.ratings} emptyMessage="No provider ratings were supplied." />
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-ghost">Choose an edition to inspect its technical evidence.</p>
+            )
+          ) : null}
+          {!loading && tab === 'Source' ? (
+            item ? (
+              <div className="space-y-5">
+                <dl className="grid grid-cols-2 gap-4">
+                  <EvidenceField label="Blu-ray product ID" value={evidence.blurayProductId} mono />
+                  <EvidenceField label="Blu-ray content ID" value={evidence.blurayContentId} mono />
+                  <EvidenceField label="Global product ID" value={evidence.blurayGlobalProductId} mono />
+                  <EvidenceField label="Global parent ID" value={evidence.blurayGlobalParentId} mono />
+                  <EvidenceField label="Category ID" value={evidence.blurayCategoryId} mono />
+                  <EvidenceField label="IMDb ID" value={evidence.imdbId} mono />
+                  <EvidenceField label="UPC" value={evidence.upc} mono />
+                  <EvidenceField label="EAN" value={evidence.ean} mono />
+                  <EvidenceField label="ASIN" value={evidence.asin} mono />
+                </dl>
+                <div className="flex flex-wrap gap-3 text-sm">
+                  {evidence.sourceUrl ? (
+                    <a className="text-accent" href={evidence.sourceUrl} target="_blank" rel="noreferrer">
+                      Open edition source
+                    </a>
+                  ) : null}
+                  {batch?.source_url ? (
+                    <a className="text-accent" href={batch.source_url} target="_blank" rel="noreferrer">
+                      Open collection source
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-ghost">Choose an edition to inspect its provider identifiers.</p>
+            )
+          ) : null}
+          {!loading && tab === 'Provenance' ? (
+            item ? (
+              <div className="space-y-4 text-sm">
+                <div className="rounded-lg border border-edge p-4">
+                  <h3 className="font-medium text-ink">Evidence trail</h3>
+                  <p className="mt-2 text-dim">
+                    The collection page established ownership and list position. The exact Blu-ray.com product page supplied edition,
+                    format, identifiers, release details, cover, and technical facts before review.
+                  </p>
+                </div>
+                <dl className="grid grid-cols-2 gap-4">
+                  <EvidenceField label="Ownership basis" value={evidence.ownershipBasis?.replaceAll('_', ' ')} />
+                  <EvidenceField label="Detail enrichment" value={evidence.enrichmentStatus?.replaceAll('_', ' ')} />
+                  <EvidenceField label="Extension version" value={evidence.extensionVersion} mono />
+                  <EvidenceField label="Captured at" value={evidence.capturedAt ? dateLabel(evidence.capturedAt) : null} />
+                </dl>
+                <p className="text-xs text-ghost">Credentials, cookies, and raw private page HTML are not stored with this evidence.</p>
+              </div>
+            ) : (
+              <p className="text-sm text-ghost">Choose an edition to inspect its provenance.</p>
+            )
           ) : null}
         </div>
         <div className="flex items-center justify-between gap-3 border-t border-edge px-5 py-4">
           <button type="button" className="btn-ghost btn-sm" disabled={working} onClick={onReload}>
             Refresh
           </button>
-          <button
-            type="button"
-            className="btn-primary btn-sm"
-            disabled={working || !allItems.some((entry) => entry.decision === 'include' && entry.status !== 'converted')}
-            onClick={onApply}
-          >
-            {working ? 'Applying…' : 'Apply included editions'}
-          </button>
+          <div className="text-right">
+            {!allItems.some((entry) => entry.decision === 'include' && entry.status !== 'converted') ? (
+              <p className="mb-1 text-[11px] text-ghost">Review an edition and choose Include first.</p>
+            ) : null}
+            <button
+              type="button"
+              className="btn-primary btn-sm"
+              disabled={working || !allItems.some((entry) => entry.decision === 'include' && entry.status !== 'converted')}
+              onClick={onApply}
+            >
+              {working ? 'Applying…' : 'Apply included editions'}
+            </button>
+          </div>
         </div>
       </div>
     </DetailDrawerShell>

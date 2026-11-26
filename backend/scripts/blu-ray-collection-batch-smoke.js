@@ -33,8 +33,14 @@ async function createContext() {
   const userId = Number(user.rows[0].id);
   const scope = await ensureUserDefaultScope(userId);
   await pool.query(`UPDATE users SET active_space_id = $2, active_library_id = $3 WHERE id = $1`, [userId, scope.spaceId, scope.libraryId]);
-  await pool.query(`INSERT INTO space_memberships (space_id, user_id, role, created_by) VALUES ($1,$2,'owner',$2) ON CONFLICT DO NOTHING`, [scope.spaceId, userId]);
-  await pool.query(`INSERT INTO library_memberships (user_id, library_id, role) VALUES ($1,$2,'owner') ON CONFLICT DO NOTHING`, [userId, scope.libraryId]);
+  await pool.query(`INSERT INTO space_memberships (space_id, user_id, role, created_by) VALUES ($1,$2,'owner',$2) ON CONFLICT DO NOTHING`, [
+    scope.spaceId,
+    userId
+  ]);
+  await pool.query(`INSERT INTO library_memberships (user_id, library_id, role) VALUES ($1,$2,'owner') ON CONFLICT DO NOTHING`, [
+    userId,
+    scope.libraryId
+  ]);
   const token = await createPersonalAccessToken({ userId, name: 'Blu-ray collection batch smoke', scopes: ['media:read', 'media:write'] });
   return { suffix, userId, token: token.token, spaceId: scope.spaceId, libraryId: scope.libraryId };
 }
@@ -59,7 +65,9 @@ async function main() {
     context = await createContext();
     const clientBatchId = `smoke:${context.suffix}`;
     const created = await request('/api/capture-batches', context.token, {
-      method: 'POST', statuses: [201], body: {
+      method: 'POST',
+      statuses: [201],
+      body: {
         client_batch_id: clientBatchId,
         source_collection_key: 'smoke-library',
         source_url: 'https://www.blu-ray.com/community/collection.php?u=smoke'
@@ -68,28 +76,86 @@ async function main() {
     assert.match(created.batch.id, /^[0-9a-f-]{36}$/i);
     const batchId = created.batch.id;
     const replay = await request('/api/capture-batches', context.token, {
-      method: 'POST', statuses: [200], body: { client_batch_id: clientBatchId }
+      method: 'POST',
+      statuses: [200],
+      body: { client_batch_id: clientBatchId }
     });
     assert.strictEqual(replay.batch.id, batchId, 'batch creation must be idempotent');
 
     const pageBody = {
-      page: 1, total_pages: 1, expected_item_count: 2,
+      page: 1,
+      total_pages: 1,
+      expected_item_count: 2,
       items: [
-        { item_key: `owned-${context.suffix}`, product_id: `owned-${context.suffix}`, title: `Batch Owned ${context.suffix}`, release_title: `Batch Owned ${context.suffix} 4K Ultra HD`, url: `https://www.blu-ray.com/movies/Batch-Owned/${Date.now()}/`, status: 'Owned', format: '4K Ultra HD', year: 2026, page: 1, position: 1 },
-        { item_key: `unknown-${context.suffix}`, product_id: `unknown-${context.suffix}`, title: `Batch Unknown ${context.suffix}`, url: `https://www.blu-ray.com/movies/Batch-Unknown/${Date.now() + 1}/`, status: null, format: 'Blu-ray', year: 2025, page: 1, position: 2 }
+        {
+          item_key: `owned-${context.suffix}`,
+          product_id: `owned-${context.suffix}`,
+          title: `Batch Owned ${context.suffix}`,
+          release_title: `Batch Owned ${context.suffix} 4K Ultra HD`,
+          url: `https://www.blu-ray.com/movies/Batch-Owned/${Date.now()}/`,
+          status: 'Owned',
+          ownership_basis: 'collection_page',
+          format: '4K Ultra HD',
+          year: 2026,
+          page: 1,
+          position: 1,
+          enrichment_status: 'enriched',
+          extension_version: '0.3.0',
+          identifiers: { upc: '012345678905', asin: 'B012345678', imdb_id: 'tt1234567' },
+          page_metadata: {
+            release_title: `Batch Owned ${context.suffix} 4K Ultra HD`,
+            edition: 'SteelBook',
+            media_format: '4K Ultra HD + Blu-ray',
+            country: 'United States',
+            release_details: {
+              studio: 'Example Studio',
+              year: '2026',
+              runtime: '120 min',
+              rating: 'Rated PG-13',
+              release_date: 'Nov 26, 2026'
+            },
+            specs: { video: '2160p', audio: 'Dolby Atmos' }
+          }
+        },
+        {
+          item_key: `unknown-${context.suffix}`,
+          product_id: `unknown-${context.suffix}`,
+          title: `Batch Unknown ${context.suffix}`,
+          url: `https://www.blu-ray.com/movies/Batch-Unknown/${Date.now() + 1}/`,
+          status: null,
+          format: 'Blu-ray',
+          year: 2025,
+          page: 1,
+          position: 2,
+          enrichment_status: 'failed',
+          enrichment_error: 'detail_http_429'
+        }
       ]
     };
     await request(`/api/capture-batches/${batchId}/items`, context.token, { method: 'POST', statuses: [201], body: pageBody });
     await request(`/api/capture-batches/${batchId}/items`, context.token, { method: 'POST', statuses: [201], body: pageBody });
-    await request(`/api/capture-batches/${batchId}/progress`, context.token, { method: 'PATCH', body: { status: 'ready', current_page: 1, total_pages: 1, expected_item_count: 2 } });
+    await request(`/api/capture-batches/${batchId}/progress`, context.token, {
+      method: 'PATCH',
+      body: { status: 'ready', current_page: 1, total_pages: 1, expected_item_count: 2 }
+    });
 
     const detail = await request(`/api/capture-batches/${batchId}`, context.token);
     assert.strictEqual(detail.items.length, 2, 'duplicate page delivery must not duplicate review rows');
-    assert.strictEqual(detail.items.find((item) => item.source_status === 'Owned').decision, 'include');
+    const ownedItem = detail.items.find((item) => item.source_status === 'Owned');
+    assert.strictEqual(ownedItem.decision, 'pending');
+    assert.strictEqual(ownedItem.source_context.enrichment_status, 'enriched');
+    assert.strictEqual(ownedItem.source_context.identifiers.upc, '012345678905');
+    assert.strictEqual(ownedItem.source_context.page_metadata.edition, 'SteelBook');
+    assert.strictEqual(ownedItem.source_context.page_metadata.media_format, '4K Ultra HD + Blu-ray');
     assert.strictEqual(detail.items.find((item) => item.source_status === null).decision, 'skip');
     const ordinary = await request('/api/capture-items?status=all', context.token);
     assert.strictEqual(ordinary.items.length, 0, 'batch children must stay out of the ordinary Capture Inbox list');
 
+    await request(`/api/capture-batches/${batchId}/apply`, context.token, { method: 'POST', statuses: [409] });
+    await request(`/api/capture-batches/${batchId}/items/${ownedItem.id}`, context.token, {
+      method: 'PATCH',
+      body: { decision: 'include' }
+    });
     const applied = await request(`/api/capture-batches/${batchId}/apply`, context.token, { method: 'POST' });
     assert.strictEqual(applied.ok, true);
     assert.strictEqual(applied.results.length, 1);
@@ -99,14 +165,36 @@ async function main() {
     assert.strictEqual(finalDetail.batch.applied_item_count, 1);
     assert.strictEqual(finalDetail.items.find((item) => item.source_status === 'Owned').status, 'converted');
 
-    const ownership = await withAuthorizedScopeTransaction(pool, { spaceId: context.spaceId, libraryId: context.libraryId }, context.userId, async (client) => client.query(
-      `SELECT (SELECT COUNT(*)::int FROM collection_works) AS works,
+    const ownership = await withAuthorizedScopeTransaction(
+      pool,
+      { spaceId: context.spaceId, libraryId: context.libraryId },
+      context.userId,
+      async (client) =>
+        client.query(
+          `SELECT (SELECT COUNT(*)::int FROM collection_works) AS works,
               (SELECT COUNT(*)::int FROM collection_editions WHERE source_provider = 'blu-ray.com') AS editions,
               (SELECT COUNT(*)::int FROM owned_copies) AS copies,
               (SELECT COUNT(*)::int FROM edition_source_observations) AS observations`
-    ));
+        )
+    );
     assert.deepStrictEqual(ownership.rows[0], { works: 1, editions: 1, copies: 1, observations: 1 });
-    console.log(JSON.stringify({ ok: true, migration: 150, batch_idempotent: true, duplicate_page_safe: true, hidden_child_rows: true, explicit_owned_only: true, independent_apply: true, ownership: ownership.rows[0] }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          ok: true,
+          migration: 150,
+          batch_idempotent: true,
+          duplicate_page_safe: true,
+          hidden_child_rows: true,
+          enriched_review_required: true,
+          explicit_owned_only: true,
+          independent_apply: true,
+          ownership: ownership.rows[0]
+        },
+        null,
+        2
+      )
+    );
   } finally {
     await cleanup(context);
     await pool.end();
