@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.31.0",
+      "version": "3.31.0",
+      "date": "2026-11-25",
+      "status": null,
+      "summary": "Begins the broader Work/Edition/Owned Copy program through the existing reviewed single-title Blu-ray intake flow. One movie title can now own exact Blu-ray Editions and idempotent library copies while current media and variant behavior remains compatible.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Adds exact-library Work, Edition, Owned Copy, and immutable Edition Source Observation records behind additive migration `148`.",
+            "Uses Blu-ray.com product identity to upsert one exact Edition and the Capture Inbox receipt to create at most one Owned Copy.",
+            "Retains normalized release facts as immutable edition evidence and appends a new observation only when the normalized evidence changes.",
+            "Rejects silent Edition reassignment and cross-workspace/library relationships.",
+            "Keeps `media` and `media_variants` as compatibility projections so existing title, owned-format, identifier, cover, trailer, and valuation behavior continues.",
+            "Shows the Work, Edition, and Owned Copy outcomes in the Capture Inbox before apply and returns their created/reused identities afterward."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.30.0",
       "version": "3.30.0",
       "date": "2026-11-25",
@@ -176,26 +196,6 @@
             "Kavita history preserves separate series/chapter evidence and safe CollectZ cover-proxy provenance.",
             "Added a bounded Provider history section to the Library item drawer.",
             "The projection omits workspace and actor implementation ids, identity database ids, idempotency keys, Provider Connection endpoints/settings, credentials, authorization values, and raw payloads."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.29.4",
-      "version": "3.29.4",
-      "date": "2026-11-22",
-      "status": null,
-      "summary": "Makes Kavita the second immutable provider-observation adopter, preserving separate series and chapter provenance without storing credentials or direct server URLs.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added an explicit Kavita normalized-fact builder at the existing immutable observation seam.",
-            "Kavita series and chapter reconciliation now appends `kavita_api` observations in the same authorized transaction as identity, canonical-field, compatibility, format, and normalized-metadata work.",
-            "Observations preserve separate Kavita series/chapter identities, library and bibliographic facts, chapter-fan-out detail, and safe CollectZ cover-proxy paths.",
-            "Queued imports derive their observation batch from the existing inline job id; synchronous imports mint one batch per request.",
-            "Exact retries within one batch reuse the observation, while later import requests append immutable history.",
-            "Kavita observation facts omit API keys, bearer tokens, raw API payloads, direct server/reader/cover URLs, and server filenames."
           ]
         }
       ]

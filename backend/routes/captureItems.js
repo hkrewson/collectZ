@@ -5,6 +5,7 @@ const { asyncHandler } = require('../middleware/errors');
 const { authenticateToken } = require('../middleware/auth');
 const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { resolveScopeContext, appendScopeSql } = require('../db/scopeContext');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const { logActivity } = require('../services/audit');
 const { uploadBuffer, readLocalUploadBuffer } = require('../services/storage');
 const { buildCaptureOcrCandidates } = require('../services/captureOcr');
@@ -1219,13 +1220,20 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
   }
 
   const metadataMappingResult = captureMapping.available
-    ? await applyBrowserCaptureMapping({
-        db: pool,
+    ? await withAuthorizedScopeTransaction(
+      pool,
+      { spaceId: scopeContext.spaceId, libraryId: scopeContext.libraryId || null },
+      req.user.id,
+      (client) => applyBrowserCaptureMapping({
+        db: client,
         mediaId: importResult.body.media_id,
         scopeContext,
-        mapping: captureMapping
+        mapping: captureMapping,
+        captureItemId: id,
+        actorUserId: req.user.id
       })
-    : { applied: [], skipped: [], variant_id: null };
+    )
+    : { applied: [], skipped: [], variant_id: null, ownership: null };
 
   const importedAt = new Date().toISOString();
   const importedObjectType = normalizeObjectType(
@@ -1254,6 +1262,7 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
       applied: metadataMappingResult.applied,
       skipped: metadataMappingResult.skipped,
       variant_id: metadataMappingResult.variant_id,
+      ownership: metadataMappingResult.ownership,
       mapped_at: importedAt
     },
     capture_import_mode: directReviewMatch ? 'review_title' : 'lookup_match',
@@ -1295,6 +1304,9 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
     mappingApplied: metadataMappingResult.applied,
     mappingSkipped: metadataMappingResult.skipped,
     variantId: metadataMappingResult.variant_id,
+    workId: metadataMappingResult.ownership?.work?.id || null,
+    editionId: metadataMappingResult.ownership?.edition?.id || null,
+    ownedCopyId: metadataMappingResult.ownership?.owned_copy?.id || null,
     spaceId: updated.space_id,
     libraryId: updated.library_id
   });

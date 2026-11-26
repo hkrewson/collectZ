@@ -4,14 +4,57 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.12` reliability and provider-observation milestones are complete and hosted-certified. `3.30.0` is complete locally and awaits hosted certification after an authorized push.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, the `3.29.0` through `3.29.12` reliability and provider-observation milestones, and `3.30.0` BookOrbit edition provenance are complete and hosted-certified. `3.31.0` begins the broader Work/Edition/Owned Copy program with reviewed native Blu-ray intake.
+
+---
+
+## 3.31.0 — Reviewed Blu-ray Work, Edition, and Owned Copy Foundation
+
+**Goal:** Prove the first CollectZ-owned Work, Edition, and Owned Copy relationships through the existing native single-title Blu-ray review flow without breaking current media, variants, formats, or valuation behavior.
+**Status:** Complete locally; hosted certification awaits an authorized push.
+
+### Selected scope
+
+- Add explicit exact-library Work, Edition, Owned Copy, and immutable Edition Source Observation records.
+- Treat one reviewed Blu-ray.com product as one Edition of the selected movie Work and one Capture Inbox receipt as one idempotent Owned Copy.
+- Preserve `media` and `media_variants` as compatibility projections while the new model is adopted.
+- Show the planned Work, Edition, and Owned Copy outcomes before import and return the created/reused record identities after apply.
+- Reject an Edition or capture receipt already attached to a different target instead of silently rematching it.
+- Protect the new records with exact-library row-level security and composite workspace/library integrity.
+
+### Acceptance criteria
+
+- One Work can retain multiple provider Editions, and one Edition can retain multiple Owned Copies without duplicating the Work.
+- Replaying the same Capture Inbox import does not duplicate the Work, Edition, Owned Copy, or unchanged Edition Source Observation.
+- Changed normalized source evidence appends a new immutable observation while current edition facts update only through another explicit reviewed import.
+- Existing media fields, owned formats, Blu-ray `media_variants`, identifiers, covers, trailers, and safe valuation overwrite rules remain compatible.
+- Cross-workspace/library relationships, silent Edition reassignment, non-movie capture, missing product identity, and unreviewed ownership creation fail closed.
+- Version `3.31.0`, release note/feed, migration authority, OpenAPI, review UI, canonical runtime, and relevant release gates are aligned before closeout.
+
+### Milestone boundary
+
+This slice is one reviewed single-title Blu-ray intake path. It does not add authenticated collection traversal, batch sessions, a batch drawer, automatic imports, multiple-copy editing, non-owned status mapping, upgrade discovery, price alerts/history, watched-state propagation, general provider adapters, cross-library Works, or migration/backfill of existing variants.
+
+### 3.31.0 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.31.0 — Reviewed Blu-ray Work, Edition, and Owned Copy Foundation` is complete locally as the first reviewed native intake path in the broader program.
+- **Project docs/checklists used:** `AGENTS.md`; `GLOSSARY.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/54-Work-Edition-Owned-Copy-Contract.md`; `docs/releases/v3.31.0.md`.
+- **Verified facts:** reviewed Blu-ray.com captures create or reuse one exact-library Work and provider-product Edition, create one capture-idempotent Owned Copy, retain bounded immutable Edition Source Observations, append only when normalized evidence changes, reject silent reassignment and cross-library relationships, and preserve current `media` and `media_variants` projections. No existing rows are backfilled or split.
+- **Inference:** the additive compatibility approach gives later batch intake and edition-review slices a stable foundation without requiring the existing Library UI or provider imports to cut over immediately.
+- **Runtime verification used:** rebuilt and recreated the canonical `collectz-private` project in place on port `3201`; applied migrations `148` and `149`; verified running `3.31.0` health and non-owner runtime policy; temporarily recreated the same retained project in Core mode, then restored Platform mode; passed the ownership lifecycle smoke in both modes; passed Core and Platform edition boundaries, Platform tenancy boundary, workspace ownership (`86` tables, `360` routes, `12` execution paths), and Help > Releases with `3.31.0` first.
+- **CI/checks run:** backend unit (`390` source assertions and `57` Node tests), OpenAPI, frontend unit (`7` tests), frontend production build, changed-file ESLint/Prettier, targeted Capture Inbox browser coverage, maintained Core browser regression (`60` passed, `2` platform-only skips), Core RBAC, fresh migration authority through `149`, migration rehearsal from `148` to `149`, identity upgrade, runtime role (`32/32`), external identity (`21` checks), control-plane runtime authority (`5/5`), observability (`9/9`), zero-finding backend/frontend production dependency audits, release preflight, diff hygiene, and the standard local release gate.
+- **Blocked/unverified:** local CodeQL cannot deserialize the installed query pack's data extensions; `gitleaks` and Trivy are not installed; the canonical development stack intentionally uses insecure local cookies and therefore cannot satisfy the production secure-cookie Compose assertion. The full local gate was run with already-completed canonical runtime and browser checks skipped and correctly stopped on CodeQL, secret-scan, and image/SBOM. Hosted CI must rerun CodeQL, `compose-smoke`, `secret-scan`, `image-security-and-sbom`, migration, Core RBAC/browser/runtime, release-preflight, publication, and tag gates after push.
+- **Files changed:** additive ownership migrations and service; reviewed Capture Inbox route, mapping, UI, OpenAPI, and browser coverage; ownership/RLS smoke and workspace inventory; glossary and model contract; roadmap/backlog; synchronized `3.31.0` manifests, lockfiles, release note/feed; migration, identity, runtime-role, control-plane, observability, quality, and local preflight evidence.
+- **Risks or follow-ups:** the first workflow is intentionally limited to reviewed single-title owned movie captures from Blu-ray.com. Batch collection traversal, non-owned states, multiple-copy editing, upgrade discovery, history/alerts, other providers, and existing-record backfill remain separate milestones.
+- **What remains in the milestone:** no local implementation remains. Hosted certification and publication require an authorized push.
+- **Recommended commit message:** `Release 3.31.0 with reviewed Blu-ray Work, Edition, and Owned Copy foundation`.
 
 ---
 
 ## 3.30.0 — BookOrbit Edition Relationship Provenance
 
 **Goal:** Preserve BookOrbit 3.10's provider-owned edition grouping as bounded, immutable source evidence and make it understandable in Provider history without merging Canonical Objects, rematching External Identities, or introducing CollectZ's full Work/Edition/Owned Copy model.
-**Status:** Complete locally; hosted certification awaits an authorized push.
+**Status:** Complete and hosted-certified. Build and Publish Images run `45754759649` and CodeQL run `45754759664` passed for release commit `80b980e9`; tag `v3.30.0` identifies the certified release.
 
 ### Selected scope
 

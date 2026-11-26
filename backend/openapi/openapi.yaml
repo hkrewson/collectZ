@@ -4354,12 +4354,17 @@
             "additionalProperties": false
           },
           "variant": { "type": ["object", "null"], "additionalProperties": true },
+          "review_plan": {
+            "type": "array",
+            "description": "Plain-language Work, Edition, and Owned Copy outcomes shown before reviewed apply.",
+            "items": { "$ref": "#/components/schemas/CaptureImportMappingPreviewEntry" }
+          },
           "preview": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/CaptureImportMappingPreviewEntry" }
           }
         },
-        "required": ["available", "provider", "import_hints", "identifiers", "preview"],
+        "required": ["available", "provider", "import_hints", "identifiers", "review_plan", "preview"],
         "additionalProperties": false
       },
       "CaptureImportMappingResult": {
@@ -4367,9 +4372,21 @@
         "properties": {
           "applied": { "type": "array", "items": { "type": "string" } },
           "skipped": { "type": "array", "items": { "type": "string" } },
-          "variant_id": { "type": ["integer", "null"] }
+          "variant_id": { "type": ["integer", "null"] },
+          "ownership": {
+            "type": ["object", "null"],
+            "description": "Identifiers and create/reuse outcomes for the reviewed Work, Edition, Owned Copy, and immutable edition observation.",
+            "properties": {
+              "applied": { "type": "boolean" },
+              "work": { "type": "object", "additionalProperties": true },
+              "edition": { "type": "object", "additionalProperties": true },
+              "owned_copy": { "type": "object", "additionalProperties": true },
+              "observation": { "type": "object", "additionalProperties": true }
+            },
+            "additionalProperties": false
+          }
         },
-        "required": ["applied", "skipped", "variant_id"],
+        "required": ["applied", "skipped", "variant_id", "ownership"],
         "additionalProperties": false
       },
       "CaptureItem": {
@@ -6158,7 +6175,7 @@
       "post": {
         "tags": ["Capture"],
         "summary": "Import a reviewed capture or link a selected lookup match",
-        "description": "Converts an explicit user-reviewed capture into a canonical media row, or links the capture to an existing scoped media row when a selected lookup match already exists. Barcode captures can identify a stored match by match_id. Title-only captures, including browser-extension manual notes, provide a capture_review match plus an explicit media_type. Both paths reuse the scanner import enrichment and deduplication pipeline; lookup results are never auto-imported. Supported Blu-ray.com captures also apply their server-derived import_mapping: canonical fallbacks and owned formats go to media, IMDb identity goes to media_metadata, physical-release evidence goes to an idempotent media_variants row, and a used-from price can populate the low valuation only when it will not overwrite a manual or unrelated valuation source.",
+        "description": "Converts an explicit user-reviewed capture into a canonical media row, or links the capture to an existing scoped media row when a selected lookup match already exists. Barcode captures can identify a stored match by match_id. Title-only captures, including browser-extension manual notes, provide a capture_review match plus an explicit media_type. Both paths reuse the scanner import enrichment and deduplication pipeline; lookup results are never auto-imported. Supported Blu-ray.com captures also apply their server-derived import_mapping: canonical fallbacks and owned formats go to media, IMDb identity goes to media_metadata, physical-release evidence remains projected to an idempotent media_variants row, and a used-from price can populate the low valuation only when it will not overwrite a manual or unrelated valuation source. The reviewed Blu-ray path additionally reuses or creates one Work, upserts the exact provider Edition, creates one capture-idempotent Owned Copy, and appends a normalized Edition Source Observation.",
         "security": [
           { "cookieSession": [], "csrfHeader": [] },
           { "bearerAuth": [] }

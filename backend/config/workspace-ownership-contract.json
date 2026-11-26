@@ -157,6 +157,20 @@
       ]
     },
     {
+      "name": "collection_editions",
+      "category": "library_owned",
+      "ownershipKey": "library_id",
+      "rationale": "Exact-library market releases attached to one CollectZ Work.",
+      "sameWorkspaceForeignKeys": [
+        { "column": "space_id", "referencesTable": "spaces", "expectation": "same_workspace" },
+        { "column": "space_id", "referencesTable": "libraries", "expectation": "same_workspace" },
+        { "column": "library_id", "referencesTable": "libraries", "expectation": "same_workspace" },
+        { "column": "work_id", "referencesTable": "collection_works", "expectation": "same_workspace" },
+        { "column": "space_id", "referencesTable": "collection_works", "expectation": "same_workspace" },
+        { "column": "library_id", "referencesTable": "collection_works", "expectation": "same_workspace" }
+      ]
+    },
+    {
       "name": "collection_items",
       "category": "library_owned",
       "ownershipKey": "collections.library_id",
@@ -185,6 +199,20 @@
           "referencesTable": "collections",
           "expectation": "same_workspace"
         }
+      ]
+    },
+    {
+      "name": "collection_works",
+      "category": "library_owned",
+      "ownershipKey": "library_id",
+      "rationale": "Exact-library creative identities anchored to the current Canonical Object compatibility row.",
+      "sameWorkspaceForeignKeys": [
+        { "column": "space_id", "referencesTable": "spaces", "expectation": "same_workspace" },
+        { "column": "space_id", "referencesTable": "libraries", "expectation": "same_workspace" },
+        { "column": "library_id", "referencesTable": "libraries", "expectation": "same_workspace" },
+        { "column": "media_id", "referencesTable": "media", "expectation": "same_workspace" },
+        { "column": "space_id", "referencesTable": "media", "expectation": "same_workspace" },
+        { "column": "library_id", "referencesTable": "media", "expectation": "same_workspace" }
       ]
     },
     {
@@ -227,6 +255,23 @@
       "ownershipKey": "id",
       "rationale": "Normalized shared metadata vocabulary.",
       "sameWorkspaceForeignKeys": []
+    },
+    {
+      "name": "edition_source_observations",
+      "category": "library_owned",
+      "ownershipKey": "library_id",
+      "rationale": "Append-only normalized release evidence attached to one exact-library Edition and reviewed capture receipt.",
+      "sameWorkspaceForeignKeys": [
+        { "column": "space_id", "referencesTable": "spaces", "expectation": "same_workspace" },
+        { "column": "space_id", "referencesTable": "libraries", "expectation": "same_workspace" },
+        { "column": "library_id", "referencesTable": "libraries", "expectation": "same_workspace" },
+        { "column": "edition_id", "referencesTable": "collection_editions", "expectation": "same_workspace" },
+        { "column": "space_id", "referencesTable": "collection_editions", "expectation": "same_workspace" },
+        { "column": "library_id", "referencesTable": "collection_editions", "expectation": "same_workspace" },
+        { "column": "capture_item_id", "referencesTable": "capture_items", "expectation": "same_workspace" },
+        { "column": "space_id", "referencesTable": "capture_items", "expectation": "same_workspace" },
+        { "column": "library_id", "referencesTable": "capture_items", "expectation": "same_workspace" }
+      ]
     },
     {
       "name": "email_verification_tokens",
@@ -797,6 +842,20 @@
       "ownershipKey": "library_id",
       "rationale": "Direct library ownership; the library supplies the workspace boundary.",
       "sameWorkspaceForeignKeys": []
+    },
+    {
+      "name": "owned_copies",
+      "category": "library_owned",
+      "ownershipKey": "library_id",
+      "rationale": "One library-owned instance of an exact Edition with copy-specific lifecycle facts.",
+      "sameWorkspaceForeignKeys": [
+        { "column": "space_id", "referencesTable": "spaces", "expectation": "same_workspace" },
+        { "column": "space_id", "referencesTable": "libraries", "expectation": "same_workspace" },
+        { "column": "library_id", "referencesTable": "libraries", "expectation": "same_workspace" },
+        { "column": "edition_id", "referencesTable": "collection_editions", "expectation": "same_workspace" },
+        { "column": "space_id", "referencesTable": "collection_editions", "expectation": "same_workspace" },
+        { "column": "library_id", "referencesTable": "collection_editions", "expectation": "same_workspace" }
+      ]
     },
     {
       "name": "password_reset_tokens",

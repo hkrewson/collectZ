@@ -1,7 +1,13 @@
 'use strict';
 /* global document, PopStateEvent, window */
 const { test, expect } = require('@playwright/test');
-const { ensureSavedAdminCredentials, createAuthenticatedRequestContext, fetchCsrfToken, postWithCsrf, requestWithCsrf } = require('../helpers/auth');
+const {
+  ensureSavedAdminCredentials,
+  createAuthenticatedRequestContext,
+  fetchCsrfToken,
+  postWithCsrf,
+  requestWithCsrf
+} = require('../helpers/auth');
 const { deleteMediaByExactTitle } = require('../helpers/media');
 const { signInThroughUi } = require('../helpers/session');
 
@@ -30,10 +36,12 @@ async function readRect(locator) {
 }
 
 async function readMeasuredRect(locator) {
-  await expect.poll(async () => {
-    const rect = await readRect(locator);
-    return Math.round(rect.height);
-  }).toBeGreaterThan(0);
+  await expect
+    .poll(async () => {
+      const rect = await readRect(locator);
+      return Math.round(rect.height);
+    })
+    .toBeGreaterThan(0);
   return readRect(locator);
 }
 
@@ -87,13 +95,25 @@ test.describe('admin shell browser regressions', () => {
     await expect(page.getByRole('tab', { name: /Missing identifiers/ })).toBeVisible();
     await expect(page.getByRole('tab', { name: /Sparse metadata/ })).toBeVisible();
     if (missingIdentifierSample) {
-      const reviewPanel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Review' }) }).first();
-      await reviewPanel.getByRole('tablist', { name: 'Review sections' }).getByRole('tab', { name: /Missing identifiers/ }).click();
+      const reviewPanel = page
+        .locator('section')
+        .filter({ has: page.getByRole('heading', { name: 'Review' }) })
+        .first();
+      await reviewPanel
+        .getByRole('tablist', { name: 'Review sections' })
+        .getByRole('tab', { name: /Missing identifiers/ })
+        .click();
       await expect(reviewPanel.getByText(missingIdentifierSample.review_reasons[0]).first()).toBeVisible();
     }
     if (sparseMetadataSample) {
-      const reviewPanel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Review' }) }).first();
-      await reviewPanel.getByRole('tablist', { name: 'Review sections' }).getByRole('tab', { name: /Sparse metadata/ }).click();
+      const reviewPanel = page
+        .locator('section')
+        .filter({ has: page.getByRole('heading', { name: 'Review' }) })
+        .first();
+      await reviewPanel
+        .getByRole('tablist', { name: 'Review sections' })
+        .getByRole('tab', { name: /Sparse metadata/ })
+        .click();
       await expect(reviewPanel.getByText('Record is missing helpful descriptive metadata').first()).toBeVisible();
     }
     await expect(page.getByRole('heading', { name: 'Provider health' })).toHaveCount(0);
@@ -107,22 +127,34 @@ test.describe('admin shell browser regressions', () => {
     await expect(recentSyncsPanel.getByRole('button', { name: /^Import$/ })).toHaveCount(0);
     if (Number(summary?.collection?.missing_covers || 0) > 0) {
       await page.getByRole('button', { name: /Open missing covers review/i }).click();
-      const reviewPanel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Review' }) }).first();
+      const reviewPanel = page
+        .locator('section')
+        .filter({ has: page.getByRole('heading', { name: 'Review' }) })
+        .first();
       await expect(reviewPanel.getByRole('tab', { name: /Missing covers/ })).toHaveAttribute('aria-selected', 'true');
       await expect(reviewPanel.getByText('Showing').first()).toBeVisible();
     }
     if (Number(summary?.collection?.missing_identifiers || 0) > 0) {
       await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
       await page.getByRole('button', { name: /Open missing identifiers review/i }).click();
-      const reviewPanel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Review' }) }).first();
+      const reviewPanel = page
+        .locator('section')
+        .filter({ has: page.getByRole('heading', { name: 'Review' }) })
+        .first();
       await expect(reviewPanel.getByRole('tab', { name: /Missing identifiers/ })).toHaveAttribute('aria-selected', 'true');
-      const reviewItem = summary.attention_details.missing_identifier_items.find((item) => Array.isArray(item.review_reasons) && item.review_reasons.length > 0) || null;
+      const reviewItem =
+        summary.attention_details.missing_identifier_items.find(
+          (item) => Array.isArray(item.review_reasons) && item.review_reasons.length > 0
+        ) || null;
       if (reviewItem) await expect(reviewPanel.getByText(reviewItem.review_reasons[0]).first()).toBeVisible();
     }
     if (Number(summary?.collection?.sparse_metadata || 0) > 0) {
       await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
       await page.getByRole('button', { name: /Open sparse metadata review/i }).click();
-      const reviewPanel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Review' }) }).first();
+      const reviewPanel = page
+        .locator('section')
+        .filter({ has: page.getByRole('heading', { name: 'Review' }) })
+        .first();
       await expect(reviewPanel.getByRole('tab', { name: /Sparse metadata/ })).toHaveAttribute('aria-selected', 'true');
       await expect(reviewPanel.getByText('Record is missing helpful descriptive metadata').first()).toBeVisible();
     }
@@ -132,9 +164,9 @@ test.describe('admin shell browser regressions', () => {
     const adminCredentials = await ensureSavedAdminCredentials();
     await page.setViewportSize({ width: 390, height: 844 });
     await signInThroughUi(page, adminCredentials);
-    const summaryResponse = page.waitForResponse((response) => (
-      response.url().includes('/api/dashboard/summary') && response.request().method() === 'GET'
-    ));
+    const summaryResponse = page.waitForResponse(
+      (response) => response.url().includes('/api/dashboard/summary') && response.request().method() === 'GET'
+    );
     await page.goto('/dashboard');
     expect((await summaryResponse).ok()).toBeTruthy();
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
@@ -280,21 +312,25 @@ test.describe('admin shell browser regressions', () => {
       : summaryPayload?.attention_details?.missing_cover_items?.[0]
         ? 'missing covers'
         : 'sparse metadata';
-    const item = reviewKind === 'missing identifiers'
-      ? summaryPayload?.attention_details?.missing_identifier_items?.[0]
-      : reviewKind === 'missing covers'
-        ? summaryPayload?.attention_details?.missing_cover_items?.[0]
-        : summaryPayload?.attention_details?.sparse_metadata_items?.[0];
+    const item =
+      reviewKind === 'missing identifiers'
+        ? summaryPayload?.attention_details?.missing_identifier_items?.[0]
+        : reviewKind === 'missing covers'
+          ? summaryPayload?.attention_details?.missing_cover_items?.[0]
+          : summaryPayload?.attention_details?.sparse_metadata_items?.[0];
     if (!item) return;
 
     await page.goto('/dashboard?tab=dashboard');
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await page.getByRole('button', { name: new RegExp(`Open ${reviewKind} review`, 'i') }).click();
     const escapedTitle = String(item.title || 'Untitled').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const detailResponse = page.waitForResponse((response) => (
-      response.url().includes(`/api/media/${item.id}`) && response.request().method() === 'GET'
-    ));
-    await page.getByRole('button', { name: new RegExp(escapedTitle) }).first().click();
+    const detailResponse = page.waitForResponse(
+      (response) => response.url().includes(`/api/media/${item.id}`) && response.request().method() === 'GET'
+    );
+    await page
+      .getByRole('button', { name: new RegExp(escapedTitle) })
+      .first()
+      .click();
     expect((await detailResponse).ok()).toBeTruthy();
     await expect(page.getByTestId('dashboard-review-drawer')).toBeVisible();
     await expect(page.getByText('Why it is here')).toBeVisible();
@@ -318,10 +354,42 @@ test.describe('admin shell browser regressions', () => {
     await signInThroughUi(page, adminCredentials);
 
     const pages = [
-      { route: '/dashboard?tab=library-movies', mobileTitle: 'Movies', desktopHeading: 'Movies', header: 'library-mobile-header', toolbar: 'library-mobile-toolbar', maxToolbarHeight: 44, filterLabel: /Filter Movies/ },
-      { route: '/dashboard?tab=library-collectibles', mobileTitle: 'Collectibles', desktopHeading: 'Collectibles', header: 'collectibles-mobile-header', toolbar: 'collectibles-mobile-toolbar', maxToolbarHeight: 44, filterLabel: /Filter Collectibles/ },
-      { route: '/dashboard?tab=library-art', mobileTitle: 'Art', desktopHeading: 'Art', header: 'art-mobile-header', toolbar: 'art-mobile-toolbar', maxToolbarHeight: 44, filterLabel: /Filter Art/ },
-      { route: '/dashboard?tab=library-events', mobileTitle: 'Events', desktopHeading: 'Events', header: 'events-mobile-header', toolbar: 'events-mobile-toolbar', maxToolbarHeight: 44, filterLabel: /Filter Events/ }
+      {
+        route: '/dashboard?tab=library-movies',
+        mobileTitle: 'Movies',
+        desktopHeading: 'Movies',
+        header: 'library-mobile-header',
+        toolbar: 'library-mobile-toolbar',
+        maxToolbarHeight: 44,
+        filterLabel: /Filter Movies/
+      },
+      {
+        route: '/dashboard?tab=library-collectibles',
+        mobileTitle: 'Collectibles',
+        desktopHeading: 'Collectibles',
+        header: 'collectibles-mobile-header',
+        toolbar: 'collectibles-mobile-toolbar',
+        maxToolbarHeight: 44,
+        filterLabel: /Filter Collectibles/
+      },
+      {
+        route: '/dashboard?tab=library-art',
+        mobileTitle: 'Art',
+        desktopHeading: 'Art',
+        header: 'art-mobile-header',
+        toolbar: 'art-mobile-toolbar',
+        maxToolbarHeight: 44,
+        filterLabel: /Filter Art/
+      },
+      {
+        route: '/dashboard?tab=library-events',
+        mobileTitle: 'Events',
+        desktopHeading: 'Events',
+        header: 'events-mobile-header',
+        toolbar: 'events-mobile-toolbar',
+        maxToolbarHeight: 44,
+        filterLabel: /Filter Events/
+      }
     ];
 
     for (const target of pages) {
@@ -349,8 +417,7 @@ test.describe('admin shell browser regressions', () => {
       await filterButton.click();
       await page.evaluate(() => {
         window.scrollTo(0, 500);
-        const scrollArea = Array.from(document.querySelectorAll('.scroll-area'))
-          .find((node) => node.scrollHeight > node.clientHeight);
+        const scrollArea = Array.from(document.querySelectorAll('.scroll-area')).find((node) => node.scrollHeight > node.clientHeight);
         if (scrollArea) scrollArea.scrollTop = Math.min(500, scrollArea.scrollHeight - scrollArea.clientHeight);
       });
       const appHeaderBoxAfter = await readRect(appHeader);
@@ -387,7 +454,11 @@ test.describe('admin shell browser regressions', () => {
       { route: '/dashboard?tab=library-games', heading: 'Games' },
       { route: '/dashboard?tab=library-comics', heading: 'Comics' },
       { route: '/dashboard?tab=library-art', heading: 'Art', absentText: 'Track original art, prints, and sketch commissions' },
-      { route: '/dashboard?tab=library-collectibles', heading: 'Collectibles', absentText: 'Keep convention pickups, exclusives, props, cards' },
+      {
+        route: '/dashboard?tab=library-collectibles',
+        heading: 'Collectibles',
+        absentText: 'Keep convention pickups, exclusives, props, cards'
+      },
       { route: '/dashboard?tab=library-events', heading: 'Events', absentText: 'Track conventions, screenings, meetups' }
     ];
 
@@ -407,11 +478,47 @@ test.describe('admin shell browser regressions', () => {
     await signInThroughUi(page, adminCredentials);
 
     const pages = [
-      { route: '/dashboard?tab=library-wishlist', heading: 'Wishlist', mobileTitle: 'Wishlist', header: 'wishlist-page-header', body: 'wishlist-page-body', filterButton: /All types/, filterControl: 'Wishlist type' },
-      { route: '/dashboard?tab=library-loans', heading: 'Loans', headingVisible: false, mobileTitle: 'Loans', header: 'loans-page-header', body: 'loans-page-body' },
-      { route: '/dashboard?tab=library-import', heading: 'Import Media', mobileTitle: 'Import', header: 'import-page-header', body: 'import-page-body' },
-      { route: '/dashboard?tab=library-capture', heading: 'Capture Inbox', mobileTitle: 'Capture Inbox', header: 'capture-page-header', body: 'capture-page-body', filterButton: /Filter captures/, filterControl: 'Capture type', absentHeaderText: 'My Library' },
-      { route: '/dashboard?tab=admin-integrations', heading: 'Integrations', mobileTitle: 'Integrations', header: 'admin-integrations-page-header', body: 'admin-integrations-page-body' }
+      {
+        route: '/dashboard?tab=library-wishlist',
+        heading: 'Wishlist',
+        mobileTitle: 'Wishlist',
+        header: 'wishlist-page-header',
+        body: 'wishlist-page-body',
+        filterButton: /All types/,
+        filterControl: 'Wishlist type'
+      },
+      {
+        route: '/dashboard?tab=library-loans',
+        heading: 'Loans',
+        headingVisible: false,
+        mobileTitle: 'Loans',
+        header: 'loans-page-header',
+        body: 'loans-page-body'
+      },
+      {
+        route: '/dashboard?tab=library-import',
+        heading: 'Import Media',
+        mobileTitle: 'Import',
+        header: 'import-page-header',
+        body: 'import-page-body'
+      },
+      {
+        route: '/dashboard?tab=library-capture',
+        heading: 'Capture Inbox',
+        mobileTitle: 'Capture Inbox',
+        header: 'capture-page-header',
+        body: 'capture-page-body',
+        filterButton: /Filter captures/,
+        filterControl: 'Capture type',
+        absentHeaderText: 'My Library'
+      },
+      {
+        route: '/dashboard?tab=admin-integrations',
+        heading: 'Integrations',
+        mobileTitle: 'Integrations',
+        header: 'admin-integrations-page-header',
+        body: 'admin-integrations-page-body'
+      }
     ];
 
     for (const target of pages) {
@@ -468,22 +575,27 @@ test.describe('admin shell browser regressions', () => {
 
     try {
       await deleteMediaByExactTitle(requestContext, title).catch(() => {});
-      const createResponse = await postWithCsrf(requestContext, '/api/wishlist', {
-        title,
-        object_type: 'book',
-        desired_format: 'Paperback',
-        desired_edition: 'First printing',
-        identifiers: { isbn: `978000${String(suffix).slice(-7)}` },
-        source_context: { source: 'playwright' }
-      }, 201);
+      const createResponse = await postWithCsrf(
+        requestContext,
+        '/api/wishlist',
+        {
+          title,
+          object_type: 'book',
+          desired_format: 'Paperback',
+          desired_edition: 'First printing',
+          identifiers: { isbn: `978000${String(suffix).slice(-7)}` },
+          source_context: { source: 'playwright' }
+        },
+        201
+      );
       const createPayload = await createResponse.json();
       wishlistId = Number(createPayload?.item?.id || 0);
       expect(wishlistId).toBeGreaterThan(0);
 
       await signInThroughUi(page, adminCredentials);
-      const wishlistResponse = page.waitForResponse((response) => (
-        response.url().includes('/api/wishlist') && response.request().method() === 'GET'
-      ));
+      const wishlistResponse = page.waitForResponse(
+        (response) => response.url().includes('/api/wishlist') && response.request().method() === 'GET'
+      );
       await page.goto('/dashboard?tab=library-wishlist');
       expect((await wishlistResponse).ok()).toBeTruthy();
       await expect(page.getByRole('heading', { name: 'Wishlist', exact: true })).toBeVisible();
@@ -499,7 +611,9 @@ test.describe('admin shell browser regressions', () => {
       const acquiredResponse = await requestContext.get(`/api/wishlist?status=acquired&search=${encodeURIComponent(title)}`);
       expect(acquiredResponse.ok()).toBeTruthy();
       const acquiredPayload = await acquiredResponse.json();
-      expect(acquiredPayload?.items?.some((item) => item.id === wishlistId && item.linked_media_id === convertPayload.media.id)).toBeTruthy();
+      expect(
+        acquiredPayload?.items?.some((item) => item.id === wishlistId && item.linked_media_id === convertPayload.media.id)
+      ).toBeTruthy();
     } finally {
       if (wishlistId) {
         await requestWithCsrf(requestContext, 'DELETE', `/api/wishlist/${wishlistId}`, undefined, [200, 404]).catch(() => {});
@@ -863,7 +977,10 @@ test.describe('admin shell browser regressions', () => {
     await expect(page.getByText('iOS scanner · ISBN')).toBeVisible();
     await expect(page.getByText('Store price: $7.99')).toBeVisible();
     await expect(page.getByText('Apple current: $7.99')).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Open store for Star Wars: A New Hope' })).toHaveAttribute('href', 'https://itunes.apple.com/us/movie/id1001');
+    await expect(page.getByRole('link', { name: 'Open store for Star Wars: A New Hope' })).toHaveAttribute(
+      'href',
+      'https://itunes.apple.com/us/movie/id1001'
+    );
     await page.getByRole('button', { name: 'Price history' }).first().click();
     await expect(page.getByText('Latest $7.99')).toBeVisible();
     await expect(page.getByText('Lowest $5.99')).toBeVisible();
@@ -923,16 +1040,21 @@ test.describe('admin shell browser regressions', () => {
     let catalogMediaId = null;
 
     try {
-      const createResponse = await postWithCsrf(requestContext, '/api/capture-items', {
-        title,
-        capture_type: 'barcode',
-        object_type: 'book',
-        barcode: `978000${String(suffix).slice(-7)}`,
-        symbology: 'EAN-13',
-        client_capture_id: clientCaptureId,
-        client_source: 'playwright-browser',
-        source_context: { source: 'playwright' }
-      }, 201);
+      const createResponse = await postWithCsrf(
+        requestContext,
+        '/api/capture-items',
+        {
+          title,
+          capture_type: 'barcode',
+          object_type: 'book',
+          barcode: `978000${String(suffix).slice(-7)}`,
+          symbology: 'EAN-13',
+          client_capture_id: clientCaptureId,
+          client_source: 'playwright-browser',
+          source_context: { source: 'playwright' }
+        },
+        201
+      );
       const createPayload = await createResponse.json();
       captureId = Number(createPayload?.item?.id || 0);
       expect(captureId).toBeGreaterThan(0);
@@ -972,63 +1094,73 @@ test.describe('admin shell browser regressions', () => {
       expect(conflictRetryPayload?.replay_conflicts?.some((conflict) => conflict.field === 'barcode')).toBeTruthy();
       expect(conflictRetryPayload?.item?.review_decision?.capture_replay_last_status).toBe('needs_review');
 
-      const scannerCaptureResponse = await postWithCsrf(requestContext, '/api/capture-items', {
-        title: `Scanner Queue Capture ${suffix}`,
-        capture_type: 'barcode',
-        object_type: 'book',
-        barcode: '9780553572773',
-        symbology: 'ISBN-13',
-        client_capture_id: scannerClientCaptureId,
-        client_source: 'ios-scanner-app',
-        source_context: { source: 'ios_scanner_app' }
-      }, 201);
+      const scannerCaptureResponse = await postWithCsrf(
+        requestContext,
+        '/api/capture-items',
+        {
+          title: `Scanner Queue Capture ${suffix}`,
+          capture_type: 'barcode',
+          object_type: 'book',
+          barcode: '9780553572773',
+          symbology: 'ISBN-13',
+          client_capture_id: scannerClientCaptureId,
+          client_source: 'ios-scanner-app',
+          source_context: { source: 'ios_scanner_app' }
+        },
+        201
+      );
       const scannerCapturePayload = await scannerCaptureResponse.json();
       scannerCaptureId = Number(scannerCapturePayload?.item?.id || 0);
       expect(scannerCaptureId).toBeGreaterThan(0);
       expect(scannerCapturePayload?.item?.client_source).toBe('ios-scanner-app');
 
-      const browserCaptureResponse = await postWithCsrf(requestContext, '/api/capture-items', {
-        title: browserCaptureTitle,
-        capture_type: 'manual_note',
-        object_type: 'other',
-        client_capture_id: browserClientCaptureId,
-        client_source: 'browser-extension',
-        source_context: {
-          source: 'browser_extension',
+      const browserCaptureResponse = await postWithCsrf(
+        requestContext,
+        '/api/capture-items',
+        {
+          title: browserCaptureTitle,
+          capture_type: 'manual_note',
+          object_type: 'other',
+          client_capture_id: browserClientCaptureId,
           client_source: 'browser-extension',
-          contract: 'collectz.browser_capture.v1',
-          extension_version: '0.1.1',
-          adapter: 'bluray',
-          url: `https://www.blu-ray.com/movies/Playwright-Blu-ray/${suffix}/`,
-          canonical_url: `https://www.blu-ray.com/movies/Playwright-Blu-ray/${suffix}/`,
-          captured_at: '2026-07-31T18:00:00.000Z',
-          identifiers: {
-            bluray_product_id: String(suffix),
-            imdb_id: 'tt1160419',
-            asin: 'B09GWCX92K',
-            upc: String(suffix).slice(-12)
-          },
-          page_metadata: {
-            edition: '4K Ultra HD + Blu-ray + Digital',
-            media_format: '4K Ultra HD + Blu-ray + Digital',
-            release_details: {
-              year: '2021',
-              runtime: '155 minutes',
-              release_date: 'January 11, 2022'
+          source_context: {
+            source: 'browser_extension',
+            client_source: 'browser-extension',
+            contract: 'collectz.browser_capture.v1',
+            extension_version: '0.1.1',
+            adapter: 'bluray',
+            url: `https://www.blu-ray.com/movies/Playwright-Blu-ray/${suffix}/`,
+            canonical_url: `https://www.blu-ray.com/movies/Playwright-Blu-ray/${suffix}/`,
+            captured_at: '2026-07-31T18:00:00.000Z',
+            identifiers: {
+              bluray_product_id: String(suffix),
+              imdb_id: 'tt1160419',
+              asin: 'B09GWCX92K',
+              upc: String(suffix).slice(-12)
             },
-            pricing: {
-              used: {
-                amount: 14.99,
-                currency: 'USD',
-                display: '$14.99',
-                seller: 'Amazon',
-                condition: 'used',
-                savings_percent: 50
+            page_metadata: {
+              edition: '4K Ultra HD + Blu-ray + Digital',
+              media_format: '4K Ultra HD + Blu-ray + Digital',
+              release_details: {
+                year: '2021',
+                runtime: '155 minutes',
+                release_date: 'January 11, 2022'
+              },
+              pricing: {
+                used: {
+                  amount: 14.99,
+                  currency: 'USD',
+                  display: '$14.99',
+                  seller: 'Amazon',
+                  condition: 'used',
+                  savings_percent: 50
+                }
               }
             }
           }
-        }
-      }, 201);
+        },
+        201
+      );
       const browserCapturePayload = await browserCaptureResponse.json();
       browserCaptureId = Number(browserCapturePayload?.item?.id || 0);
       expect(browserCaptureId).toBeGreaterThan(0);
@@ -1101,17 +1233,22 @@ test.describe('admin shell browser regressions', () => {
       expect(applyOcrPayload?.item?.barcode).toBe('9780553572391');
       expect(applyOcrPayload?.item?.object_type).toBe('book');
 
-      const catalogMediaResponse = await postWithCsrf(requestContext, '/api/media', {
-        title: `${photoTitle} Catalog Match`,
-        media_type: 'book',
-        format: 'Paperback',
-        owned_formats: ['paperback'],
-        upc: '9780553572391',
-        type_details: {
-          isbn: '9780553572391',
-          author: 'Michael P. Kube-McDowell'
-        }
-      }, 201);
+      const catalogMediaResponse = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title: `${photoTitle} Catalog Match`,
+          media_type: 'book',
+          format: 'Paperback',
+          owned_formats: ['paperback'],
+          upc: '9780553572391',
+          type_details: {
+            isbn: '9780553572391',
+            author: 'Michael P. Kube-McDowell'
+          }
+        },
+        201
+      );
       const catalogMediaPayload = await catalogMediaResponse.json();
       catalogMediaId = Number(catalogMediaPayload?.id || 0);
       expect(catalogMediaId).toBeGreaterThan(0);
@@ -1122,41 +1259,52 @@ test.describe('admin shell browser regressions', () => {
       expect(lookupPayload?.item?.review_decision?.capture_lookup_matches?.length).toBeGreaterThan(0);
 
       await signInThroughUi(page, adminCredentials);
-      const captureResponse = page.waitForResponse((response) => (
-        response.url().includes('/api/capture-items') && response.request().method() === 'GET'
-      ));
+      const captureResponse = page.waitForResponse(
+        (response) => response.url().includes('/api/capture-items') && response.request().method() === 'GET'
+      );
       await page.goto('/dashboard?tab=library-capture');
       expect((await captureResponse).ok()).toBeTruthy();
       await expect(page.getByRole('heading', { name: 'Capture Inbox', exact: true })).toBeVisible();
       const captureFilterButton = page.getByRole('button', { name: /Filter captures/ });
       await expect(captureFilterButton).toBeVisible();
       await expect(page.getByRole('button', { name: 'Review scanner captures' })).toBeVisible();
-      const scannerUiFilterResponse = page.waitForResponse((response) => (
-        response.url().includes('/api/capture-items')
-        && response.url().includes('source_filter=scanner')
-        && response.request().method() === 'GET'
-      ));
+      const scannerUiFilterResponse = page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/capture-items') &&
+          response.url().includes('source_filter=scanner') &&
+          response.request().method() === 'GET'
+      );
       await page.getByRole('button', { name: 'Review scanner captures' }).click();
       expect((await scannerUiFilterResponse).ok()).toBeTruthy();
-      const scannerRow = page.locator('div').filter({ hasText: `Scanner Queue Capture ${suffix}` }).filter({ hasText: 'Scanner app' }).first();
+      const scannerRow = page
+        .locator('div')
+        .filter({ hasText: `Scanner Queue Capture ${suffix}` })
+        .filter({ hasText: 'Scanner app' })
+        .first();
       await expect(scannerRow).toBeVisible();
-      const allCapturesResponse = page.waitForResponse((response) => (
-        response.url().includes('/api/capture-items')
-        && response.url().includes('status=active')
-        && !response.url().includes('source_filter=scanner')
-        && response.request().method() === 'GET'
-      ));
+      const allCapturesResponse = page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/capture-items') &&
+          response.url().includes('status=active') &&
+          !response.url().includes('source_filter=scanner') &&
+          response.request().method() === 'GET'
+      );
       await page.goto('/dashboard?tab=library-capture');
       expect((await allCapturesResponse).ok()).toBeTruthy();
       await expect(page.getByText(title, { exact: true })).toBeVisible();
       await expect(page.getByText(photoTitle, { exact: true })).toBeVisible();
       await expect(page.getByText(browserCaptureTitle, { exact: true })).toBeVisible();
-      const browserCaptureRow = page.getByText(browserCaptureTitle, { exact: true })
+      const browserCaptureRow = page
+        .getByText(browserCaptureTitle, { exact: true })
         .locator('xpath=ancestor::div[contains(@class, "md:grid-cols-[auto_1fr_auto]")][1]');
       await expect(browserCaptureRow.getByLabel('Import mapping preview')).toContainText(
         'Will add: Year 2021 · Runtime 155 min · Formats Blu-ray + 4K UHD + Digital'
       );
       await expect(browserCaptureRow.getByLabel('Import mapping preview')).toContainText('Used value $14.99');
+      const reviewedOutcome = browserCaptureRow.getByLabel('Reviewed collection outcome');
+      await expect(reviewedOutcome).toContainText('Work: Reuse the reviewed movie title');
+      await expect(reviewedOutcome).toContainText('Edition: Add or update this exact Blu-ray release');
+      await expect(reviewedOutcome).toContainText('Owned Copy: Add one copy to this library');
       const browserImportType = browserCaptureRow.getByLabel(`Library type for ${browserCaptureTitle}`);
       const browserImportButton = browserCaptureRow.getByRole('button', { name: `Add ${browserCaptureTitle} to library` });
       await expect(browserImportType).toHaveValue('');
@@ -1171,10 +1319,10 @@ test.describe('admin shell browser regressions', () => {
           }
         });
       });
-      const browserImportResponse = page.waitForResponse((response) => (
-        response.url().includes(`/api/capture-items/${browserCaptureId}/import-match`)
-        && response.request().method() === 'POST'
-      ));
+      const browserImportResponse = page.waitForResponse(
+        (response) =>
+          response.url().includes(`/api/capture-items/${browserCaptureId}/import-match`) && response.request().method() === 'POST'
+      );
       await browserImportButton.click();
       const browserImportPayload = await (await browserImportResponse).json();
       expect(browserImportPayload?.ok).toBe(true);
@@ -1186,13 +1334,24 @@ test.describe('admin shell browser regressions', () => {
       expect(browserCaptureMediaId).toBeGreaterThan(0);
       expect(browserImportPayload?.match?.title).toBe(browserCaptureTitle);
       expect(browserImportPayload?.import?.media?.title).toBe(browserCaptureTitle);
-      expect(browserImportPayload?.mapping?.applied).toEqual(expect.arrayContaining([
-        'owned_formats',
-        'physical_variant',
-        'imdb_id',
-        'asin',
-        'used_value'
-      ]));
+      expect(browserImportPayload?.mapping?.applied).toEqual(
+        expect.arrayContaining(['owned_formats', 'physical_variant', 'imdb_id', 'asin', 'used_value', 'work_edition_owned_copy'])
+      );
+      expect(browserImportPayload?.mapping?.ownership?.work?.created).toBe(true);
+      expect(browserImportPayload?.mapping?.ownership?.edition).toEqual(
+        expect.objectContaining({
+          created: true,
+          provider: 'blu-ray.com',
+          provider_item_id: String(suffix)
+        })
+      );
+      expect(browserImportPayload?.mapping?.ownership?.owned_copy).toEqual(
+        expect.objectContaining({
+          created: true,
+          status: 'owned'
+        })
+      );
+      expect(browserImportPayload?.mapping?.ownership?.observation?.created).toBe(true);
       await page.unroute(`**/api/capture-items/${browserCaptureId}/import-match`);
       const replayConflictReview = page.getByLabel('Replay conflict review').first();
       const replayReason = page.getByLabel('Capture review reasons').filter({ hasText: 'Replay conflict' }).first();
@@ -1202,10 +1361,10 @@ test.describe('admin shell browser regressions', () => {
       await expect(replayConflictReview.getByText(`Current: ${createPayload.item.barcode}`)).toBeVisible();
       await expect(replayConflictReview.getByText('Replayed: 9780553572391')).toBeVisible();
       await expect(page.getByRole('button', { name: 'Use replayed values' })).toBeVisible();
-      const resolveResponse = page.waitForResponse((response) => (
-        response.url().includes(`/api/capture-items/${captureId}/resolve-replay-conflict`)
-        && response.request().method() === 'POST'
-      ));
+      const resolveResponse = page.waitForResponse(
+        (response) =>
+          response.url().includes(`/api/capture-items/${captureId}/resolve-replay-conflict`) && response.request().method() === 'POST'
+      );
       await page.getByRole('button', { name: 'Keep current' }).click();
       expect((await resolveResponse).ok()).toBeTruthy();
       await expect(page.getByLabel('Replay conflict review')).toHaveCount(0);
@@ -1217,10 +1376,9 @@ test.describe('admin shell browser regressions', () => {
       await expect(photoCaptureRow.getByLabel('Capture lookup matches')).toBeVisible();
       await expect(photoCaptureRow.getByText('Matches', { exact: true })).toBeVisible();
       await expect(photoCaptureRow.getByText('In library')).toBeVisible();
-      const importMatchResponse = page.waitForResponse((response) => (
-        response.url().includes(`/api/capture-items/${photoCaptureId}/import-match`)
-        && response.request().method() === 'POST'
-      ));
+      const importMatchResponse = page.waitForResponse(
+        (response) => response.url().includes(`/api/capture-items/${photoCaptureId}/import-match`) && response.request().method() === 'POST'
+      );
       await photoCaptureRow.getByRole('button', { name: 'Link' }).first().click();
       const importMatchPayload = await (await importMatchResponse).json();
       expect(importMatchPayload?.ok).toBe(true);
@@ -1248,27 +1406,29 @@ test.describe('admin shell browser regressions', () => {
             count: 1,
             catalog_count: 0,
             provider_count: 1,
-            matches: [{
-              id: 'barcode:playwright:9780553572773',
-              source: 'books:isbn-direct',
-              match_type: 'provider_candidate',
-              title: 'Before the Storm',
-              normalizedTitle: 'Before the Storm',
-              searchTitle: 'Before the Storm',
-              barcode: '9780553572773',
-              upc: '9780553572773',
-              symbology: 'ISBN-13',
-              mediaTypeGuess: 'book',
-              media_type: 'book',
-              already_imported: false
-            }]
+            matches: [
+              {
+                id: 'barcode:playwright:9780553572773',
+                source: 'books:isbn-direct',
+                match_type: 'provider_candidate',
+                title: 'Before the Storm',
+                normalizedTitle: 'Before the Storm',
+                searchTitle: 'Before the Storm',
+                barcode: '9780553572773',
+                upc: '9780553572773',
+                symbology: 'ISBN-13',
+                mediaTypeGuess: 'book',
+                media_type: 'book',
+                already_imported: false
+              }
+            ]
           })
         });
       });
       await page.getByLabel('Barcode / ISBN').fill('9780553572773');
-      const unsavedLookupResponse = page.waitForResponse((response) => (
-        response.url().includes('/api/media/lookup/barcode') && response.request().method() === 'POST'
-      ));
+      const unsavedLookupResponse = page.waitForResponse(
+        (response) => response.url().includes('/api/media/lookup/barcode') && response.request().method() === 'POST'
+      );
       await page.locator('form').getByRole('button', { name: 'Find matches' }).click();
       expect((await unsavedLookupResponse).ok()).toBeTruthy();
       await expect(page.getByLabel('Scan lookup results')).toBeVisible();
@@ -1326,40 +1486,55 @@ test.describe('admin shell browser regressions', () => {
     await deleteMediaByExactTitle(requestContext, movieTitle).catch(() => {});
 
     try {
-      const canonicalResponse = await postWithCsrf(requestContext, '/api/media', {
-        title: canonicalTitle,
-        media_type: 'book',
-        year: 2024,
-        owned_formats: ['digital'],
-        type_details: {
-          author: 'Hugh Howey',
-          isbn: '9780358447849',
-          publisher: 'Mariner Books'
-        }
-      }, 201);
+      const canonicalResponse = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title: canonicalTitle,
+          media_type: 'book',
+          year: 2024,
+          owned_formats: ['digital'],
+          type_details: {
+            author: 'Hugh Howey',
+            isbn: '9780358447849',
+            publisher: 'Mariner Books'
+          }
+        },
+        201
+      );
       const canonical = await canonicalResponse.json();
       createdIds.push(Number(canonical.id));
 
-      const duplicateResponse = await postWithCsrf(requestContext, '/api/media', {
-        title: canonicalTitle,
-        media_type: 'book',
-        year: 2024,
-        owned_formats: ['paperback'],
-        type_details: {
-          author: 'Hugh Howey',
-          isbn: '9780358447849',
-          publisher: 'Mariner Books'
-        }
-      }, 201);
+      const duplicateResponse = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title: canonicalTitle,
+          media_type: 'book',
+          year: 2024,
+          owned_formats: ['paperback'],
+          type_details: {
+            author: 'Hugh Howey',
+            isbn: '9780358447849',
+            publisher: 'Mariner Books'
+          }
+        },
+        201
+      );
       const duplicate = await duplicateResponse.json();
       createdIds.push(Number(duplicate.id));
 
-      const movieResponse = await postWithCsrf(requestContext, '/api/media', {
-        title: movieTitle,
-        media_type: 'movie',
-        year: 1999,
-        owned_formats: ['digital']
-      }, 201);
+      const movieResponse = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title: movieTitle,
+          media_type: 'movie',
+          year: 1999,
+          owned_formats: ['digital']
+        },
+        201
+      );
       const movie = await movieResponse.json();
       createdIds.push(Number(movie.id));
 
@@ -1372,11 +1547,10 @@ test.describe('admin shell browser regressions', () => {
       await page.getByLabel('This record id').fill(String(canonical.id));
       await page.getByLabel('Matched record id').fill(String(duplicate.id));
 
-      const previewResponsePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/media/merge-preview')
-        && response.request().method() === 'POST'
-        && response.status() === 200
-      ));
+      const previewResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/media/merge-preview') && response.request().method() === 'POST' && response.status() === 200
+      );
       await page.getByRole('button', { name: 'Preview merge' }).click();
       const previewResponse = await previewResponsePromise;
       expect(previewResponse.ok()).toBeTruthy();
@@ -1387,11 +1561,10 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByText('9780358447849').first()).toBeVisible();
 
       await page.getByLabel('Matched record id').fill(String(movie.id));
-      const crossTypeResponsePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/media/merge-preview')
-        && response.request().method() === 'POST'
-        && response.status() === 409
-      ));
+      const crossTypeResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/media/merge-preview') && response.request().method() === 'POST' && response.status() === 409
+      );
       await page.getByRole('button', { name: 'Preview merge' }).click();
       const crossTypeResponse = await crossTypeResponsePromise;
       expect(crossTypeResponse.status()).toBe(409);
@@ -1400,21 +1573,19 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByText('This record is Book and the matched record is Movie.').first()).toBeVisible();
 
       await page.getByLabel('Matched record id').fill(String(duplicate.id));
-      const secondPreviewResponsePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/media/merge-preview')
-        && response.request().method() === 'POST'
-        && response.status() === 200
-      ));
+      const secondPreviewResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/media/merge-preview') && response.request().method() === 'POST' && response.status() === 200
+      );
       await page.getByRole('button', { name: 'Preview merge' }).click();
       const secondPreviewResponse = await secondPreviewResponsePromise;
       expect(secondPreviewResponse.ok()).toBeTruthy();
 
       await page.getByRole('button', { name: 'Apply merge' }).click();
-      const applyResponsePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/media/merge-apply')
-        && response.request().method() === 'POST'
-        && response.status() === 200
-      ));
+      const applyResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/media/merge-apply') && response.request().method() === 'POST' && response.status() === 200
+      );
       await page.getByRole('button', { name: 'Confirm apply' }).click();
       const applyResponse = await applyResponsePromise;
       expect(applyResponse.ok()).toBeTruthy();
@@ -1423,11 +1594,10 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByText(`Record #${canonical.id} absorbed record #${duplicate.id}`)).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Active merge events' })).toBeVisible();
 
-      const revertResponsePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/media/merge-revert')
-        && response.request().method() === 'POST'
-        && response.status() === 200
-      ));
+      const revertResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/media/merge-revert') && response.request().method() === 'POST' && response.status() === 200
+      );
       await page.getByRole('button', { name: 'Revert merge' }).first().click();
       const revertResponse = await revertResponsePromise;
       expect(revertResponse.ok()).toBeTruthy();
@@ -1456,39 +1626,59 @@ test.describe('admin shell browser regressions', () => {
     await deleteMediaByExactTitle(requestContext, itemTitleB).catch(() => {});
 
     try {
-      const sourceResponse = await postWithCsrf(requestContext, '/api/media', {
-        title: collectionTitle,
-        media_type: 'movie',
-        year: 2024,
-        owned_formats: ['digital']
-      }, 201);
+      const sourceResponse = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title: collectionTitle,
+          media_type: 'movie',
+          year: 2024,
+          owned_formats: ['digital']
+        },
+        201
+      );
       const sourceTitleA = await sourceResponse.json();
       createdMediaIds.push(Number(sourceTitleA.id));
 
-      const duplicateResponse = await postWithCsrf(requestContext, '/api/media', {
-        title: collectionTitle,
-        media_type: 'movie',
-        year: 2024,
-        owned_formats: ['digital']
-      }, 201);
+      const duplicateResponse = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title: collectionTitle,
+          media_type: 'movie',
+          year: 2024,
+          owned_formats: ['digital']
+        },
+        201
+      );
       const sourceTitleB = await duplicateResponse.json();
       createdMediaIds.push(Number(sourceTitleB.id));
 
-      const itemResponseA = await postWithCsrf(requestContext, '/api/media', {
-        title: itemTitleA,
-        media_type: 'movie',
-        year: 2020,
-        owned_formats: ['digital']
-      }, 201);
+      const itemResponseA = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title: itemTitleA,
+          media_type: 'movie',
+          year: 2020,
+          owned_formats: ['digital']
+        },
+        201
+      );
       const itemA = await itemResponseA.json();
       createdMediaIds.push(Number(itemA.id));
 
-      const itemResponseB = await postWithCsrf(requestContext, '/api/media', {
-        title: itemTitleB,
-        media_type: 'movie',
-        year: 2021,
-        owned_formats: ['digital']
-      }, 201);
+      const itemResponseB = await postWithCsrf(
+        requestContext,
+        '/api/media',
+        {
+          title: itemTitleB,
+          media_type: 'movie',
+          year: 2021,
+          owned_formats: ['digital']
+        },
+        201
+      );
       const itemB = await itemResponseB.json();
       createdMediaIds.push(Number(itemB.id));
 
@@ -1497,18 +1687,33 @@ test.describe('admin shell browser regressions', () => {
       const convertResponseB = await postWithCsrf(requestContext, `/api/media/${sourceTitleB.id}/convert-to-collection`, {}, 200);
       const convertedB = await convertResponseB.json();
 
-      await postWithCsrf(requestContext, `/api/media/collections/${convertedA.collection_id}/items`, {
-        media_id: itemA.id,
-        position: 1
-      }, 201);
-      await postWithCsrf(requestContext, `/api/media/collections/${convertedB.collection_id}/items`, {
-        media_id: itemA.id,
-        position: 1
-      }, 201);
-      await postWithCsrf(requestContext, `/api/media/collections/${convertedB.collection_id}/items`, {
-        media_id: itemB.id,
-        position: 2
-      }, 201);
+      await postWithCsrf(
+        requestContext,
+        `/api/media/collections/${convertedA.collection_id}/items`,
+        {
+          media_id: itemA.id,
+          position: 1
+        },
+        201
+      );
+      await postWithCsrf(
+        requestContext,
+        `/api/media/collections/${convertedB.collection_id}/items`,
+        {
+          media_id: itemA.id,
+          position: 1
+        },
+        201
+      );
+      await postWithCsrf(
+        requestContext,
+        `/api/media/collections/${convertedB.collection_id}/items`,
+        {
+          media_id: itemB.id,
+          position: 2
+        },
+        201
+      );
 
       await signInThroughUi(page, adminCredentials);
       await page.getByRole('button', { name: 'Review', exact: true }).click();
@@ -1517,11 +1722,12 @@ test.describe('admin shell browser regressions', () => {
       await page.getByPlaceholder('Search duplicate collections').fill(collectionTitle);
       await expect(page.getByText(collectionTitle).first()).toBeVisible();
 
-      const previewResponsePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/media/collections/duplicate-preview')
-        && response.request().method() === 'GET'
-        && response.status() === 200
-      ));
+      const previewResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/media/collections/duplicate-preview') &&
+          response.request().method() === 'GET' &&
+          response.status() === 200
+      );
       await page.getByRole('button', { name: 'Review group' }).first().click();
       const previewResponse = await previewResponsePromise;
       expect(previewResponse.ok()).toBeTruthy();
@@ -1530,11 +1736,12 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByText('Matched on collection name and expected item count').first()).toBeVisible();
       await expect(page.getByText('Merged items').first()).toBeVisible();
 
-      const applyResponsePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/media/collections/merge-apply')
-        && response.request().method() === 'POST'
-        && response.status() === 200
-      ));
+      const applyResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/media/collections/merge-apply') &&
+          response.request().method() === 'POST' &&
+          response.status() === 200
+      );
       await page.getByRole('button', { name: 'Apply merge' }).click();
       await page.getByRole('button', { name: 'Confirm apply' }).click();
       const applyResponse = await applyResponsePromise;
@@ -1543,11 +1750,12 @@ test.describe('admin shell browser regressions', () => {
       await expect(page.getByRole('heading', { name: 'Collection merge applied' })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Active collection merge events' })).toBeVisible();
 
-      const revertResponsePromise = page.waitForResponse((response) => (
-        response.url().includes('/api/media/collections/merge-revert')
-        && response.request().method() === 'POST'
-        && response.status() === 200
-      ));
+      const revertResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/media/collections/merge-revert') &&
+          response.request().method() === 'POST' &&
+          response.status() === 200
+      );
       await page.getByRole('button', { name: 'Revert merge' }).first().click();
       const revertResponse = await revertResponsePromise;
       expect(revertResponse.ok()).toBeTruthy();

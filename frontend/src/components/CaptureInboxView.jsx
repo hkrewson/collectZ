@@ -56,9 +56,9 @@ const OBJECT_TYPES = [
   { value: 'event_item', label: 'Event item' }
 ];
 
-const MEDIA_IMPORT_TYPES = OBJECT_TYPES.filter((option) => (
+const MEDIA_IMPORT_TYPES = OBJECT_TYPES.filter((option) =>
   ['book', 'comic_book', 'movie', 'tv_series', 'audio', 'game'].includes(option.value)
-));
+);
 const MEDIA_IMPORT_TYPE_VALUES = new Set(MEDIA_IMPORT_TYPES.map((option) => option.value));
 
 const EMPTY_FORM = {
@@ -105,9 +105,7 @@ function displayConflictValue(value) {
 }
 
 function latestReplayConflict(item = {}) {
-  const conflicts = Array.isArray(item.review_decision?.capture_replay_conflicts)
-    ? item.review_decision.capture_replay_conflicts
-    : [];
+  const conflicts = Array.isArray(item.review_decision?.capture_replay_conflicts) ? item.review_decision.capture_replay_conflicts : [];
   for (let index = conflicts.length - 1; index >= 0; index -= 1) {
     const conflict = conflicts[index];
     if (conflict?.status === 'needs_review' && Array.isArray(conflict.fields) && conflict.fields.length) {
@@ -153,7 +151,9 @@ function isSafeExactIsbnMatch(match, barcode) {
     match?.typeDetails?.isbn,
     match?.type_details?.isbn,
     match?.book?.type_details?.isbn
-  ].map(normalizedIdentifierDigits).filter(Boolean);
+  ]
+    .map(normalizedIdentifierDigits)
+    .filter(Boolean);
   const hasExactIdentifier = lookupDigits && matchIdentifiers.some((identifier) => identifier === lookupDigits);
   if (!hasExactIdentifier || !looksLikeIsbn(lookupDigits)) return false;
 
@@ -168,9 +168,13 @@ function findSafeExactIsbnMatch(matches = [], barcode = '') {
 }
 
 function captureReviewImportType(item = {}, overrides = {}) {
-  const override = String(overrides[item.id] || '').trim().toLowerCase();
+  const override = String(overrides[item.id] || '')
+    .trim()
+    .toLowerCase();
   if (MEDIA_IMPORT_TYPE_VALUES.has(override)) return override;
-  const objectType = String(item.object_type || '').trim().toLowerCase();
+  const objectType = String(item.object_type || '')
+    .trim()
+    .toLowerCase();
   return MEDIA_IMPORT_TYPE_VALUES.has(objectType) ? objectType : '';
 }
 
@@ -210,15 +214,33 @@ function CaptureFilterMenu({
         >
           <label className="block">
             <span className="mb-1 block text-xs text-ghost">Capture</span>
-            <select className="select h-9 w-full" value={captureType} onChange={(event) => setCaptureType(event.target.value)} aria-label="Capture type">
+            <select
+              className="select h-9 w-full"
+              value={captureType}
+              onChange={(event) => setCaptureType(event.target.value)}
+              aria-label="Capture type"
+            >
               <option value="all">All captures</option>
-              {CAPTURE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              {CAPTURE_TYPES.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="block">
             <span className="mb-1 block text-xs text-ghost">Source</span>
-            <select className="select h-9 w-full" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)} aria-label="Capture source">
-              {SOURCE_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            <select
+              className="select h-9 w-full"
+              value={sourceFilter}
+              onChange={(event) => setSourceFilter(event.target.value)}
+              aria-label="Capture source"
+            >
+              {SOURCE_FILTERS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
           <div>
@@ -241,7 +263,10 @@ function CaptureFilterMenu({
                     onClick={() => setReviewFilter(tab.id)}
                   >
                     <span className="min-w-0 truncate">{tab.label}</span>
-                    <span className={cx('h-2 w-2 shrink-0 rounded-full border', selected ? 'border-gold bg-gold' : 'border-muted')} aria-hidden="true" />
+                    <span
+                      className={cx('h-2 w-2 shrink-0 rounded-full border', selected ? 'border-gold bg-gold' : 'border-muted')}
+                      aria-hidden="true"
+                    />
                   </button>
                 );
               })}
@@ -312,7 +337,7 @@ function CaptureEditor({
     try {
       const bounded = await readCandidates({ boundingBox: detected?.boundingBox || null });
       const fullFrame = bounded.candidates.length ? null : await readCandidates();
-      const candidates = bounded.candidates.length ? bounded.candidates : (fullFrame?.candidates || []);
+      const candidates = bounded.candidates.length ? bounded.candidates : fullFrame?.candidates || [];
       return {
         isbn: candidates[0] || directIsbn || '',
         rawText: bounded.rawText || fullFrame?.rawText || ''
@@ -339,7 +364,7 @@ function CaptureEditor({
       }
       const bookIdentifiers = await readIsbnFromBarcodeImage(file, detected);
       const capturedCode = bookIdentifiers.isbn || detected.code;
-      const capturedSymbology = bookIdentifiers.isbn ? 'ISBN-13' : (detected.symbology || detected.format || form.symbology || '');
+      const capturedSymbology = bookIdentifiers.isbn ? 'ISBN-13' : detected.symbology || detected.format || form.symbology || '';
       const capturedObjectType = bookIdentifiers.isbn ? 'book' : form.object_type;
       setForm((current) => ({
         ...current,
@@ -350,12 +375,7 @@ function CaptureEditor({
         title: current.title || file.name || '',
         ocr_text: current.ocr_text || bookIdentifiers.rawText || ''
       }));
-      onToast?.(
-        bookIdentifiers.isbn
-          ? `ISBN captured: ${bookIdentifiers.isbn}`
-          : `Barcode captured: ${detected.code}`,
-        'success'
-      );
+      onToast?.(bookIdentifiers.isbn ? `ISBN captured: ${bookIdentifiers.isbn}` : `Barcode captured: ${detected.code}`, 'success');
       await onLookupBarcode?.({
         barcode: capturedCode,
         symbology: capturedSymbology,
@@ -378,7 +398,10 @@ function CaptureEditor({
       }}
     >
       {batchMode ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-edge/70 pb-3" aria-label="Batch scan session">
+        <div
+          className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-edge/70 pb-3"
+          aria-label="Batch scan session"
+        >
           <div className="text-sm text-ink">
             Batch scan
             <span className="ml-2 text-xs text-ghost">
@@ -386,7 +409,9 @@ function CaptureEditor({
               {batchStats.errors ? ` · ${batchStats.errors} failed` : ''}
             </span>
           </div>
-          <button type="button" className="btn-ghost btn-sm" onClick={onStopBatch}>Stop batch</button>
+          <button type="button" className="btn-ghost btn-sm" onClick={onStopBatch}>
+            Stop batch
+          </button>
         </div>
       ) : null}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
@@ -396,7 +421,11 @@ function CaptureEditor({
             value={form.capture_type}
             onChange={(event) => setForm((current) => ({ ...current, capture_type: event.target.value }))}
           >
-            {CAPTURE_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            {CAPTURE_TYPES.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </Field>
         <Field label="Type" className="md:col-span-2">
@@ -405,7 +434,11 @@ function CaptureEditor({
             value={form.object_type}
             onChange={(event) => setForm((current) => ({ ...current, object_type: event.target.value }))}
           >
-            {OBJECT_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            {OBJECT_TYPES.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </Field>
         <Field label="Title" className="md:col-span-5">
@@ -527,7 +560,10 @@ function CaptureEditor({
           {lookupMatches.length ? (
             <div className="mt-3 divide-y divide-edge/70 border-y border-edge/70">
               {lookupMatches.slice(0, 6).map((match) => (
-                <div key={match.id || `${match.source}-${match.title}`} className="grid gap-2 py-2 text-sm md:grid-cols-[1fr_auto] md:items-center">
+                <div
+                  key={match.id || `${match.source}-${match.title}`}
+                  className="grid gap-2 py-2 text-sm md:grid-cols-[1fr_auto] md:items-center"
+                >
                   <div className="min-w-0">
                     <div className="truncate font-medium text-ink">{match.title || 'Untitled match'}</div>
                     <div className="mt-0.5 truncate text-xs text-ghost">
@@ -535,7 +571,9 @@ function CaptureEditor({
                         match.already_imported ? 'In library' : titleCase(match.source || 'provider'),
                         typeLabel(match.media_type || match.mediaTypeGuess, OBJECT_TYPES),
                         match.year
-                      ].filter(Boolean).join(' · ')}
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </div>
                   </div>
                   <button
@@ -545,17 +583,19 @@ function CaptureEditor({
                     onClick={() => onImportMatch?.(match)}
                   >
                     {safeExactIsbnMatch?.id === match.id
-                      ? match.already_imported ? 'Link exact ISBN' : 'Add exact ISBN'
-                      : match.already_imported ? 'Link' : 'Add to library'}
+                      ? match.already_imported
+                        ? 'Link exact ISBN'
+                        : 'Add exact ISBN'
+                      : match.already_imported
+                        ? 'Link'
+                        : 'Add to library'}
                   </button>
                 </div>
               ))}
             </div>
           ) : null}
           {safeExactIsbnMatch && !batchMode ? (
-            <div className="mt-2 text-xs text-ghost">
-              Exact ISBN match. Add it now, or save this capture for review.
-            </div>
+            <div className="mt-2 text-xs text-ghost">Exact ISBN match. Add it now, or save this capture for review.</div>
           ) : null}
           {formLookup?.lookup?.provider_error && lookupMatches.length ? (
             <div className="mt-2 text-xs text-warn">Provider warning: {formLookup.lookup.provider_error}</div>
@@ -571,16 +611,20 @@ function CaptureEditor({
             type="button"
             className="btn-ghost"
             disabled={saving || formLookup?.loading}
-            onClick={() => onLookupBarcode?.({
-              barcode: form.barcode,
-              symbology: form.symbology,
-              mediaType: form.object_type
-            })}
+            onClick={() =>
+              onLookupBarcode?.({
+                barcode: form.barcode,
+                symbology: form.symbology,
+                mediaType: form.object_type
+              })
+            }
           >
             {formLookup?.loading ? 'Finding...' : 'Find matches'}
           </button>
         ) : null}
-        <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>
+        <button type="button" className="btn-ghost" onClick={onCancel}>
+          Cancel
+        </button>
       </div>
     </form>
   );
@@ -627,39 +671,42 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
   const [batchEvents, setBatchEvents] = useState([]);
   const [lastBatchSummary, setLastBatchSummary] = useState(null);
 
-  const loadCaptures = useCallback(async (page = 1) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams();
-      params.set('status', status);
-      params.set('page', String(page));
-      params.set('limit', '50');
-      if (reviewFilter !== 'all') params.set('review_filter', reviewFilter);
-      if (captureType !== 'all') params.set('capture_type', captureType);
-      if (sourceFilter !== 'all') params.set('source_filter', sourceFilter);
-      if (search.trim()) params.set('search', search.trim());
-      const payload = await apiCall('get', `/capture-items?${params.toString()}`);
-      setItems(Array.isArray(payload?.items) ? payload.items : []);
-      setReviewCounts({
-        all: Number(payload?.review_counts?.all || 0),
-        needs_choice: Number(payload?.review_counts?.needs_choice || 0),
-        ready: Number(payload?.review_counts?.ready || 0),
-        no_match: Number(payload?.review_counts?.no_match || 0),
-        missing_details: Number(payload?.review_counts?.missing_details || 0),
-        problems: Number(payload?.review_counts?.problems || 0)
-      });
-      setPagination(payload?.pagination || { page, limit: 50, total: 0, total_pages: 1 });
-      setSourceCounts({
-        scanner: Number(payload?.source_counts?.scanner || 0),
-        web: Number(payload?.source_counts?.web || 0)
-      });
-    } catch (err) {
-      setError(err?.message || 'Could not load capture inbox.');
-    } finally {
-      setLoading(false);
-    }
-  }, [apiCall, captureType, reviewFilter, search, sourceFilter, status]);
+  const loadCaptures = useCallback(
+    async (page = 1) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams();
+        params.set('status', status);
+        params.set('page', String(page));
+        params.set('limit', '50');
+        if (reviewFilter !== 'all') params.set('review_filter', reviewFilter);
+        if (captureType !== 'all') params.set('capture_type', captureType);
+        if (sourceFilter !== 'all') params.set('source_filter', sourceFilter);
+        if (search.trim()) params.set('search', search.trim());
+        const payload = await apiCall('get', `/capture-items?${params.toString()}`);
+        setItems(Array.isArray(payload?.items) ? payload.items : []);
+        setReviewCounts({
+          all: Number(payload?.review_counts?.all || 0),
+          needs_choice: Number(payload?.review_counts?.needs_choice || 0),
+          ready: Number(payload?.review_counts?.ready || 0),
+          no_match: Number(payload?.review_counts?.no_match || 0),
+          missing_details: Number(payload?.review_counts?.missing_details || 0),
+          problems: Number(payload?.review_counts?.problems || 0)
+        });
+        setPagination(payload?.pagination || { page, limit: 50, total: 0, total_pages: 1 });
+        setSourceCounts({
+          scanner: Number(payload?.source_counts?.scanner || 0),
+          web: Number(payload?.source_counts?.web || 0)
+        });
+      } catch (err) {
+        setError(err?.message || 'Could not load capture inbox.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [apiCall, captureType, reviewFilter, search, sourceFilter, status]
+  );
 
   useEffect(() => {
     loadCaptures(1);
@@ -680,10 +727,14 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
   const showScannerShortcut = sourceFilter !== 'scanner' && sourceCounts.scanner > 0;
   const showAllSourcesShortcut = sourceFilter !== 'all';
 
-  const reviewTabs = useMemo(() => REVIEW_TABS.map((tab) => ({
-    ...tab,
-    label: `${tab.label} ${reviewCounts[tab.id] || 0}`
-  })), [reviewCounts]);
+  const reviewTabs = useMemo(
+    () =>
+      REVIEW_TABS.map((tab) => ({
+        ...tab,
+        label: `${tab.label} ${reviewCounts[tab.id] || 0}`
+      })),
+    [reviewCounts]
+  );
 
   const reviewDecisionFromFormLookup = (lookupSnapshot = formLookup, formSnapshot = form) => {
     if (!lookupSnapshot.lookedUp && !lookupSnapshot.error && !lookupSnapshot.matches.length) return {};
@@ -841,7 +892,9 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
       };
       setFormLookup(lookupSnapshot);
       onToast?.(
-        matches.length ? `Found ${matches.length} match${matches.length === 1 ? '' : 'es'}.` : 'No matches found. You can save this capture for review.',
+        matches.length
+          ? `Found ${matches.length} match${matches.length === 1 ? '' : 'es'}.`
+          : 'No matches found. You can save this capture for review.',
         matches.length ? 'success' : 'info'
       );
       const safeExactMatch = findSafeExactIsbnMatch(matches, response?.barcode || code);
@@ -980,7 +1033,10 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
         source: 'web_capture_inbox'
       });
       const count = response?.candidates?.length || 0;
-      onToast?.(count ? `Found ${count} OCR candidate${count === 1 ? '' : 's'}.` : 'No identifiers found in OCR text.', count ? 'success' : 'info');
+      onToast?.(
+        count ? `Found ${count} OCR candidate${count === 1 ? '' : 's'}.` : 'No identifiers found in OCR text.',
+        count ? 'success' : 'info'
+      );
       await loadCaptures(pagination.page || 1);
     } catch (err) {
       onToast?.(err?.message || 'Could not extract OCR candidates.', 'error');
@@ -1183,26 +1239,18 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
   const captureTypeFilterLabel = captureType === 'all' ? 'All captures' : typeLabel(captureType, CAPTURE_TYPES);
   const sourceFilterLabel = typeLabel(sourceFilter, SOURCE_FILTERS);
   const reviewFilterLabel = REVIEW_TABS.find((tab) => tab.id === reviewFilter)?.label || 'All';
-  const captureFilterSummary = [
-    captureTypeFilterLabel,
-    sourceFilterLabel,
-    reviewFilterLabel === 'All' ? null : reviewFilterLabel
-  ].filter(Boolean).join(' · ');
+  const captureFilterSummary = [captureTypeFilterLabel, sourceFilterLabel, reviewFilterLabel === 'All' ? null : reviewFilterLabel]
+    .filter(Boolean)
+    .join(' · ');
 
   const header = (
     <UtilityPageHeader
       title="Capture Inbox"
       compact={headerCompact}
       titleClassName="whitespace-nowrap max-sm:sr-only"
-      actions={(
+      actions={
         <>
-          <button
-            type="button"
-            className="btn-icon h-9 w-9"
-            onClick={openNewCapture}
-            aria-label="New capture"
-            title="New capture"
-          >
+          <button type="button" className="btn-icon h-9 w-9" onClick={openNewCapture} aria-label="New capture" title="New capture">
             {Icons?.Camera ? <Icons.Camera /> : null}
           </button>
           <button
@@ -1215,8 +1263,8 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
             {Icons?.Barcode ? <Icons.Barcode /> : null}
           </button>
         </>
-      )}
-      controls={(
+      }
+      controls={
         <div className="space-y-2">
           <SectionTabs
             tabs={STATUS_TABS}
@@ -1251,7 +1299,7 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
             />
           </div>
         </div>
-      )}
+      }
     />
   );
 
@@ -1270,7 +1318,8 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
             <div>
               <div className="text-sm font-medium text-ink">Batch summary</div>
               <div className="mt-1 text-xs text-ghost">
-                {lastBatchSummary.stats.imported} added · {lastBatchSummary.stats.linked} linked · {lastBatchSummary.stats.needs_choice} need choice · {lastBatchSummary.stats.no_match} no match
+                {lastBatchSummary.stats.imported} added · {lastBatchSummary.stats.linked} linked · {lastBatchSummary.stats.needs_choice}{' '}
+                need choice · {lastBatchSummary.stats.no_match} no match
                 {lastBatchSummary.stats.errors ? ` · ${lastBatchSummary.stats.errors} failed` : ''}
               </div>
             </div>
@@ -1299,14 +1348,21 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
                   Review no matches
                 </button>
               ) : null}
-              <button type="button" className="btn-ghost btn-sm" onClick={() => setLastBatchSummary(null)}>Dismiss</button>
+              <button type="button" className="btn-ghost btn-sm" onClick={() => setLastBatchSummary(null)}>
+                Dismiss
+              </button>
             </div>
           </div>
           {lastBatchSummary.events.length ? (
             <div className="mt-3 divide-y divide-edge/70 border-t border-edge/70">
               {lastBatchSummary.events.slice(0, 5).map((event) => (
                 <div key={event.id} className="grid gap-1 py-2 text-xs sm:grid-cols-[7rem_1fr_auto] sm:items-center">
-                  <span className={cx('font-medium', event.status === 'error' ? 'text-err' : event.status === 'needs_choice' ? 'text-warn' : 'text-ghost')}>
+                  <span
+                    className={cx(
+                      'font-medium',
+                      event.status === 'error' ? 'text-err' : event.status === 'needs_choice' ? 'text-warn' : 'text-ghost'
+                    )}
+                  >
                     {titleCase(event.status)}
                   </span>
                   <span className="truncate text-ink">{event.title}</span>
@@ -1318,7 +1374,7 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
         </div>
       ) : null}
 
-      {(showScannerShortcut || showAllSourcesShortcut) ? (
+      {showScannerShortcut || showAllSourcesShortcut ? (
         <div className="flex flex-wrap items-center justify-between gap-3 border-y border-edge py-3" aria-label="Capture source shortcuts">
           <div>
             <div className="text-sm font-medium text-ink">
@@ -1403,9 +1459,7 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
       ) : null}
 
       {editorOpen && items.length === 0 ? null : loading ? (
-        <div className="flex min-h-52 items-center justify-center text-ghost">
-          {Spinner ? <Spinner /> : 'Loading...'}
-        </div>
+        <div className="flex min-h-52 items-center justify-center text-ghost">{Spinner ? <Spinner /> : 'Loading...'}</div>
       ) : error ? (
         <div className="py-4 text-sm text-err">{error}</div>
       ) : items.length === 0 ? (
@@ -1421,13 +1475,18 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
               scannerCapture ? 'Scanner app' : null,
               item.barcode,
               dateLabel(item.updated_at)
-            ].filter(Boolean).join(' · ');
+            ]
+              .filter(Boolean)
+              .join(' · ');
             const ocrCandidates = Array.isArray(item.review_decision?.ocr_candidates) ? item.review_decision.ocr_candidates : [];
             const selectedCandidateId = item.review_decision?.selected_ocr_candidate?.id || '';
-            const lookupMatchesList = Array.isArray(item.review_decision?.capture_lookup_matches) ? item.review_decision.capture_lookup_matches : [];
+            const lookupMatchesList = Array.isArray(item.review_decision?.capture_lookup_matches)
+              ? item.review_decision.capture_lookup_matches
+              : [];
             const lookupStatus = item.review_decision?.capture_lookup_status || {};
             const reviewReasons = Array.isArray(item.review_reasons) ? item.review_reasons : [];
             const importPreview = Array.isArray(item.import_mapping?.preview) ? item.import_mapping.preview : [];
+            const reviewPlan = Array.isArray(item.import_mapping?.review_plan) ? item.import_mapping.review_plan : [];
             const importPreviewText = importPreview
               .map((entry) => [entry?.label, entry?.value].filter(Boolean).join(' '))
               .filter(Boolean)
@@ -1436,10 +1495,10 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
             const replayFields = Array.isArray(replayConflict?.fields) ? replayConflict.fields : [];
             const reviewImportType = captureReviewImportType(item, reviewImportTypes);
             const canImportTitleCapture = Boolean(
-              item.status !== 'converted'
-              && item.status !== 'discarded'
-              && String(item.title || '').trim()
-              && lookupMatchesList.length === 0
+              item.status !== 'converted' &&
+              item.status !== 'discarded' &&
+              String(item.title || '').trim() &&
+              lookupMatchesList.length === 0
             );
             return (
               <div key={item.id} className="grid gap-3 py-3 md:grid-cols-[auto_1fr_auto] md:items-center">
@@ -1470,15 +1529,25 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
                       Will add: {importPreviewText}
                     </div>
                   ) : null}
+                  {reviewPlan.length ? (
+                    <div className="mt-2" aria-label="Reviewed collection outcome">
+                      <div className="text-xs font-medium text-ink">After you review and add</div>
+                      <ul className="mt-1 flex flex-wrap gap-1.5 text-xs text-dim">
+                        {reviewPlan.map((step) => (
+                          <li key={`${item.id}-${step.key}`} className="rounded-md border border-edge bg-panel/60 px-2 py-1 text-pretty">
+                            <span className="font-medium text-ink">{step.label}:</span> {step.value}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                   {item.image_path ? <div className="mt-1 truncate text-xs text-dim">{item.image_path}</div> : null}
                   {item.ocr_text ? <div className="mt-1 line-clamp-2 text-xs text-dim">{item.ocr_text}</div> : null}
                   {replayFields.length ? (
                     <div className="mt-3 border-l-2 border-warn/60 pl-3" aria-label="Replay conflict review">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span className="text-xs font-medium text-warn">Replay conflict</span>
-                        <span className="text-xs text-ghost">
-                          {replayFields.map((conflict) => titleCase(conflict.field)).join(', ')}
-                        </span>
+                        <span className="text-xs text-ghost">{replayFields.map((conflict) => titleCase(conflict.field)).join(', ')}</span>
                       </div>
                       <div className="mt-2 grid gap-1 text-xs md:max-w-2xl">
                         {replayFields.slice(0, 4).map((conflict) => (
@@ -1539,10 +1608,15 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
                       </div>
                       <div className="mt-2 grid gap-1 md:max-w-2xl">
                         {lookupMatchesList.slice(0, 4).map((match) => (
-                          <div key={match.id || `${item.id}-${match.title}`} className="grid items-center gap-2 text-xs md:grid-cols-[1fr_auto_auto]">
+                          <div
+                            key={match.id || `${item.id}-${match.title}`}
+                            className="grid items-center gap-2 text-xs md:grid-cols-[1fr_auto_auto]"
+                          >
                             <span className="truncate text-dim">
                               {match.title || 'Untitled match'}
-                              {match.media_type || match.mediaTypeGuess ? ` · ${typeLabel(match.media_type || match.mediaTypeGuess, OBJECT_TYPES)}` : ''}
+                              {match.media_type || match.mediaTypeGuess
+                                ? ` · ${typeLabel(match.media_type || match.mediaTypeGuess, OBJECT_TYPES)}`
+                                : ''}
                             </span>
                             <span className={cx('text-ghost', match.already_imported ? 'text-ok' : '')}>
                               {match.already_imported ? 'In library' : titleCase(match.source || 'provider')}
@@ -1583,7 +1657,9 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
                       >
                         <option value="">Choose type</option>
                         {MEDIA_IMPORT_TYPES.map((option) => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
                         ))}
                       </select>
                       <button

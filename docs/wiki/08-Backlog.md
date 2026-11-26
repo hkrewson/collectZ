@@ -118,7 +118,7 @@ Explicit non-goals for this program:
 **Type:** Strategic collection data-model program
 **Tags:** `identity`, `media`, `editions`, `copies`, `providers`, `provenance`, `imports`, `valuation`
 **Priority:** `P2`
-**Status:** Strategic backlog. Canonical UUID/external identity shipped through `3.27.x`; immutable source observations and two adopters shipped through `3.29.4`; safe observation readback, explicit BookOrbit metadata provenance, comparisons, reviews, and bounded reviewed apply shipped through `3.29.10`; reviewed credential-safe cover application shipped in `3.29.11`; and read-only BookOrbit identity-rematch candidate preview shipped in `3.29.12`. The bounded BookOrbit 3.10 Provider Edition Group observation slice has moved to active roadmap milestone `3.30.0`; the remaining program still separates creative work, market release, owned object, actual rematch decisions/mutation, and broader provenance.
+**Status:** Active program. Canonical UUID/external identity shipped through `3.27.x`; immutable source observations and reviewed apply shipped through `3.29.x`; BookOrbit Provider Edition Group evidence shipped in `3.30.0`; and the first CollectZ-owned Work, Edition, Owned Copy adoption is active as roadmap milestone `3.31.0`. Later adoption, rematch mutation, and broader provenance remain backlog work.
 
 **Goal:** Evolve collection identity so CollectZ can distinguish what a title/object is, which edition or release exists, which copy the user owns, and what an external provider observed without overwriting one concept with another.
 
@@ -131,7 +131,7 @@ Explicit non-goals for this program:
 - Define explicit concepts and invariants for `work/title`, `edition/release`, `owned copy/item`, `source observation`, and typed relationship after the external-identity foundation proves compatibility with current media rows.
 - Preserve and safely project source observations with provider, observed timestamp, normalized facts, safe source reference, and provenance so later rematching does not require trusting the latest flattened row. The initial projection shipped in `3.29.5`, explicit BookOrbit selected-provider attribution shipped in `3.29.6`, read-only comparison shipped in `3.29.7`, deliberate reviewed apply shipped in `3.29.10`, reviewed cover apply shipped in `3.29.11`, and BookOrbit rematch candidate preview shipped in `3.29.12`; actual rematch decisions/mutation remain backlog work.
 - Define conflict/overwrite policy among manual data, reviewed imports, provider refreshes, locked fields, and newer observations.
-- After `3.30.0` proves provider-owned edition relationships as immutable evidence only, introduce remaining work/edition/copy tables additively for a workflow that requires CollectZ-owned relationships, and provide compatibility projections for current APIs/UI.
+- `3.31.0` introduces work/edition/copy tables additively through reviewed single-title Blu-ray intake and preserves compatibility projections for current APIs/UI.
 - Start with a workflow that materially needs the distinction, such as Blu-ray physical releases and owned copies, then prove the model with a different family such as books, games, or audio before generalizing.
 
 **Relationship to existing backlog**
@@ -709,8 +709,8 @@ These are product-level capability gaps discovered from the current shape of the
 ### Backlog Item: Native Blu-ray Collection Intake, Edition Review, and Upgrade Discovery
 **Type:** Product/import architecture milestone candidate
 **Tags:** `imports`, `capture`, `browser-extension`, `blu-ray`, `movies`, `editions`, `review`, `pricing`, `ratings`, `notifications`, `plex`, `provenance`
-**Priority:** `P2` as a candidate first workflow under `Work, Edition, Owned Copy, and External Observation Model`
-**Status:** Product decisions captured; the initial browser-extension capture path and single-title Blu-ray mapping exist, but authenticated collection traversal, batch review, full edition upsert, notification, price-history, and automatic Plex watched-state propagation remain unimplemented.
+**Priority:** `P2` under the active `Work, Edition, Owned Copy, and External Observation Model` program.
+**Status:** The recommended first slice—reviewed single-title Work, Edition, Owned Copy, and Edition Source Observation creation—moved to roadmap milestone `3.31.0`. The remaining authenticated collection traversal, batch review, status mapping, upgrade discovery, notification, price-history, and Plex watched-state work stays here unscheduled.
 
 **Goal:** Make Blu-ray.com intake a native CollectZ review-and-upsert workflow, using the browser extension only where an authenticated browser session is required, while preserving edition identity, useful source metadata, user control over conflicts, and reliable downstream Plex watched-state synchronization.
 
@@ -840,11 +840,12 @@ These are product-level capability gaps discovered from the current shape of the
 - Keep source evidence sufficient for provenance and troubleshooting without treating scraped raw HTML as the canonical data model.
 
 **Candidate implementation slices**
-1. Define the batch capture/session, normalized Blu-ray item payload, source observation, review-decision, and least-privilege extension-auth contracts; document single-library scoping and extension/native responsibilities.
-2. Expand single-title Blu-ray mapping and tests to cover all reliable existing CollectZ fields, edition identity, used-price observations, source IDs, and ratings.
+- Shipped in `3.31.0`: reviewed single-title Work/Edition/Owned Copy creation, exact-product upsert, immutable normalized Edition Source Observation, compatibility projection, and pre-apply outcome review.
+1. Define the batch capture/session and normalized collection-item contracts while retaining the `3.31.0` exact-library and least-privilege boundaries.
+2. Expand single-title mapping to remaining reliable edition fields and ratings without flattening them onto the Work.
 3. Add batch Inbox rows and the tabbed conflict-first drawer with full-set toggle, arrow traversal, staged decisions, and independent Apply batch transactions.
 4. Add authenticated extension collection traversal with pagination/category status extraction, jitter/backoff, pause/resume, and duplicate-safe batch delivery.
-5. Implement canonical/edition matching, owned-format merging, exact-edition updates, Wishlist/Ordered/status mapping, and review flags for Loaned/trade/sell; exclude Rented.
+5. Extend exact-edition matching to Wishlist/Ordered/status mapping and review flags for Loaned/trade/sell; exclude Rented.
 6. Add normalized price/rating/source history and current per-source Overview readback.
 7. Add the per-user global notification inbox plus admin/owner aggregate visibility and title-local sync warnings.
 8. Add automatic positive watched-state propagation to Plex with durable retry, idempotency, activity evidence, notification failure handling, and title-local status.

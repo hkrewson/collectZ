@@ -117,6 +117,7 @@ const {
   formatsFromBlurayLabel,
   parseLegacyUsedPrice
 } = require('../services/browserCaptureMapping');
+const { buildEditionFacts, fingerprint: fingerprintEditionFacts } = require('../services/workEditionOwnedCopy');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
 const { buildCoreInstanceContract } = require('../services/coreInstance');
 const { shapeOperatorJob } = require('../services/durableJobs');
@@ -814,7 +815,7 @@ results.push(run('workspace ownership contract classifies every schema table, ro
   const contract = buildWorkspaceOwnershipContract();
   const snapshot = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'workspace-ownership-contract.json'), 'utf8'));
   assert.deepStrictEqual(contract, snapshot);
-  assert.strictEqual(contract.tables.length, 82);
+  assert.strictEqual(contract.tables.length, 86);
   assert.ok(contract.tables.filter(t => t.name.startsWith('collectz_scope.')).every(t => t.category === 'authorization_control_plane'));
   assert.ok(contract.routes.length >= 300);
   assert.ok(contract.routes.filter((route) => route.authentication === 'required').length >= 300);
@@ -841,6 +842,10 @@ results.push(run('workspace ownership contract classifies every schema table, ro
     && entry.category === 'library_owned'
     && entry.ownershipKey === 'library_id'
   )));
+  assert.ok(['collection_works', 'collection_editions', 'owned_copies', 'edition_source_observations']
+    .every((name) => contract.tables.some((entry) => (
+      entry.name === name && entry.category === 'library_owned' && entry.ownershipKey === 'library_id'
+    ))));
   assert.deepStrictEqual(contract.permissionKeys, Object.values(PERMISSIONS).sort());
 }));
 
@@ -9876,7 +9881,7 @@ results.push(run('mobile capture inbox foundation is scoped, routed, and reviewa
   assert.ok(captureInboxViewSource.includes('extractIdentifierCandidatesFromFile'));
   assert.ok(captureInboxViewSource.includes('inferBookBarcodeIdentifier'));
   assert.ok(captureInboxViewSource.includes('const fullFrame = bounded.candidates.length ? null : await readCandidates();'));
-  assert.ok(captureInboxViewSource.includes('bounded.candidates.length ? bounded.candidates : (fullFrame?.candidates || [])'));
+  assert.ok(captureInboxViewSource.includes('bounded.candidates.length ? bounded.candidates : fullFrame?.candidates || []'));
   assert.ok(captureInboxViewSource.includes('ISBN captured'));
   assert.ok(captureInboxViewSource.includes('aria-label="Scan barcode with camera"'));
   assert.ok(captureInboxViewSource.includes('capture="environment"'));
@@ -9957,6 +9962,12 @@ results.push(run('blu-ray browser captures map structured release evidence witho
   assert.strictEqual(mapping.variant.raw_json.physical_release_date, '2022-01-11');
   assert.ok(!Object.prototype.hasOwnProperty.call(mapping.import_hints, 'release_date'));
   assert.ok(mapping.preview.some((entry) => entry.key === 'valuation' && entry.value === '$14.99'));
+  assert.deepStrictEqual(mapping.review_plan.map((entry) => entry.key), ['work', 'edition', 'owned_copy']);
+  const editionFacts = buildEditionFacts(mapping);
+  assert.strictEqual(editionFacts.edition_name, '4K Ultra HD + Blu-ray + Digital');
+  assert.strictEqual(editionFacts.release_date, '2022-01-11');
+  assert.deepStrictEqual(editionFacts.owned_formats, ['bluray', 'digital', 'uhd']);
+  assert.strictEqual(fingerprintEditionFacts(editionFacts), fingerprintEditionFacts({ ...editionFacts }));
   assert.deepStrictEqual(formatsFromBlurayLabel('UHD/BD Combo + Digital HD'), ['bluray', 'uhd', 'digital']);
   assert.deepStrictEqual(parseLegacyUsedPrice('List price: $29.99 Used from: $14.99 (Save 50%)', 'United States'), {
     amount: 14.99,

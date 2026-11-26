@@ -2,6 +2,7 @@
 
 const { appendScopeSql } = require('../db/scopeContext');
 const { buildOwnedFormatsPayload, getOwnedFormatLabel, sortOwnedFormats } = require('./mediaFormats');
+const { upsertReviewedBluRayOwnership } = require('./workEditionOwnedCopy');
 
 const BLURAY_VARIANT_SOURCE = 'blu-ray.com';
 const BLURAY_VALUATION_SOURCE = 'blu-ray.com used-from';
@@ -162,6 +163,11 @@ function buildBrowserCaptureMapping(sourceContext = {}) {
   const mapping = {
     available: true,
     provider: BLURAY_VARIANT_SOURCE,
+    review_plan: [
+      { key: 'work', label: 'Work', value: 'Reuse the reviewed movie title' },
+      { key: 'edition', label: 'Edition', value: 'Add or update this exact Blu-ray release' },
+      { key: 'owned_copy', label: 'Owned Copy', value: 'Add one copy to this library' }
+    ],
     import_hints: {
       year,
       runtime,
@@ -236,15 +242,24 @@ async function upsertMetadata(db, mediaId, key, value) {
   return true;
 }
 
-async function applyBrowserCaptureMapping({ db, mediaId, scopeContext = null, mapping }) {
-  if (!mapping?.available || !mediaId) return { applied: [], skipped: ['mapping_unavailable'], variant_id: null };
+async function applyBrowserCaptureMapping({
+  db,
+  mediaId,
+  scopeContext = null,
+  mapping,
+  captureItemId = null,
+  actorUserId = null
+}) {
+  if (!mapping?.available || !mediaId) {
+    return { applied: [], skipped: ['mapping_unavailable'], variant_id: null, ownership: null };
+  }
   const params = [mediaId];
   const scopeClause = appendScopeSql(params, scopeContext);
   const currentResult = await db.query(`SELECT * FROM media WHERE id = $1${scopeClause} LIMIT 1`, params);
   const current = currentResult.rows[0];
   if (!current) throw new Error('Mapped media item was not found in the active scope.');
   if (current.media_type !== 'movie') {
-    return { applied: [], skipped: ['unsupported_media_type'], variant_id: null };
+    return { applied: [], skipped: ['unsupported_media_type'], variant_id: null, ownership: null };
   }
 
   const hints = mapping.import_hints || {};
@@ -361,7 +376,21 @@ async function applyBrowserCaptureMapping({ db, mediaId, scopeContext = null, ma
     }
   }
 
-  return { applied, skipped, variant_id: variantId };
+  let ownership = null;
+  if (captureItemId && actorUserId && variantId) {
+    ownership = await upsertReviewedBluRayOwnership({
+      db,
+      media: current,
+      mapping,
+      captureItemId,
+      actorUserId
+    });
+    if (ownership.applied) applied.push('work_edition_owned_copy');
+  } else if (mapping.variant?.source_item_key) {
+    skipped.push('ownership_requires_reviewed_capture');
+  }
+
+  return { applied, skipped, variant_id: variantId, ownership };
 }
 
 module.exports = {

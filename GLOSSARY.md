@@ -8,6 +8,18 @@ This glossary names the collection and provider-identity concepts that must rema
 A collectZ-owned record representing the current local object to which external identities and reviewed facts attach.
 _Avoid_: Provider object, source row
 
+**Work**:
+A collectZ-owned identity for the creative title or object independent of a particular market release and any copy a library owns.
+_Avoid_: Edition, Owned Copy, provider group, media variant
+
+**Edition**:
+A specific published, manufactured, or distributed release of a Work, distinguished by stable release identity and release-level facts such as format, date, region, packaging, or technical specifications.
+_Avoid_: Work, Owned Copy, format label, Provider Edition Group
+
+**Owned Copy**:
+One library-owned instance of an Edition, carrying ownership facts such as status, condition, acquisition, location, loan state, or copy-specific provenance.
+_Avoid_: Edition, format, inventory count
+
 **Canonical UUID**:
 An immutable collectZ-generated public identifier for a Canonical Object, independent of database storage keys and every external provider identity.
 _Avoid_: Provider ID, external ID
@@ -51,6 +63,10 @@ _Avoid_: Media type
 **Source Observation**:
 An external provider's facts as observed at a particular time, preserved separately from the reviewed current state of a Canonical Object.
 _Avoid_: Canonical metadata, provider identity
+
+**Edition Source Observation**:
+An immutable, normalized record of release-level facts observed during reviewed intake and attached to the exact Edition they describe.
+_Avoid_: Edition, current metadata, raw capture payload
 
 **Provider Edition Group**:
 A provider's observation that distinct External Identities represent editions of one work, retained as provenance without asserting a CollectZ-owned Work or Edition relationship.

@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-11-25T04:10:30.946Z",
+  "generatedAt": "2026-11-26T04:54:39.811Z",
   "status": "passed",
   "manifestSchemaVersion": 1,
   "baselineVersion": 127,
-  "latestVersion": 147,
+  "latestVersion": 149,
   "certifiedMigrationVersions": [
     128,
     129,
@@ -24,7 +24,9 @@
     144,
     145,
     146,
-    147
+    147,
+    148,
+    149
   ],
   "selectorMatches": [
     {
@@ -90,6 +92,14 @@
     {
       "version": 147,
       "description": "Add immutable provider observation apply events"
+    },
+    {
+      "version": 148,
+      "description": "Add Work Edition and Owned Copy foundation"
+    },
+    {
+      "version": 149,
+      "description": "Preserve edition observations across capture cleanup"
     }
   ],
   "fixturePolicy": {
@@ -166,13 +176,13 @@
       {
         "id": 1,
         "user_id": 1,
-        "expires_at": "2026-12-02T04:10:31.699Z",
+        "expires_at": "2026-12-03T04:54:40.861Z",
         "storedCredentialPresent": true
       },
       {
         "id": 2,
         "user_id": 1,
-        "expires_at": "2026-12-02T04:10:31.700Z",
+        "expires_at": "2026-12-03T04:54:40.862Z",
         "storedCredentialPresent": true
       }
     ],
@@ -228,7 +238,7 @@
             "libraries:read"
           ],
           "revoked_at": null,
-          "expires_at": "2026-12-02T04:10:31.702Z",
+          "expires_at": "2026-12-03T04:54:40.867Z",
           "storedCredentialPresent": true
         }
       ],
@@ -244,7 +254,7 @@
             "/api/libraries"
           ],
           "revoked_at": null,
-          "expires_at": "2026-12-02T04:10:31.703Z",
+          "expires_at": "2026-12-03T04:54:40.868Z",
           "storedCredentialPresent": true
         }
       ]
