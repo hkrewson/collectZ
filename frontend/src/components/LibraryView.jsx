@@ -1040,6 +1040,8 @@ function MediaDetail({
     const metadataSource = facts.metadataSource && typeof facts.metadataSource === 'object' ? facts.metadataSource : {};
     const observedSeries = Array.isArray(facts.seriesMemberships) ? facts.seriesMemberships : [];
     const cover = facts.cover && typeof facts.cover === 'object' ? facts.cover : {};
+    const edition = facts.edition && typeof facts.edition === 'object' ? facts.edition : {};
+    const editionGroup = facts.editionGroup && typeof facts.editionGroup === 'object' ? facts.editionGroup : null;
     const kavita = facts.kavita && typeof facts.kavita === 'object' ? facts.kavita : {};
     const metadataProviderLabels = {
       amazon: 'Amazon',
@@ -1071,6 +1073,11 @@ function MediaDetail({
             .join(', ')}${observedSeries.length > 3 ? ` +${observedSeries.length - 3}` : ''}`
         : null,
       cover.source ? `Cover: ${String(cover.source)}${cover.width && cover.height ? ` · ${cover.width}×${cover.height}` : ''}` : null,
+      editionGroup?.providerGroupId
+        ? `BookOrbit edition group #${editionGroup.providerGroupId} · ${(editionGroup.members?.length || 0) + 1} editions`
+        : edition.name || edition.originalPublishedYear
+          ? `Edition: ${edition.name || 'Unnamed'}${edition.originalPublishedYear ? ` · first published ${edition.originalPublishedYear}` : ''}`
+          : null,
       kavita?.series?.name ? `Series ${kavita.series.name}` : null,
       kavita?.chapter?.number ? `Chapter ${kavita.chapter.number}` : null,
       ...Object.entries(identifiers)
@@ -1079,6 +1086,18 @@ function MediaDetail({
         .map(([name, value]) => `${name.replace(/([a-z])([A-Z])/g, '$1 $2')}: ${value}`)
     ].filter(Boolean);
     return values.join(' · ');
+  };
+  const providerEditionLabel = (edition) => {
+    const name = String(edition?.editionName || '').trim();
+    if (name) return name;
+    const narrator = Array.isArray(edition?.narrators) ? edition.narrators.find((value) => String(value || '').trim()) : null;
+    if (narrator && edition?.mediaKind === 'audiobook') return narrator;
+    const publisher = String(edition?.publisher || '').trim();
+    const year = Number(edition?.publishedYear || 0) || null;
+    if (publisher && year) return `${publisher} · ${year}`;
+    if (publisher) return publisher;
+    if (year) return String(year);
+    return String(edition?.libraryName || '').trim() || 'Edition details unavailable';
   };
   const providerObservationSourceLabel = (observation) => {
     const sourceKind = String(observation?.sourceKind || '').trim();
@@ -2532,6 +2551,44 @@ function MediaDetail({
                         </div>
                         {providerObservationSummary(observation) ? (
                           <p className="mt-2 break-words text-xs text-dim">{providerObservationSummary(observation)}</p>
+                        ) : null}
+                        {observation.sourceKind === 'bookorbit_native' && observation.facts?.editionGroup ? (
+                          <div className="mt-3 border-t border-edge/60 pt-3" aria-label="BookOrbit editions">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-xs font-medium text-ink">BookOrbit editions</p>
+                              <span className="badge badge-dim">Observed relationship</span>
+                            </div>
+                            <p className="mt-1 text-[11px] text-ghost">
+                              Provider group #{observation.facts.editionGroup.providerGroupId} · provenance only
+                            </p>
+                            <div className="mt-2 divide-y divide-edge/60 border-y border-edge/60">
+                              {[observation.facts.editionGroup.current, ...(observation.facts.editionGroup.members || [])]
+                                .filter(Boolean)
+                                .map((edition) => (
+                                  <div key={edition.externalId} className="py-2.5 first:pt-2 last:pb-2">
+                                    <div className="flex flex-wrap items-start justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <p className="break-words text-xs font-medium text-ink">{edition.title || 'Untitled edition'}</p>
+                                        <p className="mt-0.5 break-words text-[11px] text-ghost">
+                                          {providerEditionLabel(edition)} · {edition.externalId}
+                                        </p>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {edition.externalId === observation.facts.editionGroup.currentExternalId ? (
+                                          <span className="badge badge-dim">Current record</span>
+                                        ) : null}
+                                        {edition.externalId === observation.facts.editionGroup.leadExternalId ? (
+                                          <span className="badge badge-ok">BookOrbit lead</span>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                    {Array.isArray(edition.formats) && edition.formats.length > 0 ? (
+                                      <p className="mt-1 text-[11px] text-dim">{edition.formats.join(' · ')}</p>
+                                    ) : null}
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
                         ) : null}
                         {observation.providerConnection?.providerType === 'bookorbit' &&
                         ['bookorbit_native', 'bookorbit_opds'].includes(observation.sourceKind) ? (

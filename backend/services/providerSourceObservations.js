@@ -1238,6 +1238,16 @@ function buildBookOrbitSourceObservation(item = {}) {
   const metadataSource = metadataSourceProvider && metadataSourceItemId
     ? { provider: metadataSourceProvider, providerItemId: metadataSourceItemId }
     : null;
+  const editionRelationship = item.bookorbit_edition_relationship
+    && typeof item.bookorbit_edition_relationship === 'object'
+    && !Array.isArray(item.bookorbit_edition_relationship)
+    ? item.bookorbit_edition_relationship
+    : null;
+  const edition = item.bookorbit_edition
+    && typeof item.bookorbit_edition === 'object'
+    && !Array.isArray(item.bookorbit_edition)
+    ? item.bookorbit_edition
+    : null;
   return Object.freeze({
     sourceKind: native ? 'bookorbit_native' : 'bookorbit_opds',
     sourceUpdatedAt: details.source_updated_at || null,
@@ -1262,6 +1272,11 @@ function buildBookOrbitSourceObservation(item = {}) {
       providerIdentifiers: providerIds,
       metadataSource,
       seriesMemberships: memberships,
+      edition: {
+        name: optionalFact(edition?.name || editionRelationship?.current?.editionName),
+        originalPublishedYear: optionalNumber(edition?.originalPublishedYear || editionRelationship?.current?.originalPublishedYear)
+      },
+      editionGroup: editionRelationship,
       cover: {
         proxyPath: native && /^\/api\/media\/bookorbit-cover\/[0-9a-f-]{36}\/[1-9]\d*(?:\?v=[^#]*)?$/i.test(String(item.poster_path || ''))
           ? String(item.poster_path)

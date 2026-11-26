@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.30.0",
+      "version": "3.30.0",
+      "date": "2026-11-25",
+      "status": null,
+      "summary": "Preserves BookOrbit 3.10 edition groups as immutable, reviewable provider provenance while keeping each BookOrbit book identity and CollectZ Canonical Object distinct.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Accepts bounded BookOrbit edition names, first-publication years, group ids, lead status, the current edition summary, and visible sibling editions from identity-matched native detail responses.",
+            "Represents every edition by its stable `urn:bookorbit:book:{id}` identity and rejects mismatched, duplicate, oversized, or structurally invalid groups.",
+            "Omits BookOrbit reading progress, last-read activity, internal library ids, credentials, endpoints, and raw payloads from retained observation facts.",
+            "Adds Provider history presentation for the observed group, current BookOrbit record, provider-selected lead, edition labels, formats, and sibling identities.",
+            "Keeps edition relationships outside canonical metadata comparison/review/apply, duplicate merging, and identity-rematch scoring.",
+            "Extends BookOrbit transport, authoritative import, OpenAPI, browser, and source-observation coverage for the BookOrbit 3.10 contract."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.29.12",
       "version": "3.29.12",
       "date": "2026-11-24",
@@ -176,26 +196,6 @@
             "Queued imports derive their observation batch from the existing inline job id; synchronous imports mint one batch per request.",
             "Exact retries within one batch reuse the observation, while later import requests append immutable history.",
             "Kavita observation facts omit API keys, bearer tokens, raw API payloads, direct server/reader/cover URLs, and server filenames."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.29.3",
-      "version": "3.29.3",
-      "date": "2026-11-22",
-      "status": null,
-      "summary": "Adds an append-only, workspace-owned ledger of normalized provider facts and makes BookOrbit its first transactional adopter.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added immutable provider source observations tied to one workspace, Provider Connection, external media identity, and observed canonical public UUID.",
-            "Added source kind, schema version, source and observation timestamps, content hashing, and import-batch idempotency without persisting raw provider payloads.",
-            "BookOrbit now records normalized OPDS or native bibliographic facts, upstream provider identifiers, ordered series memberships, and cover provenance in the same authorized transaction as canonical reconciliation.",
-            "Retrying the same durable job with unchanged facts reuses its observation; a later batch or changed normalized facts appends new history.",
-            "Database triggers reject observation updates and deletes, RLS hides rows without an authorized workspace transaction, and same-workspace foreign keys prevent identity/connection crossover.",
-            "The BookOrbit runtime smoke now proves normalized persistence, idempotency, immutability, RLS isolation, and credential-free observation facts alongside the existing identity, metadata, cover, scheduler, and series checks."
           ]
         }
       ]

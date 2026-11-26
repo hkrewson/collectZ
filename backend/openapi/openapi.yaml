@@ -1177,6 +1177,39 @@
         "type": "object",
         "additionalProperties": true
       },
+      "BookOrbitEditionSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A bounded, progress-free description of one BookOrbit record observed as an edition. The externalId remains that edition's stable BookOrbit identity.",
+        "properties": {
+          "externalId": { "type": "string", "pattern": "^urn:bookorbit:book:[1-9][0-9]*$" },
+          "title": { "type": ["string", "null"], "maxLength": 1000 },
+          "libraryName": { "type": ["string", "null"], "maxLength": 255 },
+          "formats": { "type": "array", "maxItems": 16, "items": { "type": "string", "maxLength": 40 } },
+          "mediaKind": { "type": "string", "enum": ["ebook", "audiobook", "comic", "unknown"] },
+          "isLead": { "type": "boolean" },
+          "editionName": { "type": ["string", "null"], "maxLength": 255 },
+          "publisher": { "type": ["string", "null"], "maxLength": 500 },
+          "publishedYear": { "type": ["integer", "null"], "minimum": 1, "maximum": 9999 },
+          "originalPublishedYear": { "type": ["integer", "null"], "minimum": 1, "maximum": 9999 },
+          "narrators": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 255 } },
+          "coverUpdatedAt": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "required": ["externalId", "title", "libraryName", "formats", "mediaKind", "isLead", "editionName", "publisher", "publishedYear", "originalPublishedYear", "narrators", "coverUpdatedAt"]
+      },
+      "BookOrbitEditionGroup": {
+        "type": ["object", "null"],
+        "additionalProperties": false,
+        "description": "BookOrbit-owned edition relationship retained as immutable provenance. It does not represent a CollectZ Work, Edition, merge, or identity rematch.",
+        "properties": {
+          "providerGroupId": { "type": "integer", "minimum": 1 },
+          "currentExternalId": { "type": "string", "pattern": "^urn:bookorbit:book:[1-9][0-9]*$" },
+          "leadExternalId": { "type": ["string", "null"], "pattern": "^urn:bookorbit:book:[1-9][0-9]*$" },
+          "current": { "$ref": "#/components/schemas/BookOrbitEditionSummary" },
+          "members": { "type": "array", "minItems": 1, "maxItems": 9, "items": { "$ref": "#/components/schemas/BookOrbitEditionSummary" } }
+        },
+        "required": ["providerGroupId", "currentExternalId", "leadExternalId", "current", "members"]
+      },
       "ProviderSourceObservation": {
         "type": "object",
         "additionalProperties": false,
@@ -1208,7 +1241,10 @@
           "facts": {
             "type": "object",
             "additionalProperties": true,
-            "description": "Provider-specific normalized facts. BookOrbit native observations may include metadataSource.provider and metadataSource.providerItemId only when BookOrbit explicitly reports a pair consistent with providerIdentifiers."
+            "description": "Provider-specific normalized facts. BookOrbit native observations may include metadataSource only when BookOrbit explicitly reports a consistent metadataSource.providerItemId pair, edition for bounded edition-specific facts, and editionGroup for a validated provider-owned relationship. Edition facts are provenance only and are never canonical comparison/apply or identity-rematch evidence.",
+            "properties": {
+              "editionGroup": { "$ref": "#/components/schemas/BookOrbitEditionGroup" }
+            }
           },
           "comparison": { "$ref": "#/components/schemas/ProviderObservationComparison" },
           "applies": {
@@ -11758,7 +11794,7 @@
       "get": {
         "tags": ["Media"],
         "summary": "List immutable provider observations for a media record",
-        "description": "Returns newest-first, normalized provider evidence attached to identities currently linked to the media record, plus a read-only allowlisted comparison with the current canonical record. Cover differences are included only for BookOrbit or Kavita references served through credential-safe CollectZ proxy paths. The projection omits workspace implementation ids, actors, field-control connection ids, idempotency keys, credentials, connection endpoints, raw provider payloads, upstream cover URLs, and authorization data.",
+        "description": "Returns newest-first, normalized provider evidence attached to identities currently linked to the media record, plus a read-only allowlisted comparison with the current canonical record. Cover differences are included only for BookOrbit or Kavita references served through credential-safe CollectZ proxy paths. BookOrbit edition groups are provider-owned provenance only and never become comparison/apply or rematch evidence. The projection omits workspace implementation ids, actors, field-control connection ids, idempotency keys, credentials, connection endpoints, raw provider payloads, upstream cover URLs, provider reading progress, and authorization data.",
         "security": [
           { "cookieSession": [] },
           { "bearerAuth": [] }

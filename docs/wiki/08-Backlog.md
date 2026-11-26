@@ -118,7 +118,7 @@ Explicit non-goals for this program:
 **Type:** Strategic collection data-model program
 **Tags:** `identity`, `media`, `editions`, `copies`, `providers`, `provenance`, `imports`, `valuation`
 **Priority:** `P2`
-**Status:** Strategic backlog. Canonical UUID/external identity shipped through `3.27.x`; immutable source observations and two adopters shipped through `3.29.4`; safe observation readback, explicit BookOrbit metadata provenance, comparisons, reviews, and bounded reviewed apply shipped through `3.29.10`; reviewed credential-safe cover application shipped in `3.29.11`; and read-only BookOrbit identity-rematch candidate preview shipped in `3.29.12`. The remaining program still separates creative work, market release, owned object, actual rematch decisions/mutation, and broader provenance.
+**Status:** Strategic backlog. Canonical UUID/external identity shipped through `3.27.x`; immutable source observations and two adopters shipped through `3.29.4`; safe observation readback, explicit BookOrbit metadata provenance, comparisons, reviews, and bounded reviewed apply shipped through `3.29.10`; reviewed credential-safe cover application shipped in `3.29.11`; and read-only BookOrbit identity-rematch candidate preview shipped in `3.29.12`. The bounded BookOrbit 3.10 Provider Edition Group observation slice has moved to active roadmap milestone `3.30.0`; the remaining program still separates creative work, market release, owned object, actual rematch decisions/mutation, and broader provenance.
 
 **Goal:** Evolve collection identity so CollectZ can distinguish what a title/object is, which edition or release exists, which copy the user owns, and what an external provider observed without overwriting one concept with another.
 
@@ -131,7 +131,7 @@ Explicit non-goals for this program:
 - Define explicit concepts and invariants for `work/title`, `edition/release`, `owned copy/item`, `source observation`, and typed relationship after the external-identity foundation proves compatibility with current media rows.
 - Preserve and safely project source observations with provider, observed timestamp, normalized facts, safe source reference, and provenance so later rematching does not require trusting the latest flattened row. The initial projection shipped in `3.29.5`, explicit BookOrbit selected-provider attribution shipped in `3.29.6`, read-only comparison shipped in `3.29.7`, deliberate reviewed apply shipped in `3.29.10`, reviewed cover apply shipped in `3.29.11`, and BookOrbit rematch candidate preview shipped in `3.29.12`; actual rematch decisions/mutation remain backlog work.
 - Define conflict/overwrite policy among manual data, reviewed imports, provider refreshes, locked fields, and newer observations.
-- Introduce remaining work/edition/copy and observation tables additively, populate them for selected new workflows, and provide compatibility projections for current APIs/UI.
+- After `3.30.0` proves provider-owned edition relationships as immutable evidence only, introduce remaining work/edition/copy tables additively for a workflow that requires CollectZ-owned relationships, and provide compatibility projections for current APIs/UI.
 - Start with a workflow that materially needs the distinction, such as Blu-ray physical releases and owned copies, then prove the model with a different family such as books, games, or audio before generalizing.
 
 **Relationship to existing backlog**

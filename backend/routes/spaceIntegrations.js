@@ -1082,7 +1082,8 @@ router.post('/spaces/:spaceId/integrations/bookorbit-connections/:connectionId/t
         configured: native.configured,
         available: native.enriched > 0,
         providerIdentifiers: native.providerIdentifierRows > 0,
-        metadataSource: native.metadataSourceRows > 0
+        metadataSource: native.metadataSourceRows > 0,
+        editionRelationships: native.editionRelationshipRows > 0
       }
     });
   } catch (error) {

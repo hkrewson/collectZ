@@ -8786,6 +8786,13 @@ async function runGenericCsvImport({
       bookorbit_series_memberships: Array.isArray(row?.bookorbit_series_memberships)
         ? row.bookorbit_series_memberships
         : undefined,
+      bookorbit_edition: row?.bookorbit_edition && typeof row.bookorbit_edition === 'object'
+        ? row.bookorbit_edition
+        : undefined,
+      bookorbit_edition_relationship: row?.bookorbit_edition_relationship
+        && typeof row.bookorbit_edition_relationship === 'object'
+        ? row.bookorbit_edition_relationship
+        : undefined,
       type_details: {
         author: value('author') || rowTypeDetails.author || null,
         isbn: value('isbn') || value('isbn13') || rowTypeDetails.isbn || null,
@@ -14414,7 +14421,8 @@ async function performBookOrbitImport({
       providerIdentifierRows: native.providerIdentifierRows,
       metadataSourceRows: native.metadataSourceRows,
       membershipRows: native.membershipRows,
-      coverRows: native.coverRows
+      coverRows: native.coverRows,
+      editionRelationshipRows: native.editionRelationshipRows
     },
     auditRows: result.auditRows.slice(0, 250)
   };
@@ -14436,6 +14444,7 @@ async function performBookOrbitImport({
     nativeProviderIdentifierRows: native.providerIdentifierRows,
     nativeMembershipRows: native.membershipRows,
     nativeCoverRows: native.coverRows,
+    nativeEditionRelationshipRows: native.editionRelationshipRows,
     jobId
   });
   return { runtime, fetched, result, valuationRefresh, summary };

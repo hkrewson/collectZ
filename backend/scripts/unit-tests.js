@@ -47,6 +47,7 @@ const {
   buildBookOrbitEndpoint,
   bookOrbitBookId,
   normalizeBookOrbitEntry,
+  normalizeBookOrbitEditionRelationship,
   normalizeBookOrbitMetadataSource,
   mergeBookOrbitNativeDetail,
   prepareBookOrbitImportRows
@@ -5531,6 +5532,42 @@ results.push(run('bookOrbit native metadata preserves canonical identity and pro
     ],
     providerIds: { comicvine: 315507, goodreads: '123777928' },
     metadataSource: { provider: 'ComicVine', providerItemId: '315507' },
+    editionName: 'Direct Market Edition',
+    originalPublishedYear: 1987,
+    linkGroupId: 77,
+    linkIsLead: true,
+    linkSelf: {
+      bookId: 1264,
+      libraryName: 'Comics',
+      title: 'Groo',
+      formats: ['cbz'],
+      mediaKind: 'comic',
+      status: 'available',
+      isLead: true,
+      editionName: 'Direct Market Edition',
+      publisher: 'Marvel/Epic',
+      publishedYear: 1987,
+      originalPublishedYear: 1987,
+      narrators: [],
+      coverUpdatedAt: '2026-11-13T00:43:41.757Z',
+      progress: { percentage: 75, finished: false },
+      lastReadAt: '2026-11-24T10:00:00Z'
+    },
+    linkedBooks: [{
+      bookId: 2264,
+      libraryName: 'Books',
+      title: 'Groo: Death & Taxes',
+      formats: ['epub'],
+      mediaKind: 'ebook',
+      status: 'available',
+      isLead: false,
+      editionName: 'Collected Edition',
+      publisher: 'Dark Horse',
+      publishedYear: 2007,
+      originalPublishedYear: 1987,
+      narrators: [],
+      coverUpdatedAt: null
+    }],
     comicMetadata: {
       issueNumber: '3',
       pencillers: ['Sergio Aragonés'],
@@ -5557,6 +5594,16 @@ results.push(run('bookOrbit native metadata preserves canonical identity and pro
   assert.equal(merged.bookorbit_series_memberships[0].expectedItemCount, 4);
   assert.match(merged.poster_path, /^\/api\/media\/bookorbit-cover\//);
   assert.equal(merged.type_details.bookorbit_cover_width, '986');
+  assert.deepStrictEqual(merged.bookorbit_edition, {
+    name: 'Direct Market Edition',
+    originalPublishedYear: 1987
+  });
+  assert.equal(merged.bookorbit_edition_relationship.providerGroupId, 77);
+  assert.equal(merged.bookorbit_edition_relationship.currentExternalId, 'urn:bookorbit:book:1264');
+  assert.equal(merged.bookorbit_edition_relationship.leadExternalId, 'urn:bookorbit:book:1264');
+  assert.equal(merged.bookorbit_edition_relationship.members[0].externalId, 'urn:bookorbit:book:2264');
+  assert.equal('progress' in merged.bookorbit_edition_relationship.current, false);
+  assert.equal('lastReadAt' in merged.bookorbit_edition_relationship.current, false);
   assert.deepStrictEqual(
     normalizeBookOrbitMetadataSource(
       { provider: 'comicvine', providerItemId: '315507' },
@@ -5581,6 +5628,21 @@ results.push(run('bookOrbit native metadata preserves canonical identity and pro
   assert.equal(identifiersOnly.type_details.bookorbit_comicvine_id, '315507');
   assert.equal(identifiersOnly.type_details.bookorbit_metadata_source_provider, null);
   assert.equal(identifiersOnly.type_details.bookorbit_metadata_source_item_id, null);
+  assert.equal(identifiersOnly.bookorbit_edition_relationship, null);
+  assert.equal(normalizeBookOrbitEditionRelationship({
+    id: 1264,
+    linkGroupId: 77,
+    linkIsLead: true,
+    linkSelf: { bookId: 9999, formats: [], mediaKind: 'unknown', isLead: true },
+    linkedBooks: [{ bookId: 2264, formats: [], mediaKind: 'unknown', isLead: false }]
+  }), null);
+  assert.equal(normalizeBookOrbitEditionRelationship({
+    id: 1264,
+    linkGroupId: 77,
+    linkIsLead: true,
+    linkSelf: { bookId: 1264, formats: [], mediaKind: 'unknown', isLead: true },
+    linkedBooks: [{ bookId: 1264, formats: [], mediaKind: 'unknown', isLead: false }]
+  }), null);
   assert.throws(
     () => mergeBookOrbitNativeDetail({ type_details: { provider_item_id: 'urn:bookorbit:book:1264' } }, { id: 1277 }),
     { code: 'BOOKORBIT_NATIVE_IDENTITY_MISMATCH' }
@@ -5611,8 +5673,13 @@ results.push(run('bookOrbit connection and import routes use the multi-instance 
   assert.ok(mediaRoutesSource.includes("COALESCE(series_stats.series_memberships, '[]'::jsonb) AS series_memberships"));
   assert.ok(mediaRoutesSource.includes("external_id_normalized = $3"));
   assert.ok(bookOrbitImportIdentitySource.includes('syncBookOrbitSeriesMemberships'));
+  assert.ok(mediaRoutesSource.includes('bookorbit_edition_relationship'));
+  assert.ok(providerSourceObservationsSource.includes('editionGroup: editionRelationship'));
   assert.ok(libraryViewSource.includes('Series memberships'));
   assert.ok(libraryViewSource.includes('BookOrbit native metadata'));
+  assert.ok(libraryViewSource.includes('BookOrbit editions'));
+  assert.ok(libraryViewSource.includes('Observed relationship'));
+  assert.ok(openApiSource.includes('"BookOrbitEditionGroup"'));
   assert.ok(migrationsSource.includes('Add provider series records and media memberships'));
   assert.ok(initSqlSource.includes("(136, 'Add provider series records and media memberships')"));
   assert.ok(bookOrbitAuthoritativeImportSmokeSource.includes('comicSeriesOrderingPreserved'));
@@ -5801,6 +5868,22 @@ results.push(run('provider source observations are immutable, sanitized, and mig
     media_type: 'comic_book',
     poster_path: '/api/media/bookorbit-cover/33cf8ca1-4cb4-46ca-bf3f-d4ca4f12e0e2/43?v=cover-7',
     bookorbit_series_memberships: [{ providerSeriesId: 'series-1', name: 'Series One', displayOrder: 0 }],
+    bookorbit_edition: { name: 'Full Cast', originalPublishedYear: 1979 },
+    bookorbit_edition_relationship: {
+      providerGroupId: 71,
+      currentExternalId: 'urn:bookorbit:book:43',
+      leadExternalId: 'urn:bookorbit:book:43',
+      current: {
+        externalId: 'urn:bookorbit:book:43', title: 'Observed Comic', libraryName: 'Comics', formats: ['cbz'],
+        mediaKind: 'comic', isLead: true, editionName: 'Full Cast', publisher: null, publishedYear: 2026,
+        originalPublishedYear: 1979, narrators: [], coverUpdatedAt: null
+      },
+      members: [{
+        externalId: 'urn:bookorbit:book:44', title: 'Observed Comic Audio', libraryName: 'Audio', formats: ['m4b'],
+        mediaKind: 'audiobook', isLead: false, editionName: null, publisher: null, publishedYear: 2025,
+        originalPublishedYear: 1979, narrators: ['Example Narrator'], coverUpdatedAt: null
+      }]
+    },
     type_details: {
       provider_item_id: 'urn:bookorbit:book:43',
       source_updated_at: '2026-11-13T00:43:41.757Z',
@@ -5818,6 +5901,10 @@ results.push(run('provider source observations are immutable, sanitized, and mig
     provider: 'comicvine',
     providerItemId: '315507'
   });
+  assert.strictEqual(bookOrbitObservation.facts.edition.name, 'Full Cast');
+  assert.strictEqual(bookOrbitObservation.facts.edition.originalPublishedYear, 1979);
+  assert.strictEqual(bookOrbitObservation.facts.editionGroup.providerGroupId, 71);
+  assert.strictEqual(bookOrbitObservation.facts.editionGroup.members[0].externalId, 'urn:bookorbit:book:44');
   assert.strictEqual(
     bookOrbitObservation.facts.cover.proxyPath,
     '/api/media/bookorbit-cover/33cf8ca1-4cb4-46ca-bf3f-d4ca4f12e0e2/43?v=cover-7'

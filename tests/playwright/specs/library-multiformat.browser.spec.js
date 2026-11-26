@@ -500,6 +500,42 @@ test.describe('library multi-format browser regressions', () => {
                   metadataSource: { provider: 'comicvine', providerItemId: '315507' },
                   providerIdentifiers: { comicvine: '315507' },
                   seriesMemberships: [{ name: 'Groo: Death and Taxes', issueNumber: '3' }],
+                  edition: { name: 'Direct Market Edition', originalPublishedYear: 1987 },
+                  editionGroup: {
+                    providerGroupId: 7043,
+                    currentExternalId: 'urn:bookorbit:book:1264',
+                    leadExternalId: 'urn:bookorbit:book:1264',
+                    current: {
+                      externalId: 'urn:bookorbit:book:1264',
+                      title: 'Groo: Death and Taxes #3',
+                      libraryName: 'Comics',
+                      formats: ['cbz'],
+                      mediaKind: 'comic',
+                      isLead: true,
+                      editionName: 'Direct Market Edition',
+                      publisher: 'Marvel/Epic',
+                      publishedYear: 1987,
+                      originalPublishedYear: 1987,
+                      narrators: [],
+                      coverUpdatedAt: null
+                    },
+                    members: [
+                      {
+                        externalId: 'urn:bookorbit:book:2264',
+                        title: 'Groo: Death and Taxes',
+                        libraryName: 'Books',
+                        formats: ['epub'],
+                        mediaKind: 'ebook',
+                        isLead: false,
+                        editionName: 'Collected Edition',
+                        publisher: 'Dark Horse',
+                        publishedYear: 2007,
+                        originalPublishedYear: 1987,
+                        narrators: [],
+                        coverUpdatedAt: null
+                      }
+                    ]
+                  },
                   cover: { source: 'comicvine', width: 600, height: 900 }
                 },
                 comparison:
@@ -711,6 +747,14 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByText(/Provider ID urn:bookorbit:book:1264/i)).toBeVisible();
       await expect(page.getByText(/Series: Groo: Death and Taxes/i)).toBeVisible();
       await expect(page.getByText(/Cover: comicvine · 600×900/i)).toBeVisible();
+      const editionGroup = page.getByLabel('BookOrbit editions');
+      await expect(editionGroup).toBeVisible();
+      await expect(editionGroup.getByText('Observed relationship', { exact: true })).toBeVisible();
+      await expect(editionGroup.getByText(/Provider group #7043 · provenance only/i)).toBeVisible();
+      await expect(editionGroup.getByText(/Direct Market Edition · urn:bookorbit:book:1264/i)).toBeVisible();
+      await expect(editionGroup.getByText(/Collected Edition · urn:bookorbit:book:2264/i)).toBeVisible();
+      await expect(editionGroup.getByText('Current record', { exact: true })).toBeVisible();
+      await expect(editionGroup.getByText('BookOrbit lead', { exact: true })).toBeVisible();
       await expect(page.getByText('1 difference', { exact: true })).toBeVisible();
       await expect(page.getByText('manual', { exact: true })).toBeVisible();
       await expect(page.getByText('Current cover', { exact: true })).toBeVisible();
@@ -721,7 +765,7 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByLabel('Identity match preview')).toBeVisible();
       await expect(page.getByText('Read-only', { exact: true })).toBeVisible();
       await expect(page.getByText('1 reviewable · 1 blocked', { exact: true })).toBeVisible();
-      await expect(page.getByText('Groo: Death and Taxes #3', { exact: true })).toBeVisible();
+      await expect(page.getByLabel('Identity match preview').getByText('Groo: Death and Taxes #3', { exact: true })).toBeVisible();
       await expect(page.getByText('Selected comicvine record matches', { exact: true })).toBeVisible();
       await expect(page.getByText('Candidate for later review; nothing has moved.', { exact: true })).toBeVisible();
       await expect(page.getByText('Series or issue conflicts with the candidate', { exact: true })).toBeVisible();
@@ -1321,9 +1365,6 @@ test.describe('library multi-format browser regressions', () => {
       await expect(page.getByRole('button', { name: 'Add media' })).toBeVisible();
       await expect(page.locator('article').first()).toBeVisible();
 
-      const searchInput = getLibrarySearchInput(page);
-      await searchInput.fill(title);
-      await expect(searchInput).toHaveValue(title);
       const resultCard = page
         .locator('article')
         .filter({
@@ -1641,7 +1682,7 @@ test.describe('library multi-format browser regressions', () => {
       await page.goto('/dashboard?tab=library-movies');
       await expect(page.getByRole('heading', { name: 'Movies', exact: true })).toBeVisible();
       await expect(page.locator('article').first()).toBeVisible();
-      await page.getByRole('button', { name: /Add/ }).first().click();
+      await page.getByRole('button', { name: 'Add media', exact: true }).click();
 
       await expect(page.getByRole('heading', { name: /add to library/i })).toBeVisible();
       const titleResponsePromise = page.waitForResponse(

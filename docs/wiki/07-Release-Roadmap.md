@@ -4,14 +4,55 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.12` reliability and provider-observation milestones are complete locally. Hosted certification for `3.29.12` awaits an authorized push.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, and the `3.29.0` through `3.29.12` reliability and provider-observation milestones are complete and hosted-certified. `3.30.0` is complete locally and awaits hosted certification after an authorized push.
+
+---
+
+## 3.30.0 — BookOrbit Edition Relationship Provenance
+
+**Goal:** Preserve BookOrbit 3.10's provider-owned edition grouping as bounded, immutable source evidence and make it understandable in Provider history without merging Canonical Objects, rematching External Identities, or introducing CollectZ's full Work/Edition/Owned Copy model.
+**Status:** Complete locally; hosted certification awaits an authorized push.
+
+### Selected scope
+
+- Accept BookOrbit's optional `editionName`, `originalPublishedYear`, `linkGroupId`, `linkIsLead`, `linkSelf`, and `linkedBooks` detail fields only after the native response matches the validated `urn:bookorbit:book:{id}` identity.
+- Normalize a bounded Provider Edition Group containing the current edition and visible sibling editions, with every member represented by its stable BookOrbit book identity rather than a CollectZ media id.
+- Preserve the normalized relationship in immutable `bookorbit_native` Source Observation facts; do not add provider-only edition fields to Canonical Object compatibility metadata.
+- Show the observed group, lead edition, edition labels, formats, and sibling BookOrbit ids in the existing workspace-authorized Provider history surface.
+- Keep BookOrbit OPDS fallback, provider identifiers, selected metadata-source validation, normalized series memberships, native cover enrichment, and identity-rematch preview behavior unchanged.
+
+### Acceptance criteria
+
+- Unlinked books and older BookOrbit responses remain valid and produce no edition-group claim.
+- A linked response is accepted only when the current member matches the requested BookOrbit id, group/member ids are positive and bounded, members are unique, and all displayed strings and arrays meet explicit limits.
+- Edition-group facts remain observation evidence only. They cannot become canonical metadata differences, review/apply fields, merge evidence, or identity-rematch evidence.
+- Provider history clearly distinguishes the current BookOrbit record from visible sibling editions and identifies the provider-selected lead without implying that CollectZ owns a Work or Edition record.
+- Public readback omits BookOrbit credentials, endpoints, raw payloads, internal CollectZ ownership ids, and provider reading-progress data.
+- Version `3.30.0`, release note/feed, canonical runtime, BookOrbit transport/import proofs, browser coverage, and relevant release gates are aligned before closeout.
+
+### Milestone boundary
+
+This slice records a Provider Edition Group as immutable provenance. It does not create CollectZ Work, Edition, or Owned Copy records; collapse or merge Canonical Objects; reassign an External Identity; call BookOrbit's suggestion/link/unlink endpoints; request a broader BookOrbit API-key permission; or write any relationship back to BookOrbit.
+
+### 3.30.0 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.30.0 — BookOrbit Edition Relationship Provenance` is complete locally as bounded, immutable, reviewable Provider Edition Group evidence.
+- **Project docs/checklists used:** `AGENTS.md`; `GLOSSARY.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/53-Digital-Library-Provider-Identity-Contract.md`; `docs/releases/v3.30.0.md`.
+- **Verified facts:** BookOrbit 3.10 edition groups are accepted only after identity, member, lead, size, and bounded-value validation. Retained observations use stable BookOrbit book identities and omit reading progress, last-read activity, credentials, endpoints, internal library ids, and raw payloads. Edition facts are excluded from canonical comparison/apply, merge, and rematch evidence.
+- **Runtime verification used:** rebuilt and recreated the canonical `collectz-private` stack on port `3201`; verified Platform `3.30.0`, migration `147`, and the production BookOrbit authoritative-import and OPDS transport paths; temporarily recreated the same canonical project in Core mode for Core boundary and RBAC proof, then restored Platform mode; regenerated observability evidence with `9/9` checks; and verified Help > Releases serves `3.30.0` first.
+- **CI/checks run:** backend unit (`390` source assertions and `57` Node tests), OpenAPI, frontend unit (`7` tests), frontend production build, changed-file quality, BookOrbit authoritative import and transport smokes, targeted Provider-history browser coverage, maintained browser regression (`56` passed, `6` runtime-specific skips), Core RBAC, saved-view and protected-domain RLS/HTTP smokes, worker broker (`22/22`), external identity (`21` checks), workspace ownership (`82` tables, `360` routes, `12` execution paths), workspace authorization, sensitive-operation and authentication-abuse proofs, Core and Platform edition boundaries, observability (`9/9`), zero-finding production dependency audits, release preflight, diff hygiene, and the standard local release gate.
+- **Blocked/unverified:** local CodeQL analysis cannot deserialize the installed query pack; gitleaks and Trivy are not installed. Hosted CI must rerun CodeQL, `secret-scan`, `image-security-and-sbom`, migration, Compose, Core RBAC/browser/runtime, release-preflight, publication, and tag gates after push.
+- **Files changed:** BookOrbit normalization, import forwarding, Source Observation facts, connection diagnostics, OpenAPI, Provider history UI, backend/unit/transport/import/browser coverage, provider identity contract, glossary, roadmap/backlog, synchronized `3.30.0` manifests and lockfiles, release note/feed, observability evidence, and local preflight evidence.
+- **Risks or follow-ups:** the relationship remains provider-owned provenance rather than a CollectZ Work/Edition/Owned Copy model. BookOrbit suggestion/link mutations, reviewed identity reassignment, canonical edition modeling, and provider writeback remain separate future decisions.
+- **What remains in the milestone:** no local implementation remains. Hosted certification and publication require an authorized push.
+- **Recommended commit message:** `Release 3.30.0 with BookOrbit edition relationship provenance`.
 
 ---
 
 ## 3.29.12 — BookOrbit Identity Rematch Preview
 
 **Goal:** Show whether one immutable BookOrbit observation has credible same-library canonical targets for its existing External Identity, with explicit evidence and blockers, without moving the identity or changing any record.
-**Status:** Complete locally; hosted certification awaits an authorized push.
+**Status:** Complete and hosted-certified. Build and Publish Images run `45548344480` and CodeQL run `45548344458` passed for closeout commit `fd50b512`; tag `v3.29.12` identifies the certified release commit.
 
 ### Selected scope
 

@@ -158,6 +158,21 @@ async function startBookOrbitServer(instances) {
         seriesMemberships,
         providerIds: id === 43 ? { comicvine: '315507', goodreads: '123777928' } : {},
         metadataSource: id === 43 ? { provider: 'comicvine', providerItemId: '315507' } : null,
+        editionName: id === 43 ? 'Direct Market Edition' : null,
+        originalPublishedYear: id === 43 ? 1987 : null,
+        linkGroupId: id === 43 ? 7043 : null,
+        linkIsLead: id === 43,
+        linkSelf: id === 43 ? {
+          bookId: 43, libraryName: 'Comics', title: 'Shared BookOrbit Title', formats: ['cbz'], mediaKind: 'comic',
+          status: 'available', isLead: true, editionName: 'Direct Market Edition', publisher: 'Marvel/Epic',
+          publishedYear: 1987, originalPublishedYear: 1987, narrators: [], coverUpdatedAt: null
+        } : null,
+        linkedBooks: id === 43 ? [{
+          bookId: 46, libraryName: 'Books', title: 'Shared BookOrbit Title', formats: ['epub'], mediaKind: 'ebook',
+          status: 'available', isLead: false, editionName: 'Collected Edition', publisher: 'Dark Horse',
+          publishedYear: 2007, originalPublishedYear: 1987, narrators: [], coverUpdatedAt: null,
+          progress: { percentage: 25, finished: false }, lastReadAt: '2026-11-20T12:00:00Z'
+        }] : [],
         comicMetadata: id === 43
           ? { issueNumber: '3', pencillers: ['Native Pencil Artist'], letterers: ['Native Letterer'] }
           : {},
@@ -329,7 +344,8 @@ async function main() {
       configured: true,
       available: true,
       providerIdentifiers: false,
-      metadataSource: false
+      metadataSource: false,
+      editionRelationships: false
     });
 
     const rotatedPassword = crypto.randomBytes(24).toString('base64url');
@@ -386,7 +402,8 @@ async function main() {
       providerIdentifierRows: 1,
       metadataSourceRows: 1,
       membershipRows: 5,
-      coverRows: 4
+      coverRows: 4,
+      editionRelationshipRows: 1
     });
     assert.ok(firstImport.summary.matchModes.strong_identifier_conflict_guarded >= 1);
     assert.equal(firstImport.summary.duplicateTitleReviewRows, 2);
@@ -699,6 +716,12 @@ async function main() {
     assert.ok(comicObservations.every((row) => row.normalized_facts?.metadataSource?.provider === 'comicvine'));
     assert.ok(comicObservations.every((row) => row.normalized_facts?.metadataSource?.providerItemId === '315507'));
     assert.ok(comicObservations.every((row) => row.normalized_facts?.seriesMemberships?.[0]?.name === 'Orbit Native Comics'));
+    assert.ok(comicObservations.every((row) => row.normalized_facts?.edition?.name === 'Direct Market Edition'));
+    assert.ok(comicObservations.every((row) => row.normalized_facts?.editionGroup?.providerGroupId === 7043));
+    assert.ok(comicObservations.every((row) => row.normalized_facts?.editionGroup?.currentExternalId === 'urn:bookorbit:book:43'));
+    assert.ok(comicObservations.every((row) => row.normalized_facts?.editionGroup?.members?.[0]?.externalId === 'urn:bookorbit:book:46'));
+    assert.equal(JSON.stringify(comicObservations).includes('lastReadAt'), false);
+    assert.equal(JSON.stringify(comicObservations).includes('progress'), false);
     const serializedObservations = JSON.stringify(sourceObservationRows.rows);
     assert.equal(serializedObservations.includes(one.password), false);
     assert.equal(serializedObservations.includes(one.apiKey), false);
@@ -732,6 +755,7 @@ async function main() {
     assert.ok(observationReadbackPageOne.observations.every((observation) => observation.facts?.providerIdentifiers?.comicvine === '315507'));
     assert.ok(observationReadbackPageOne.observations.every((observation) => observation.facts?.metadataSource?.provider === 'comicvine'));
     assert.ok(observationReadbackPageOne.observations.every((observation) => observation.facts?.metadataSource?.providerItemId === '315507'));
+    assert.ok(observationReadbackPageOne.observations.every((observation) => observation.facts?.editionGroup?.providerGroupId === 7043));
     assert.ok(observationReadbackPageOne.observations.every((observation) => /^[0-9a-f]{64}$/.test(observation.fingerprint)));
     assert.ok(observationReadbackPageTwo.observations.length >= 1);
     assert.equal(observationReadbackPageTwo.observations.some((observation) => observationReadbackPageOne.observations.some((first) => first.id === observation.id)), false);
@@ -1050,6 +1074,7 @@ async function main() {
       providerObservationApply: 'atomic-reviewed-preserve-only-update-with-immutable-safe-history-proven',
       providerCoverApply: 'credential-safe-visual-candidate-reviewed-and-preserved',
       providerIdentityRematchPreview: 'same-library-evidence-bound-and-read-only',
+      providerEditionRelationship: 'bounded-progress-free-observation-provenance',
       normalizedSeriesMemberships: 'multi-series-retirement-proven',
       nativeCoverProxy: 'authenticated-and-versioned',
       lockedTypeTransition: 'review-required-existing-preserved',

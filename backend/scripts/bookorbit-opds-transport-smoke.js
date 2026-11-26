@@ -100,6 +100,21 @@ async function main() {
         ],
         providerIds: { comicvine: '90042', goodreads: '80042' },
         metadataSource: { provider: 'comicvine', providerItemId: '90042' },
+        editionName: 'Illustrated Edition',
+        originalPublishedYear: 1951,
+        linkGroupId: 7042,
+        linkIsLead: true,
+        linkSelf: {
+          bookId: 42, libraryName: 'Books', title: 'Foundation', formats: ['epub'], mediaKind: 'ebook',
+          status: 'available', isLead: true, editionName: 'Illustrated Edition', publisher: 'Orbit',
+          publishedYear: 2026, originalPublishedYear: 1951, narrators: [], coverUpdatedAt: null
+        },
+        linkedBooks: [{
+          bookId: 142, libraryName: 'Audiobooks', title: 'Foundation', formats: ['m4b'], mediaKind: 'audiobook',
+          status: 'available', isLead: false, editionName: 'Unabridged', publisher: 'Orbit Audio',
+          publishedYear: 2025, originalPublishedYear: 1951, narrators: ['Example Narrator'], coverUpdatedAt: null,
+          progress: { percentage: 50, finished: false }, lastReadAt: '2026-11-20T12:00:00Z'
+        }],
         comicMetadata: { issueNumber: '2', volumeName: 'Volume One', pencillers: ['Native Artist'] },
         coverMedia: ['ebook'],
         coverSource: 'custom',
@@ -221,6 +236,7 @@ async function main() {
     assert.equal(native.metadataSourceRows, 1);
     assert.equal(native.membershipRows, 2);
     assert.equal(native.coverRows, 1);
+    assert.equal(native.editionRelationshipRows, 1);
     assert.equal(native.rows[0].type_details.bookorbit_book_id, '42');
     assert.equal(native.rows[0].type_details.bookorbit_comicvine_id, '90042');
     assert.equal(native.rows[0].type_details.bookorbit_metadata_source_provider, 'comicvine');
@@ -232,6 +248,10 @@ async function main() {
     assert.equal(native.rows[0].bookorbit_series_memberships[0].issueNumber, '2');
     assert.match(native.rows[0].poster_path, new RegExp(`/api/media/bookorbit-cover/${connectionId}/42\\?v=`));
     assert.equal(native.rows[0].type_details.bookorbit_cover_version, 'ebook:smoke:42');
+    assert.equal(native.rows[0].bookorbit_edition.name, 'Illustrated Edition');
+    assert.equal(native.rows[0].bookorbit_edition_relationship.providerGroupId, 7042);
+    assert.equal(native.rows[0].bookorbit_edition_relationship.members[0].externalId, 'urn:bookorbit:book:142');
+    assert.equal('progress' in native.rows[0].bookorbit_edition_relationship.members[0], false);
     assert.equal(native.rows[1].type_details.bookorbit_native_metadata, undefined);
 
     const cover = await fetchBookOrbitNativeCover({ baseUrl, apiKey, timeoutMs: 5000 }, 42);
