@@ -1,0 +1,119 @@
+'use strict';
+
+const assert = require('assert');
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const pool = require('../db/pool');
+const { ensureUserDefaultScope } = require('../services/libraries');
+const { createPersonalAccessToken } = require('../services/personalAccessTokens');
+const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
+
+const BASE_URL = process.env.BASE_URL || `http://127.0.0.1:${process.env.PORT || 3000}`;
+
+async function request(path, token, { method = 'GET', body = null, statuses = [200] } = {}) {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers: { Accept: 'application/json', Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  assert(statuses.includes(response.status), `${method} ${path} returned ${response.status}: ${JSON.stringify(data)}`);
+  return data;
+}
+
+async function createContext() {
+  const suffix = `${Date.now()}-${crypto.randomBytes(5).toString('hex')}`;
+  const hash = await bcrypt.hash(`BatchSmoke-${suffix}`, 12);
+  const user = await pool.query(
+    `INSERT INTO users (email, password, name, role, email_verified, email_verified_at)
+     VALUES ($1, $2, 'Blu-ray batch smoke', 'user', true, NOW()) RETURNING id`,
+    [`bluray-batch-${suffix}@example.test`, hash]
+  );
+  const userId = Number(user.rows[0].id);
+  const scope = await ensureUserDefaultScope(userId);
+  await pool.query(`UPDATE users SET active_space_id = $2, active_library_id = $3 WHERE id = $1`, [userId, scope.spaceId, scope.libraryId]);
+  await pool.query(`INSERT INTO space_memberships (space_id, user_id, role, created_by) VALUES ($1,$2,'owner',$2) ON CONFLICT DO NOTHING`, [scope.spaceId, userId]);
+  await pool.query(`INSERT INTO library_memberships (user_id, library_id, role) VALUES ($1,$2,'owner') ON CONFLICT DO NOTHING`, [userId, scope.libraryId]);
+  const token = await createPersonalAccessToken({ userId, name: 'Blu-ray collection batch smoke', scopes: ['media:read', 'media:write'] });
+  return { suffix, userId, token: token.token, spaceId: scope.spaceId, libraryId: scope.libraryId };
+}
+
+async function cleanup(context) {
+  if (!context) return;
+  await withAuthorizedScopeTransaction(pool, { spaceId: context.spaceId, libraryId: context.libraryId }, context.userId, async (client) => {
+    await client.query(`DELETE FROM media WHERE import_source IN ('capture_review', 'capture_lookup') AND added_by = $1`, [context.userId]);
+    await client.query(`DELETE FROM capture_batches WHERE space_id = $1 AND library_id = $2`, [context.spaceId, context.libraryId]);
+  }).catch(() => {});
+  await pool.query('DELETE FROM personal_access_tokens WHERE user_id = $1', [context.userId]).catch(() => {});
+  await pool.query('DELETE FROM library_memberships WHERE library_id = $1', [context.libraryId]).catch(() => {});
+  await pool.query('DELETE FROM libraries WHERE id = $1', [context.libraryId]).catch(() => {});
+  await pool.query('DELETE FROM space_memberships WHERE space_id = $1', [context.spaceId]).catch(() => {});
+  await pool.query('DELETE FROM spaces WHERE id = $1', [context.spaceId]).catch(() => {});
+  await pool.query('DELETE FROM users WHERE id = $1', [context.userId]).catch(() => {});
+}
+
+async function main() {
+  let context;
+  try {
+    context = await createContext();
+    const clientBatchId = `smoke:${context.suffix}`;
+    const created = await request('/api/capture-batches', context.token, {
+      method: 'POST', statuses: [201], body: {
+        client_batch_id: clientBatchId,
+        source_collection_key: 'smoke-library',
+        source_url: 'https://www.blu-ray.com/community/collection.php?u=smoke'
+      }
+    });
+    assert.match(created.batch.id, /^[0-9a-f-]{36}$/i);
+    const batchId = created.batch.id;
+    const replay = await request('/api/capture-batches', context.token, {
+      method: 'POST', statuses: [200], body: { client_batch_id: clientBatchId }
+    });
+    assert.strictEqual(replay.batch.id, batchId, 'batch creation must be idempotent');
+
+    const pageBody = {
+      page: 1, total_pages: 1, expected_item_count: 2,
+      items: [
+        { item_key: `owned-${context.suffix}`, product_id: `owned-${context.suffix}`, title: `Batch Owned ${context.suffix}`, release_title: `Batch Owned ${context.suffix} 4K Ultra HD`, url: `https://www.blu-ray.com/movies/Batch-Owned/${Date.now()}/`, status: 'Owned', format: '4K Ultra HD', year: 2026, page: 1, position: 1 },
+        { item_key: `unknown-${context.suffix}`, product_id: `unknown-${context.suffix}`, title: `Batch Unknown ${context.suffix}`, url: `https://www.blu-ray.com/movies/Batch-Unknown/${Date.now() + 1}/`, status: null, format: 'Blu-ray', year: 2025, page: 1, position: 2 }
+      ]
+    };
+    await request(`/api/capture-batches/${batchId}/items`, context.token, { method: 'POST', statuses: [201], body: pageBody });
+    await request(`/api/capture-batches/${batchId}/items`, context.token, { method: 'POST', statuses: [201], body: pageBody });
+    await request(`/api/capture-batches/${batchId}/progress`, context.token, { method: 'PATCH', body: { status: 'ready', current_page: 1, total_pages: 1, expected_item_count: 2 } });
+
+    const detail = await request(`/api/capture-batches/${batchId}`, context.token);
+    assert.strictEqual(detail.items.length, 2, 'duplicate page delivery must not duplicate review rows');
+    assert.strictEqual(detail.items.find((item) => item.source_status === 'Owned').decision, 'include');
+    assert.strictEqual(detail.items.find((item) => item.source_status === null).decision, 'skip');
+    const ordinary = await request('/api/capture-items?status=all', context.token);
+    assert.strictEqual(ordinary.items.length, 0, 'batch children must stay out of the ordinary Capture Inbox list');
+
+    const applied = await request(`/api/capture-batches/${batchId}/apply`, context.token, { method: 'POST' });
+    assert.strictEqual(applied.ok, true);
+    assert.strictEqual(applied.results.length, 1);
+    assert.strictEqual(applied.results[0].ok, true);
+    const finalDetail = await request(`/api/capture-batches/${batchId}`, context.token);
+    assert.strictEqual(finalDetail.batch.status, 'completed');
+    assert.strictEqual(finalDetail.batch.applied_item_count, 1);
+    assert.strictEqual(finalDetail.items.find((item) => item.source_status === 'Owned').status, 'converted');
+
+    const ownership = await withAuthorizedScopeTransaction(pool, { spaceId: context.spaceId, libraryId: context.libraryId }, context.userId, async (client) => client.query(
+      `SELECT (SELECT COUNT(*)::int FROM collection_works) AS works,
+              (SELECT COUNT(*)::int FROM collection_editions WHERE source_provider = 'blu-ray.com') AS editions,
+              (SELECT COUNT(*)::int FROM owned_copies) AS copies,
+              (SELECT COUNT(*)::int FROM edition_source_observations) AS observations`
+    ));
+    assert.deepStrictEqual(ownership.rows[0], { works: 1, editions: 1, copies: 1, observations: 1 });
+    console.log(JSON.stringify({ ok: true, migration: 150, batch_idempotent: true, duplicate_page_safe: true, hidden_child_rows: true, explicit_owned_only: true, independent_apply: true, ownership: ownership.rows[0] }, null, 2));
+  } finally {
+    await cleanup(context);
+    await pool.end();
+  }
+}
+
+main().catch((error) => {
+  console.error(error.message || error);
+  process.exitCode = 1;
+});

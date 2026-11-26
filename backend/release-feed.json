@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.31.1",
+      "version": "3.31.1",
+      "date": "2026-11-26",
+      "status": null,
+      "summary": "Extends reviewed Blu-ray intake from one title at a time to a bounded, resumable collection workflow. The browser companion traverses pages with the user's existing provider session, submits normalized edition evidence without credentials or cookies, and CollectZ presents one conflict-first review batch before any owned records are applied.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Adds exact-library collection batch receipts and duplicate-safe child intake records through additive migration `150`.",
+            "Adds authenticated Blu-ray.com traversal to browser companion `0.2.0`, with sequential page requests, jitter, a 100-page ceiling, and safe pauses for sign-in, challenge, rate-limit, forbidden, empty, or network responses.",
+            "Keeps provider cookies and credentials in the active browser tab; only bounded title, product identity, status, format, year, source URL, and capture timing evidence reaches CollectZ.",
+            "Groups a traversal into one Capture Inbox batch row with conflict-first review, a full-set toggle, keyboard-accessible edition navigation, and explicit Include or Skip decisions.",
+            "Applies only rows with an explicit Owned status. Each included row independently reuses the existing reviewed single-title path and therefore retains Work, Edition, Owned Copy, cover/format compatibility projection, and immutable source provenance behavior.",
+            "Preserves successful rows when a sibling row fails and leaves failed rows available for retry."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.31.0",
       "version": "3.31.0",
       "date": "2026-11-25",
@@ -176,26 +196,6 @@
             "Preserves verified attribution in BookOrbit compatibility fields and immutable provider-observation facts.",
             "Shows the selected metadata source separately from BookOrbit's complete provider-identifier list in Library Provider history.",
             "Extended BookOrbit unit, transport, authoritative import, API contract, and browser coverage."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.29.5",
-      "version": "3.29.5",
-      "date": "2026-11-22",
-      "status": null,
-      "summary": "Makes immutable BookOrbit and Kavita source evidence safely readable through the media API and Library item drawer without exposing credentials, raw provider responses, or internal authorization state.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a newest-first, paginated provider-observation endpoint for media records in the active workspace/library scope.",
-            "Readback includes the safe Provider Connection label/type, identity kind and lifecycle, canonical public UUID at observation time, normalized provider facts, timestamps, and stable content fingerprint.",
-            "BookOrbit history exposes normalized native/OPDS facts and upstream provider identifiers such as ComicVine or Goodreads ids when observed.",
-            "Kavita history preserves separate series/chapter evidence and safe CollectZ cover-proxy provenance.",
-            "Added a bounded Provider history section to the Library item drawer.",
-            "The projection omits workspace and actor implementation ids, identity database ids, idempotency keys, Provider Connection endpoints/settings, credentials, authorization values, and raw payloads."
           ]
         }
       ]

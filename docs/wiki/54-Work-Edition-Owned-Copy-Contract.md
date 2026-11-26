@@ -2,7 +2,7 @@
 
 ## Purpose
 
-CollectZ must distinguish a creative title from a market release and from the physical or digital instance a library owns. The first adopter is reviewed Blu-ray.com single-title intake. Existing `media` and `media_variants` behavior remains compatible while this model proves itself.
+CollectZ must distinguish a creative title from a market release and from the physical or digital instance a library owns. The first adopter is reviewed Blu-ray.com intake, including single-title review and a manual authenticated collection batch. Existing `media` and `media_variants` behavior remains compatible while this model proves itself.
 
 ## Domain boundaries
 
@@ -24,13 +24,23 @@ CollectZ must distinguish a creative title from a market release and from the ph
 7. The runtime can read or write the new records only inside an authorized exact-library database transaction.
 8. Deleting a converted Capture Inbox receipt retains its Edition Source Observation and clears only the receipt pointer. Direct observation mutation/deletion remains forbidden; an authorized Work/Edition deletion may remove dependent evidence through the normal cascade.
 
+## Collection batch invariants
+
+1. A user starts collection traversal explicitly in the browser companion while already signed in to Blu-ray.com. CollectZ never stores or receives the provider password, cookie, or session token.
+2. One client batch id identifies one exact-library traversal receipt. One provider product key identifies at most one child capture inside that batch, so retrying a batch or page is duplicate-safe.
+3. Traversal is sequential and bounded. Authentication prompts, challenges, forbidden or rate-limited responses, empty result pages, and network failures pause the batch instead of triggering bypass behavior.
+4. Only an explicit `Owned` or `In collection` source status can be staged for Include. Missing, unsupported, or ambiguous status remains excluded from canonical mutation.
+5. Page replay may refresh automatic classification evidence, but it cannot overwrite an explicit reviewer Include or Skip decision.
+6. Batch review defaults to conflicts while retaining a full-set view. Staging decisions does not mutate Work, Edition, Owned Copy, compatibility, or observation records.
+7. Apply processes included rows independently through the reviewed single-title path. A successful row remains committed when another row fails, and the failed row remains retryable with its review evidence.
+8. Batch child captures stay grouped under the batch receipt and do not appear as duplicate rows in the ordinary Capture Inbox list.
+
 ## Review and compatibility behavior
 
 Before import, the Capture Inbox names the Work, Edition, and Owned Copy outcomes in plain language. After import, the API returns their public UUIDs and whether each record was created or reused. Existing title, owned-format, physical-variant, metadata, cover, trailer, and valuation mapping continues unchanged.
 
 ## Deferred program scope
 
-- Batch collection traversal and a batch review drawer.
 - Multiple copies of one Edition outside distinct reviewed capture receipts.
 - Wishlist, ordered, loaned, for-sale, and rented status mapping.
 - Edition editing, upgrade discovery, price history, alerts, and Plex watched-state propagation.

@@ -107,6 +107,29 @@
       ]
     },
     {
+      "name": "capture_batches",
+      "category": "library_owned",
+      "ownershipKey": "library_id",
+      "rationale": "Direct library ownership; the library supplies the workspace boundary.",
+      "sameWorkspaceForeignKeys": [
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "library_id",
+          "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        }
+      ]
+    },
+    {
       "name": "capture_items",
       "category": "library_owned",
       "ownershipKey": "library_id",
@@ -162,12 +185,36 @@
       "ownershipKey": "library_id",
       "rationale": "Exact-library market releases attached to one CollectZ Work.",
       "sameWorkspaceForeignKeys": [
-        { "column": "space_id", "referencesTable": "spaces", "expectation": "same_workspace" },
-        { "column": "space_id", "referencesTable": "libraries", "expectation": "same_workspace" },
-        { "column": "library_id", "referencesTable": "libraries", "expectation": "same_workspace" },
-        { "column": "work_id", "referencesTable": "collection_works", "expectation": "same_workspace" },
-        { "column": "space_id", "referencesTable": "collection_works", "expectation": "same_workspace" },
-        { "column": "library_id", "referencesTable": "collection_works", "expectation": "same_workspace" }
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "library_id",
+          "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "work_id",
+          "referencesTable": "collection_works",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "collection_works",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "library_id",
+          "referencesTable": "collection_works",
+          "expectation": "same_workspace"
+        }
       ]
     },
     {
@@ -207,12 +254,36 @@
       "ownershipKey": "library_id",
       "rationale": "Exact-library creative identities anchored to the current Canonical Object compatibility row.",
       "sameWorkspaceForeignKeys": [
-        { "column": "space_id", "referencesTable": "spaces", "expectation": "same_workspace" },
-        { "column": "space_id", "referencesTable": "libraries", "expectation": "same_workspace" },
-        { "column": "library_id", "referencesTable": "libraries", "expectation": "same_workspace" },
-        { "column": "media_id", "referencesTable": "media", "expectation": "same_workspace" },
-        { "column": "space_id", "referencesTable": "media", "expectation": "same_workspace" },
-        { "column": "library_id", "referencesTable": "media", "expectation": "same_workspace" }
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "library_id",
+          "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "media_id",
+          "referencesTable": "media",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "media",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "library_id",
+          "referencesTable": "media",
+          "expectation": "same_workspace"
+        }
       ]
     },
     {
@@ -262,15 +333,51 @@
       "ownershipKey": "library_id",
       "rationale": "Append-only normalized release evidence attached to one exact-library Edition and reviewed capture receipt.",
       "sameWorkspaceForeignKeys": [
-        { "column": "space_id", "referencesTable": "spaces", "expectation": "same_workspace" },
-        { "column": "space_id", "referencesTable": "libraries", "expectation": "same_workspace" },
-        { "column": "library_id", "referencesTable": "libraries", "expectation": "same_workspace" },
-        { "column": "edition_id", "referencesTable": "collection_editions", "expectation": "same_workspace" },
-        { "column": "space_id", "referencesTable": "collection_editions", "expectation": "same_workspace" },
-        { "column": "library_id", "referencesTable": "collection_editions", "expectation": "same_workspace" },
-        { "column": "capture_item_id", "referencesTable": "capture_items", "expectation": "same_workspace" },
-        { "column": "space_id", "referencesTable": "capture_items", "expectation": "same_workspace" },
-        { "column": "library_id", "referencesTable": "capture_items", "expectation": "same_workspace" }
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "library_id",
+          "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "edition_id",
+          "referencesTable": "collection_editions",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "collection_editions",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "library_id",
+          "referencesTable": "collection_editions",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "capture_item_id",
+          "referencesTable": "capture_items",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "capture_items",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "library_id",
+          "referencesTable": "capture_items",
+          "expectation": "same_workspace"
+        }
       ]
     },
     {
@@ -849,12 +956,36 @@
       "ownershipKey": "library_id",
       "rationale": "One library-owned instance of an exact Edition with copy-specific lifecycle facts.",
       "sameWorkspaceForeignKeys": [
-        { "column": "space_id", "referencesTable": "spaces", "expectation": "same_workspace" },
-        { "column": "space_id", "referencesTable": "libraries", "expectation": "same_workspace" },
-        { "column": "library_id", "referencesTable": "libraries", "expectation": "same_workspace" },
-        { "column": "edition_id", "referencesTable": "collection_editions", "expectation": "same_workspace" },
-        { "column": "space_id", "referencesTable": "collection_editions", "expectation": "same_workspace" },
-        { "column": "library_id", "referencesTable": "collection_editions", "expectation": "same_workspace" }
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "library_id",
+          "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "edition_id",
+          "referencesTable": "collection_editions",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "collection_editions",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "library_id",
+          "referencesTable": "collection_editions",
+          "expectation": "same_workspace"
+        }
       ]
     },
     {
@@ -1726,6 +1857,104 @@
       "authentication": "required",
       "csrf": "global_cookie_policy",
       "reauthentication": "session_credential_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "captureBatches.js:router:POST:'/capture-batches':1",
+      "module": "captureBatches.js",
+      "router": "router",
+      "method": "POST",
+      "routeExpression": "'/capture-batches'",
+      "ownership": "workspace",
+      "permission": "workspace.content.manage",
+      "scopeSource": "active_workspace_library",
+      "authentication": "required",
+      "csrf": "global_cookie_policy",
+      "reauthentication": "not_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "captureBatches.js:router:GET:'/capture-batches':2",
+      "module": "captureBatches.js",
+      "router": "router",
+      "method": "GET",
+      "routeExpression": "'/capture-batches'",
+      "ownership": "workspace",
+      "permission": "workspace.content.read",
+      "scopeSource": "active_workspace_library",
+      "authentication": "required",
+      "csrf": "not_applicable",
+      "reauthentication": "not_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "captureBatches.js:router:GET:'/capture-batches/:id':3",
+      "module": "captureBatches.js",
+      "router": "router",
+      "method": "GET",
+      "routeExpression": "'/capture-batches/:id'",
+      "ownership": "workspace",
+      "permission": "workspace.content.read",
+      "scopeSource": "active_workspace_library",
+      "authentication": "required",
+      "csrf": "not_applicable",
+      "reauthentication": "not_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "captureBatches.js:router:POST:'/capture-batches/:id/items':4",
+      "module": "captureBatches.js",
+      "router": "router",
+      "method": "POST",
+      "routeExpression": "'/capture-batches/:id/items'",
+      "ownership": "workspace",
+      "permission": "workspace.content.manage",
+      "scopeSource": "active_workspace_library",
+      "authentication": "required",
+      "csrf": "global_cookie_policy",
+      "reauthentication": "not_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "captureBatches.js:router:PATCH:'/capture-batches/:id/progress':5",
+      "module": "captureBatches.js",
+      "router": "router",
+      "method": "PATCH",
+      "routeExpression": "'/capture-batches/:id/progress'",
+      "ownership": "workspace",
+      "permission": "workspace.content.manage",
+      "scopeSource": "active_workspace_library",
+      "authentication": "required",
+      "csrf": "global_cookie_policy",
+      "reauthentication": "not_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "captureBatches.js:router:PATCH:'/capture-batches/:id/items/:itemId':6",
+      "module": "captureBatches.js",
+      "router": "router",
+      "method": "PATCH",
+      "routeExpression": "'/capture-batches/:id/items/:itemId'",
+      "ownership": "workspace",
+      "permission": "workspace.content.manage",
+      "scopeSource": "active_workspace_library",
+      "authentication": "required",
+      "csrf": "global_cookie_policy",
+      "reauthentication": "not_required",
+      "locality": "core_local"
+    },
+    {
+      "id": "captureBatches.js:router:POST:'/capture-batches/:id/apply':7",
+      "module": "captureBatches.js",
+      "router": "router",
+      "method": "POST",
+      "routeExpression": "'/capture-batches/:id/apply'",
+      "ownership": "workspace",
+      "permission": "workspace.content.manage",
+      "scopeSource": "active_workspace_library",
+      "authentication": "required",
+      "csrf": "global_cookie_policy",
+      "reauthentication": "not_required",
       "locality": "core_local"
     },
     {

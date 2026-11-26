@@ -4,7 +4,49 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, the `3.29.0` through `3.29.12` reliability and provider-observation milestones, and `3.30.0` BookOrbit edition provenance are complete and hosted-certified. `3.31.0` begins the broader Work/Edition/Owned Copy program with reviewed native Blu-ray intake.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, the `3.29.0` through `3.29.12` reliability and provider-observation milestones, and `3.30.0` BookOrbit edition provenance are complete and hosted-certified. `3.31.0` begins the broader Work/Edition/Owned Copy program with reviewed native Blu-ray intake, and `3.31.1` completes its local authenticated collection traversal and batch edition-review slice pending hosted certification.
+
+---
+
+## 3.31.1 — Authenticated Blu-ray Collection Traversal and Batch Edition Review
+
+**Goal:** Turn one user-initiated authenticated Blu-ray.com collection traversal into one durable, resumable Capture Inbox batch whose edition decisions are staged before independent reviewed apply.
+**Status:** Complete locally; hosted certification awaits an authorized push.
+
+### Selected scope
+
+- Add exact-library Collection Capture Batch and Batch Review Item contracts with duplicate-safe provider item receipt, progress, pause reason, review state, and independent apply outcome.
+- Keep the browser companion as the authenticated-session bridge: it traverses collection pages sequentially in the user's existing Blu-ray.com session, uses conservative delay/backoff, pauses on authentication/CAPTCHA/`403`/`429`, and never submits credentials or cookies.
+- Present one compact batch row in Capture Inbox, default the drawer to review-required items, allow switching to the full set, and support forward/back item traversal.
+- Stage per-item Include or Skip decisions without canonical mutation, then apply included owned items independently through the existing reviewed single-title Work/Edition/Owned Copy path.
+- Keep successful items committed while failed items remain retryable with a plain-language reason.
+
+### Acceptance criteria
+
+- Replaying the same batch and provider item keys does not duplicate the batch or its child captures.
+- Traversal progress can be paused and explicitly resumed without re-uploading accepted page items.
+- Unsupported or absent source status, missing exact product identity, and ambiguous canonical matches require review and never auto-apply.
+- A completed owned item creates or reuses the same Work, exact Edition, Owned Copy, compatibility variant, and immutable observation contract proven in `3.31.0`.
+- The batch drawer is keyboard-operable, labels dynamic state, keeps controls at usable target sizes, and remains usable at narrow widths.
+- Version `3.31.1`, release note/feed, migration authority, OpenAPI, browser-companion contract, canonical runtime, and relevant release gates are aligned before closeout.
+
+### Milestone boundary
+
+This slice covers manual collection traversal, durable review batches, owned-item staging, and independent apply. It does not schedule background crawling, store Blu-ray.com credentials/session data, write back to Blu-ray.com, map Wishlist/Ordered/Loaned/trade/sell/Rented/Watched states, fetch every detail page automatically, add price/rating history, propagate watched state to Plex, add notifications/upgrades, or backfill existing variants.
+
+### 3.31.1 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.31.1 — Authenticated Blu-ray Collection Traversal and Batch Edition Review` is complete locally.
+- **Project docs/checklists used:** `AGENTS.md`; `GLOSSARY.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/54-Work-Edition-Owned-Copy-Contract.md`; `docs/releases/v3.31.1.md`.
+- **Verified facts:** one user-initiated browser-companion traversal creates or resumes one exact-library batch; page and item replay are duplicate-safe; provider credentials and cookies remain browser-local; absent or unsupported ownership status cannot be included; reviewer decisions survive page replay; included rows apply independently through the existing reviewed Work/Edition/Owned Copy path; successful siblings remain committed when another row fails.
+- **Inference:** this bounded manual bridge establishes the durable collection-review contract needed for later provider detail enrichment and broader status mapping without committing CollectZ to background crawling or provider-session custody.
+- **Runtime verification used:** rebuilt and recreated the canonical `collectz-private` project in place on port `3201`; verified application/frontend/backend/build `3.31.1`, migration `150`, the enforced non-owner runtime, and Platform mode after final restoration. Live batch proof passed idempotent batch creation, duplicate page safety, ordinary-inbox child hiding, explicit-owned-only apply, independent outcomes, and exactly one Work, Edition, Owned Copy, and immutable observation. The same retained project temporarily passed the Core edition boundary before Platform restoration; migration-built Platform authority passed `5/5`; workspace ownership certified `87` tables, `367` routes, and `12` execution paths; Help > Releases served `3.31.1` first.
+- **CI/checks run:** backend unit (`390` source assertions plus maintained Node tests), OpenAPI, frontend unit, changed-file ESLint/Prettier, frontend production build, browser-companion typecheck/build and `12` tests, targeted batch-review browser coverage (`3/3` including setup), maintained Core browser regression (`56` passed, `6` edition/prerequisite skips), Core RBAC, Core and Platform runtime boundaries, fresh migration-chain authority through `150`, `149 -> 150` migration/restore rehearsal, identity upgrade, runtime role (`32/32`), external identity (`21` checks), control-plane runtime authority (`5/5`), observability (`9/9`), zero-finding production dependency audits, CodeQL (`5` results, `0` active), release preflight, diff hygiene, and the passing standard local release gate.
+- **Blocked/unverified:** `gitleaks` and Trivy are not installed locally, so `secret-scan` and `image-security-and-sbom` remain hosted-CI gates. The canonical development profile intentionally uses non-secure localhost cookies, so the production secure-cookie portion of `compose-smoke` remains hosted-only; local health, headers-independent runtime behavior, migrations, API integration, RBAC, browser, and both edition boundaries were verified separately. Hosted CI must rerun those three gates plus its production-shaped Core runtime, migration, browser, RBAC, release-preflight, publication, and tag jobs after push.
+- **Files changed:** migration `150` and exact-library batch RLS; capture-batch API, token scopes, OpenAPI, smoke coverage, and ownership inventory; Capture Inbox batch row and conflict-first review drawer; browser-companion traversal, pause/resume state, normalized delivery, tests, and version `0.2.0`; version `3.31.1` manifests/lockfiles, release note/feed, roadmap/backlog/glossary, browser regression, and refreshed migration/runtime/observability/preflight evidence.
+- **Risks or follow-ups:** DOM parsing remains intentionally conservative and will pause or stage Skip when Blu-ray.com changes markup or omits explicit status. Wishlist and other provider states, automatic detail enrichment, scheduled traversal, upgrades/notifications, watched state, price history, other providers, and historical backfill remain unscheduled backlog work.
+- **What remains in the milestone:** no local implementation remains. Hosted certification and publication require an authorized push.
+- **Recommended commit message:** `release: ship v3.31.1 authenticated Blu-ray traversal and batch edition review`.
 
 ---
 

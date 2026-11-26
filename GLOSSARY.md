@@ -68,6 +68,14 @@ _Avoid_: Canonical metadata, provider identity
 An immutable, normalized record of release-level facts observed during reviewed intake and attached to the exact Edition they describe.
 _Avoid_: Edition, current metadata, raw capture payload
 
+**Collection Capture Batch**:
+One user-initiated traversal of an authenticated provider collection that is reviewed and applied as a coherent intake unit.
+_Avoid_: Crawl job, automatic sync
+
+**Batch Review Item**:
+One provider collection entry within a Collection Capture Batch, carrying its own staged decision and apply outcome.
+_Avoid_: Imported title, child job
+
 **Provider Edition Group**:
 A provider's observation that distinct External Identities represent editions of one work, retained as provenance without asserting a CollectZ-owned Work or Edition relationship.
 _Avoid_: Duplicate set, canonical merge, identity match

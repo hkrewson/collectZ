@@ -710,7 +710,7 @@ These are product-level capability gaps discovered from the current shape of the
 **Type:** Product/import architecture milestone candidate
 **Tags:** `imports`, `capture`, `browser-extension`, `blu-ray`, `movies`, `editions`, `review`, `pricing`, `ratings`, `notifications`, `plex`, `provenance`
 **Priority:** `P2` under the active `Work, Edition, Owned Copy, and External Observation Model` program.
-**Status:** The recommended first slice—reviewed single-title Work, Edition, Owned Copy, and Edition Source Observation creation—moved to roadmap milestone `3.31.0`. The remaining authenticated collection traversal, batch review, status mapping, upgrade discovery, notification, price-history, and Plex watched-state work stays here unscheduled.
+**Status:** The reviewed single-title foundation moved to roadmap milestone `3.31.0`. Manual authenticated collection traversal and batch edition review moved to roadmap milestone `3.31.1`. Remaining status mapping, detail enrichment, upgrade discovery, notifications, price history, Plex watched-state work, and broader provider adoption stay here unscheduled.
 
 **Goal:** Make Blu-ray.com intake a native CollectZ review-and-upsert workflow, using the browser extension only where an authenticated browser session is required, while preserving edition identity, useful source metadata, user control over conflicts, and reliable downstream Plex watched-state synchronization.
 
@@ -841,16 +841,14 @@ These are product-level capability gaps discovered from the current shape of the
 
 **Candidate implementation slices**
 - Shipped in `3.31.0`: reviewed single-title Work/Edition/Owned Copy creation, exact-product upsert, immutable normalized Edition Source Observation, compatibility projection, and pre-apply outcome review.
-1. Define the batch capture/session and normalized collection-item contracts while retaining the `3.31.0` exact-library and least-privilege boundaries.
-2. Expand single-title mapping to remaining reliable edition fields and ratings without flattening them onto the Work.
-3. Add batch Inbox rows and the tabbed conflict-first drawer with full-set toggle, arrow traversal, staged decisions, and independent Apply batch transactions.
-4. Add authenticated extension collection traversal with pagination/category status extraction, jitter/backoff, pause/resume, and duplicate-safe batch delivery.
-5. Extend exact-edition matching to Wishlist/Ordered/status mapping and review flags for Loaned/trade/sell; exclude Rented.
-6. Add normalized price/rating/source history and current per-source Overview readback.
-7. Add the per-user global notification inbox plus admin/owner aggregate visibility and title-local sync warnings.
-8. Add automatic positive watched-state propagation to Plex with durable retry, idempotency, activity evidence, notification failure handling, and title-local status.
-9. Add the public Blu-ray review RSS monitor and administrator-configured collector/quality upgrade matching.
-10. Evaluate retiring more extension behavior into native CollectZ only after authenticated-session requirements and provider constraints are proven.
+- Selected for `3.31.1`: batch/session and normalized collection-item contracts, authenticated paginated traversal, duplicate-safe delivery, conflict-first batch review, staged Include/Skip decisions, and independent owned-item apply.
+1. Expand single-title mapping to remaining reliable edition fields and ratings without flattening them onto the Work.
+2. Extend exact-edition matching to Wishlist/Ordered/status mapping and review flags for Loaned/trade/sell; exclude Rented.
+3. Add normalized price/rating/source history and current per-source Overview readback.
+4. Add the per-user global notification inbox plus admin/owner aggregate visibility and title-local sync warnings.
+5. Add automatic positive watched-state propagation to Plex with durable retry, idempotency, activity evidence, notification failure handling, and title-local status.
+6. Add the public Blu-ray review RSS monitor and administrator-configured collector/quality upgrade matching.
+7. Evaluate retiring more extension behavior into native CollectZ only after authenticated-session requirements and provider constraints are proven.
 
 **Out of scope for the initial milestone**
 - Writing any state back to Blu-ray.com.

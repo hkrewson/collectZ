@@ -1,6 +1,6 @@
 {
   "name": "collectz-backend",
-  "version": "3.31.0",
+  "version": "3.31.1",
   "description": "collectZ Backend API",
   "main": "server.js",
   "engines": {
@@ -35,6 +35,7 @@
     "test:integration-smoke": "node scripts/api-integration-smoke.js",
     "test:browser-capture-mapping-smoke": "node scripts/browser-capture-mapping-smoke.js",
     "test:work-edition-owned-copy-smoke": "node scripts/work-edition-owned-copy-smoke.js",
+    "test:blu-ray-collection-batch-smoke": "node scripts/blu-ray-collection-batch-smoke.js",
     "test:structured-log-smoke": "node scripts/structured-log-smoke.js",
     "test:support-session-smoke": "node scripts/support-session-smoke.js",
     "test:library-lifecycle-smoke": "node scripts/library-lifecycle-smoke.js",

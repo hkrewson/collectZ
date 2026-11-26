@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CollectionPaginationFooter,
+  DetailDrawerShell,
   FixedPageShell,
   SectionTabs,
   UtilityPageHeader,
@@ -11,6 +12,8 @@ import {
   posterUrl,
   supportsBarcodeCapture
 } from './app/AppPrimitives';
+
+const BATCH_REVIEW_TABS = ['Overview', 'Editions', 'Technical', 'Source', 'Provenance'];
 
 const STATUS_TABS = [
   { id: 'active', label: 'Active' },
@@ -91,6 +94,181 @@ function dateLabel(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function BatchReviewDrawer({ detail, loading, working, onClose, onDecision, onApply, onReload }) {
+  const [tab, setTab] = useState('Editions');
+  const [showFull, setShowFull] = useState(false);
+  const [cursor, setCursor] = useState(0);
+  const allItems = Array.isArray(detail?.items) ? detail.items : [];
+  const conflictItems = allItems.filter(
+    (item) =>
+      ['pending', 'needs_choice', 'missing_identity', 'needs_review'].includes(item.decision) ||
+      ['needs_choice', 'missing_identity', 'needs_review'].includes(item.classification)
+  );
+  const visibleItems = showFull ? allItems : conflictItems;
+  const item = visibleItems.length ? visibleItems[Math.min(cursor, visibleItems.length - 1)] : null;
+  const batch = detail?.batch;
+  return (
+    <DetailDrawerShell onClose={onClose} panelClassName="max-w-2xl" testId="capture-batch-review-drawer">
+      <div className="flex h-full flex-col">
+        <div className="border-b border-edge px-5 py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Blu-ray edition review</h2>
+              <p className="mt-1 text-sm text-ghost">
+                {batch ? `${batch.received_item_count} received · ${batch.applied_item_count} applied · ${batch.status}` : 'Loading batch…'}
+              </p>
+            </div>
+            <button type="button" className="btn-icon" aria-label="Close batch review" onClick={onClose}>
+              ×
+            </button>
+          </div>
+          <div className="mt-4 flex gap-4 overflow-x-auto" role="tablist" aria-label="Batch review details">
+            {BATCH_REVIEW_TABS.map((name) => (
+              <button
+                key={name}
+                type="button"
+                role="tab"
+                aria-selected={tab === name}
+                className={cx('border-b-2 pb-2 text-xs', tab === name ? 'border-accent text-ink' : 'border-transparent text-ghost')}
+                onClick={() => setTab(name)}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {loading ? <div className="text-sm text-ghost">Loading batch review…</div> : null}
+          {!loading && tab === 'Overview' ? (
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <div className="text-xs text-ghost">Traversal</div>
+                <div className="mt-1 text-ink">
+                  Page {batch?.current_page || 0} of {batch?.total_pages || 'unknown'}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-ghost">Review conflicts</div>
+                <div className="mt-1 text-ink">{conflictItems.length}</div>
+              </div>
+              {batch?.pause_reason ? (
+                <div className="col-span-2 rounded-md border border-warn/40 p-3 text-warn">
+                  Paused: {batch.pause_reason.replaceAll('_', ' ')}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {!loading && tab === 'Editions' ? (
+            <div>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <label className="flex items-center gap-2 text-xs text-ghost">
+                  <input
+                    type="checkbox"
+                    checked={showFull}
+                    onChange={(event) => {
+                      setShowFull(event.target.checked);
+                      setCursor(0);
+                    }}
+                  />{' '}
+                  Show full collected set
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn-ghost btn-sm"
+                    disabled={!visibleItems.length || cursor === 0}
+                    aria-label="Previous edition"
+                    onClick={() => setCursor((value) => Math.max(0, value - 1))}
+                  >
+                    ←
+                  </button>
+                  <span className="text-xs text-ghost">{visibleItems.length ? `${cursor + 1} / ${visibleItems.length}` : '0 / 0'}</span>
+                  <button
+                    type="button"
+                    className="btn-ghost btn-sm"
+                    disabled={!visibleItems.length || cursor >= visibleItems.length - 1}
+                    aria-label="Next edition"
+                    onClick={() => setCursor((value) => Math.min(visibleItems.length - 1, value + 1))}
+                  >
+                    →
+                  </button>
+                </div>
+              </div>
+              {item ? (
+                <article className="rounded-lg border border-edge p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-medium text-ink">{item.title || 'Untitled edition'}</h3>
+                      <p className="mt-1 text-xs text-ghost">
+                        {item.classification.replaceAll('_', ' ')} · {item.source_status || 'status not provided'}
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-edge px-2 py-1 text-xs text-ghost">{item.decision}</span>
+                  </div>
+                  {item.reason ? <p className="mt-3 text-sm text-dim">{item.reason}</p> : null}
+                  {item.candidates?.length ? (
+                    <div className="mt-3 text-xs text-ghost">
+                      Matches:{' '}
+                      {item.candidates.map((candidate) => `${candidate.title}${candidate.year ? ` (${candidate.year})` : ''}`).join(' · ')}
+                    </div>
+                  ) : null}
+                  {item.apply_error ? <div className="mt-3 text-sm text-err">{item.apply_error}</div> : null}
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      disabled={working || !item.source_status || !['owned', 'in collection'].includes(item.source_status.toLowerCase())}
+                      onClick={() => onDecision(item, 'include')}
+                    >
+                      Include
+                    </button>
+                    <button type="button" className="btn-ghost btn-sm" disabled={working} onClick={() => onDecision(item, 'skip')}>
+                      Skip
+                    </button>
+                  </div>
+                </article>
+              ) : (
+                <div className="rounded-lg border border-ok/40 p-4 text-sm text-ok">
+                  No conflicts remain. Show the full set to review every edition.
+                </div>
+              )}
+            </div>
+          ) : null}
+          {!loading && ['Technical', 'Source', 'Provenance'].includes(tab) ? (
+            <div className="space-y-3 text-sm text-dim">
+              <p>
+                {tab === 'Technical'
+                  ? 'Technical edition facts are preserved with each provider observation when an included row is applied.'
+                  : tab === 'Source'
+                    ? 'The source URL and provider product ID are retained; browser credentials and cookies are never submitted.'
+                    : 'Each applied row records its reviewed Work, Edition, Owned Copy, and immutable source observation.'}
+              </p>
+              {tab === 'Source' && batch?.source_url ? (
+                <a className="text-accent" href={batch.source_url} target="_blank" rel="noreferrer">
+                  Open collection source
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-edge px-5 py-4">
+          <button type="button" className="btn-ghost btn-sm" disabled={working} onClick={onReload}>
+            Refresh
+          </button>
+          <button
+            type="button"
+            className="btn-primary btn-sm"
+            disabled={working || !allItems.some((entry) => entry.decision === 'include' && entry.status !== 'converted')}
+            onClick={onApply}
+          >
+            {working ? 'Applying…' : 'Apply included editions'}
+          </button>
+        </div>
+      </div>
+    </DetailDrawerShell>
+  );
 }
 
 function titleCase(value) {
@@ -633,6 +811,10 @@ function CaptureEditor({
 export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
   const editorRef = useRef(null);
   const [items, setItems] = useState([]);
+  const [captureBatches, setCaptureBatches] = useState([]);
+  const [batchDetail, setBatchDetail] = useState(null);
+  const [batchDetailLoading, setBatchDetailLoading] = useState(false);
+  const [batchReviewWorking, setBatchReviewWorking] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, total_pages: 1 });
   const [status, setStatus] = useState('active');
   const [reviewFilter, setReviewFilter] = useState('all');
@@ -708,9 +890,68 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
     [apiCall, captureType, reviewFilter, search, sourceFilter, status]
   );
 
+  const loadCaptureBatches = useCallback(async () => {
+    try {
+      const payload = await apiCall('get', '/capture-batches?status=active');
+      setCaptureBatches(Array.isArray(payload?.batches) ? payload.batches : []);
+    } catch (err) {
+      onToast?.(err?.message || 'Could not load collection capture batches.', 'error');
+    }
+  }, [apiCall, onToast]);
+
+  const openCaptureBatch = useCallback(
+    async (batchId) => {
+      setBatchDetailLoading(true);
+      try {
+        const payload = await apiCall('get', `/capture-batches/${batchId}`);
+        setBatchDetail(payload);
+      } catch (err) {
+        onToast?.(err?.message || 'Could not load batch review.', 'error');
+      } finally {
+        setBatchDetailLoading(false);
+      }
+    },
+    [apiCall, onToast]
+  );
+
+  const stageBatchDecision = async (item, decision) => {
+    if (!batchDetail?.batch?.id) return;
+    setBatchReviewWorking(true);
+    try {
+      await apiCall('patch', `/capture-batches/${batchDetail.batch.id}/items/${item.id}`, { decision });
+      await openCaptureBatch(batchDetail.batch.id);
+    } catch (err) {
+      onToast?.(err?.message || 'Could not save the edition decision.', 'error');
+    } finally {
+      setBatchReviewWorking(false);
+    }
+  };
+
+  const applyCaptureBatch = async () => {
+    if (!batchDetail?.batch?.id) return;
+    setBatchReviewWorking(true);
+    try {
+      const response = await apiCall('post', `/capture-batches/${batchDetail.batch.id}/apply`, {});
+      const failures = Array.isArray(response?.results) ? response.results.filter((result) => !result.ok).length : 0;
+      onToast?.(
+        failures ? `${failures} editions still need attention.` : 'Included editions added to the library.',
+        failures ? 'warning' : 'success'
+      );
+      await Promise.all([openCaptureBatch(batchDetail.batch.id), loadCaptureBatches(), loadCaptures(1)]);
+    } catch (err) {
+      onToast?.(err?.message || 'Could not apply the batch review.', 'error');
+    } finally {
+      setBatchReviewWorking(false);
+    }
+  };
+
   useEffect(() => {
     loadCaptures(1);
   }, [loadCaptures]);
+
+  useEffect(() => {
+    loadCaptureBatches();
+  }, [loadCaptureBatches]);
 
   const visibleCounts = useMemo(() => {
     const counts = { active: 0, conflicts: 0, scanner: 0, barcode: 0, photo: 0 };
@@ -1312,6 +1553,38 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
       headerTestId="capture-page-header"
       bodyTestId="capture-page-body"
     >
+      {captureBatches.length ? (
+        <section aria-labelledby="collection-batches-heading" className="border-y border-edge">
+          <div className="flex items-center justify-between gap-3 py-3">
+            <div>
+              <h2 id="collection-batches-heading" className="text-sm font-medium text-ink">
+                Collection batches
+              </h2>
+              <p className="mt-1 text-xs text-ghost">Authenticated traversal receipts stay grouped until you review them.</p>
+            </div>
+            <span className="text-xs text-ghost">{captureBatches.length}</span>
+          </div>
+          <div className="divide-y divide-edge/70 border-t border-edge/70">
+            {captureBatches.map((batch) => (
+              <button
+                key={batch.id}
+                type="button"
+                className="grid w-full gap-2 py-3 text-left hover:bg-panel/50 sm:grid-cols-[1fr_auto] sm:items-center"
+                onClick={() => openCaptureBatch(batch.id)}
+              >
+                <span>
+                  <span className="block text-sm font-medium text-ink">Blu-ray collection</span>
+                  <span className="mt-1 block text-xs text-ghost">
+                    {batch.received_item_count} editions · page {batch.current_page}
+                    {batch.total_pages ? ` of ${batch.total_pages}` : ''} · {batch.status.replaceAll('_', ' ')}
+                  </span>
+                </span>
+                <span className="text-xs text-accent">Review batch →</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
       {lastBatchSummary ? (
         <div className="border-y border-edge py-3" aria-label="Batch scan summary">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1741,6 +2014,18 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
         leadingContent={`${pagination.total || 0} captures`}
         className="px-0"
       />
+      {batchDetail || batchDetailLoading ? (
+        <BatchReviewDrawer
+          key={batchDetail?.batch?.id || 'loading'}
+          detail={batchDetail}
+          loading={batchDetailLoading}
+          working={batchReviewWorking}
+          onClose={() => setBatchDetail(null)}
+          onDecision={stageBatchDecision}
+          onApply={applyCaptureBatch}
+          onReload={() => batchDetail?.batch?.id && openCaptureBatch(batchDetail.batch.id)}
+        />
+      ) : null}
     </FixedPageShell>
   );
 }

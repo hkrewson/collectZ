@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-11-26T04:54:56.203Z",
+  "generatedAt": "2026-11-26T06:12:24.744Z",
   "status": "passed",
   "certificationMode": "migration_built_control_plane_runtime_authority",
   "authority": {
-    "generatedAt": "2026-11-26T04:54:57.078Z",
+    "generatedAt": "2026-11-26T06:12:25.555Z",
     "status": "passed",
     "certificationMode": "migration_built_runtime_authority",
     "authority": {
       "source": "append_only_migration_chain",
       "databaseOrigin": "empty_database",
-      "expectedMigrationVersion": 149,
-      "appliedMigrationVersion": 149,
-      "appliedMigrationCount": 149,
+      "expectedMigrationVersion": 150,
+      "appliedMigrationVersion": 150,
+      "appliedMigrationCount": 150,
       "everyMigrationApplied": true
     },
     "runtime": {
@@ -39,14 +39,14 @@
       {
         "id": "migration_chain_reaches_expected_version",
         "pass": true,
-        "expected": 149,
-        "actual": 149
+        "expected": 150,
+        "actual": 150
       },
       {
         "id": "migration_chain_contains_every_version",
         "pass": true,
-        "expected": 149,
-        "actual": 149
+        "expected": 150,
+        "actual": 150
       },
       {
         "id": "required_bootstrap_rows_present",
@@ -80,7 +80,7 @@
       "id": "migration_authority_passed",
       "pass": true,
       "detail": {
-        "migrationVersion": 149
+        "migrationVersion": 150
       }
     },
     {

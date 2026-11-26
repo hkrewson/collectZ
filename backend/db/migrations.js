@@ -5016,7 +5016,9 @@ CREATE INDEX IF NOT EXISTS idx_tv_device_expiry ON tv_device_authorizations(expi
   { version: 148, description: 'Add Work Edition and Owned Copy foundation',
     up: require('fs').readFileSync(require('path').join(__dirname, 'workEditionOwnedCopyFoundation.sql'), 'utf8') },
   { version: 149, description: 'Preserve edition observations across capture cleanup',
-    up: require('fs').readFileSync(require('path').join(__dirname, 'workEditionObservationLifecycle.sql'), 'utf8') }
+    up: require('fs').readFileSync(require('path').join(__dirname, 'workEditionObservationLifecycle.sql'), 'utf8') },
+  { version: 150, description: 'Add authenticated Blu-ray collection capture batches',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'bluRayCollectionCaptureBatches.sql'), 'utf8') }
 ];
 
 async function runMigrationsForClient(client, options = {}) {

@@ -148,7 +148,9 @@ const getRequiredPatScopesForRequest = (req) => {
   }
   if (path.startsWith('/api/dashboard')) return [isRead ? 'media:read' : 'media:write'];
   if (path.startsWith('/api/wishlist')) return [isRead ? 'media:read' : 'media:write'];
-  if (path.startsWith('/api/capture-items')) return [isRead ? 'media:read' : 'media:write'];
+  if (path.startsWith('/api/capture-items') || path.startsWith('/api/capture-batches')) {
+    return [isRead ? 'media:read' : 'media:write'];
+  }
   if (path.startsWith('/api/libraries')) return [isRead ? 'libraries:read' : 'libraries:write'];
   if (path.startsWith('/api/collectible-traits')) return [isRead ? 'media:read' : 'media:write'];
   if (path.startsWith('/api/object-relationships')) return [isRead ? 'media:read' : 'media:write'];

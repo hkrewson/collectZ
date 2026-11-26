@@ -815,7 +815,7 @@ results.push(run('workspace ownership contract classifies every schema table, ro
   const contract = buildWorkspaceOwnershipContract();
   const snapshot = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config', 'workspace-ownership-contract.json'), 'utf8'));
   assert.deepStrictEqual(contract, snapshot);
-  assert.strictEqual(contract.tables.length, 86);
+  assert.strictEqual(contract.tables.length, 87);
   assert.ok(contract.tables.filter(t => t.name.startsWith('collectz_scope.')).every(t => t.category === 'authorization_control_plane'));
   assert.ok(contract.routes.length >= 300);
   assert.ok(contract.routes.filter((route) => route.authentication === 'required').length >= 300);
@@ -842,7 +842,7 @@ results.push(run('workspace ownership contract classifies every schema table, ro
     && entry.category === 'library_owned'
     && entry.ownershipKey === 'library_id'
   )));
-  assert.ok(['collection_works', 'collection_editions', 'owned_copies', 'edition_source_observations']
+  assert.ok(['capture_batches', 'collection_works', 'collection_editions', 'owned_copies', 'edition_source_observations']
     .every((name) => contract.tables.some((entry) => (
       entry.name === name && entry.category === 'library_owned' && entry.ownershipKey === 'library_id'
     ))));

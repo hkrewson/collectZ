@@ -4389,6 +4389,48 @@
         "required": ["applied", "skipped", "variant_id", "ownership"],
         "additionalProperties": false
       },
+      "CaptureBatch": {
+        "type": "object",
+        "description": "Exact-library receipt for a manual authenticated provider collection traversal. Provider credentials and cookies never enter this contract.",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "client_batch_id": { "type": "string" },
+          "source_provider": { "type": "string", "enum": ["blu-ray.com"] },
+          "source_url": { "type": ["string", "null"], "format": "uri" },
+          "status": { "type": "string", "enum": ["collecting", "paused", "ready", "applying", "completed", "completed_with_errors", "discarded"] },
+          "current_page": { "type": "integer", "minimum": 0 },
+          "total_pages": { "type": ["integer", "null"], "minimum": 1 },
+          "expected_item_count": { "type": ["integer", "null"], "minimum": 0 },
+          "received_item_count": { "type": "integer", "minimum": 0 },
+          "applied_item_count": { "type": "integer", "minimum": 0 },
+          "failed_item_count": { "type": "integer", "minimum": 0 },
+          "pause_reason": { "type": ["string", "null"] },
+          "library_id": { "type": "integer" },
+          "space_id": { "type": "integer" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "client_batch_id", "source_provider", "status", "received_item_count", "applied_item_count", "failed_item_count", "library_id", "space_id"]
+      },
+      "CaptureBatchReviewItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" }, "item_key": { "type": "string" }, "position": { "type": "integer" },
+          "title": { "type": ["string", "null"] }, "source_status": { "type": ["string", "null"] },
+          "classification": { "type": "string", "enum": ["exact_edition", "existing_work", "new_work", "needs_choice", "missing_identity", "needs_review"] },
+          "decision": { "type": "string", "enum": ["include", "skip", "pending"] },
+          "selected_media_id": { "type": ["integer", "null"] },
+          "candidates": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "reason": { "type": ["string", "null"] }, "apply_status": { "type": ["string", "null"] }, "apply_error": { "type": ["string", "null"] }
+        },
+        "required": ["id", "item_key", "classification", "decision", "candidates"]
+      },
+      "CaptureBatchResponse": { "type": "object", "properties": { "batch": { "$ref": "#/components/schemas/CaptureBatch" } }, "required": ["batch"] },
+      "CaptureBatchDetailResponse": {
+        "type": "object",
+        "properties": { "batch": { "$ref": "#/components/schemas/CaptureBatch" }, "items": { "type": "array", "items": { "$ref": "#/components/schemas/CaptureBatchReviewItem" } }, "review_counts": { "type": "object", "additionalProperties": { "type": "integer" } } },
+        "required": ["batch", "items", "review_counts"]
+      },
       "CaptureItem": {
         "type": "object",
         "properties": {
@@ -5825,6 +5867,55 @@
         }
       }
     },
+    "/api/capture-batches": {
+      "get": {
+        "tags": ["Capture"], "summary": "List authenticated collection capture batches",
+        "security": [{ "cookieSession": [] }, { "bearerAuth": [] }, { "mobileBearerAuth": [] }],
+        "parameters": [{ "name": "status", "in": "query", "schema": { "type": "string", "enum": ["active", "all"] } }],
+        "responses": { "200": { "description": "Scoped batch receipts", "content": { "application/json": { "schema": { "type": "object", "properties": { "batches": { "type": "array", "items": { "$ref": "#/components/schemas/CaptureBatch" } } }, "required": ["batches"] } } } } }
+      },
+      "post": {
+        "tags": ["Capture"], "summary": "Start or resume an idempotent Blu-ray collection capture batch",
+        "description": "Provider credentials and cookies remain in the user's browser and must never be submitted.",
+        "security": [{ "cookieSession": [], "csrfHeader": [] }, { "bearerAuth": [] }, { "mobileBearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "client_batch_id": { "type": "string" }, "source_collection_key": { "type": "string" }, "source_url": { "type": "string", "format": "uri" } }, "required": ["client_batch_id"], "additionalProperties": false } } } },
+        "responses": { "201": { "description": "Batch created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CaptureBatchResponse" } } } }, "200": { "description": "Existing idempotent batch returned", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CaptureBatchResponse" } } } } }
+      }
+    },
+    "/api/capture-batches/{id}": { "get": {
+      "tags": ["Capture"], "summary": "Read one batch and its conflict-first edition review items",
+      "security": [{ "cookieSession": [] }, { "bearerAuth": [] }, { "mobileBearerAuth": [] }],
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+      "responses": { "200": { "description": "Batch review detail", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CaptureBatchDetailResponse" } } } }, "404": { "description": "Batch not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } } }
+    } },
+    "/api/capture-batches/{id}/items": { "post": {
+      "tags": ["Capture"], "summary": "Submit one bounded page of normalized Blu-ray collection items",
+      "security": [{ "cookieSession": [], "csrfHeader": [] }, { "bearerAuth": [] }, { "mobileBearerAuth": [] }],
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+      "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "page": { "type": "integer", "minimum": 1 }, "total_pages": { "type": ["integer", "null"] }, "expected_item_count": { "type": ["integer", "null"] }, "items": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "type": "object", "properties": { "item_key": { "type": "string" }, "product_id": { "type": "string" }, "title": { "type": "string" }, "url": { "type": "string", "format": "uri" }, "status": { "type": ["string", "null"] }, "format": { "type": ["string", "null"] }, "year": { "type": ["integer", "null"] } }, "required": ["item_key", "title", "url"] } } }, "required": ["items"] } } } },
+      "responses": { "201": { "description": "Page accepted idempotently", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } } }
+    } },
+    "/api/capture-batches/{id}/progress": { "patch": {
+      "tags": ["Capture"], "summary": "Pause traversal or mark a collected batch ready for review",
+      "security": [{ "cookieSession": [], "csrfHeader": [] }, { "bearerAuth": [] }, { "mobileBearerAuth": [] }],
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+      "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string", "enum": ["collecting", "paused", "ready"] }, "current_page": { "type": "integer" }, "pause_reason": { "type": ["string", "null"] }, "pause_detail": { "type": ["string", "null"] } }, "required": ["status"] } } } },
+      "responses": { "200": { "description": "Progress saved", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CaptureBatchResponse" } } } } }
+    } },
+    "/api/capture-batches/{id}/items/{itemId}": { "patch": {
+      "tags": ["Capture"], "summary": "Stage an Include or Skip batch-review decision",
+      "security": [{ "cookieSession": [], "csrfHeader": [] }, { "bearerAuth": [] }, { "mobileBearerAuth": [] }],
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }, { "name": "itemId", "in": "path", "required": true, "schema": { "type": "integer" } }],
+      "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "decision": { "type": "string", "enum": ["include", "skip"] }, "selected_media_id": { "type": "integer" } }, "required": ["decision"], "additionalProperties": false } } } },
+      "responses": { "200": { "description": "Decision staged", "content": { "application/json": { "schema": { "type": "object", "properties": { "item": { "$ref": "#/components/schemas/CaptureBatchReviewItem" } }, "required": ["item"] } } } } }
+    } },
+    "/api/capture-batches/{id}/apply": { "post": {
+      "tags": ["Capture"], "summary": "Apply included owned editions independently through reviewed intake",
+      "description": "Each included row uses the existing single-title reviewed import path. Successful rows stay committed if another row fails.",
+      "security": [{ "cookieSession": [], "csrfHeader": [] }, { "bearerAuth": [] }, { "mobileBearerAuth": [] }],
+      "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+      "responses": { "200": { "description": "All included rows applied", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } }, "207": { "description": "Some rows failed and remain retryable", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": true } } } } }
+    } },
     "/api/capture-items": {
       "get": {
         "tags": ["Capture"],

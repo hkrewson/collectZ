@@ -193,7 +193,9 @@ const getRequiredMobileScopesForRequest = (req) => {
   if (isRead && (/^\/api\/(libraries|media|media\/feature-flags|media\/collections|collectibles|art)$/.test(path)
     || /^\/api\/(media|media\/collections|collectibles|art)\/[1-9][0-9]*$/.test(path)
     || /^\/api\/mobile\/tv\/artwork\/(media|art|collectibles|collections)\/[1-9][0-9]*$/.test(path))) return ['tv:read'];
-  if (path.startsWith('/api/capture-items')) return [isRead ? 'capture:read' : 'capture:write'];
+  if (path.startsWith('/api/capture-items') || path.startsWith('/api/capture-batches')) {
+    return [isRead ? 'capture:read' : 'capture:write'];
+  }
   return null;
 };
 

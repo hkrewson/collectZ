@@ -53,4 +53,70 @@ test.describe('import browser regressions', () => {
     await expect(page).toHaveURL(/\/library\/capture$/);
     await expect(page.getByRole('heading', { name: 'Capture Inbox', exact: true })).toBeVisible();
   });
+
+  test('collection batch review stays conflict-first and requires explicit ownership before include', async ({ page }) => {
+    const credentials = await createFreshUserCredentials({ noCache: true });
+    const batchId = '11111111-2222-4333-8444-555555555555';
+    const batch = {
+      id: batchId,
+      source_provider: 'blu-ray.com',
+      source_url: 'https://www.blu-ray.com/community/collection.php',
+      status: 'ready',
+      current_page: 2,
+      total_pages: 2,
+      received_item_count: 2,
+      applied_item_count: 0,
+      failed_item_count: 0
+    };
+
+    await signInThroughUi(page, credentials);
+    await page.route('**/api/capture-batches?status=active', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ batches: [batch] }) });
+    });
+    await page.route(`**/api/capture-batches/${batchId}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          batch,
+          items: [
+            {
+              id: 801,
+              title: 'Unconfirmed collection row',
+              source_status: null,
+              status: 'new',
+              classification: 'needs_review',
+              decision: 'pending',
+              candidates: [],
+              reason: 'Only an explicit Owned status can be applied.'
+            },
+            {
+              id: 802,
+              title: 'Explicitly owned edition',
+              source_status: 'Owned',
+              status: 'new',
+              classification: 'exact_edition',
+              decision: 'include',
+              candidates: []
+            }
+          ]
+        })
+      });
+    });
+
+    await page.goto('/dashboard?tab=library-capture');
+    await expect(page.getByRole('heading', { name: 'Collection batches' })).toBeVisible();
+    await page.getByRole('button', { name: /Blu-ray collection/ }).click();
+
+    await expect(page.getByRole('heading', { name: 'Blu-ray edition review' })).toBeVisible();
+    await expect(page.getByText('Unconfirmed collection row')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Include', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Next edition' })).toBeDisabled();
+
+    await page.getByLabel('Show full collected set').check();
+    await page.getByRole('button', { name: 'Next edition' }).click();
+    await expect(page.getByText('Explicitly owned edition')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Include', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Apply included editions' })).toBeEnabled();
+  });
 });

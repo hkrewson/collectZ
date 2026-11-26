@@ -573,7 +573,7 @@ async function updateCaptureItemFromRetry(existing, item, scopeContext, req, act
 router.get('/capture-items', asyncHandler(async (req, res) => {
   const scopeContext = resolveScopeContext(req);
   const params = [];
-  let where = 'WHERE 1=1';
+  let where = 'WHERE capture_batch_id IS NULL';
 
   const status = trimString(req.query.status).toLowerCase();
   if (status && status !== 'all' && STATUSES.has(status)) {
@@ -1134,8 +1134,8 @@ router.post('/capture-items/:id/lookup-matches', asyncHandler(async (req, res) =
   });
 }));
 
-router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => {
-  const id = Number(req.params.id);
+async function importCaptureItemForRequest(req, res, captureItemId = null) {
+  const id = captureItemId === null ? Number(req.params.id) : Number(captureItemId);
   if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Capture item not found.' });
 
   const scopeContext = resolveScopeContext(req);
@@ -1317,6 +1317,10 @@ router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => 
     match: selectedMatch,
     mapping: metadataMappingResult
   });
+}
+
+router.post('/capture-items/:id/import-match', asyncHandler(async (req, res) => {
+  return importCaptureItemForRequest(req, res);
 }));
 
 router.post('/capture-items/:id/resolve-replay-conflict', asyncHandler(async (req, res) => {
@@ -1551,5 +1555,8 @@ router.delete('/capture-items/:id', asyncHandler(async (req, res) => {
   });
   return res.json({ ok: true, id: deleted.id });
 }));
+
+router.importCaptureItemForRequest = importCaptureItemForRequest;
+router.shapeCaptureItem = shapeCaptureItem;
 
 module.exports = router;

@@ -65,6 +65,7 @@ const TABLE_OVERRIDES = Object.freeze({
 const ROUTE_MODULE_POLICIES = Object.freeze({
   'admin.js': ['platform', PERMISSIONS.PLATFORM_READ, PERMISSIONS.PLATFORM_MANAGE, 'installation'],
   'auth.js': ['identity', PERMISSIONS.ACCOUNT_READ, PERMISSIONS.ACCOUNT_MANAGE, 'identity'],
+  'captureBatches.js': ['workspace', PERMISSIONS.WORKSPACE_CONTENT_READ, PERMISSIONS.WORKSPACE_CONTENT_MANAGE, 'active_workspace_library'],
   'captureItems.js': ['workspace', PERMISSIONS.WORKSPACE_CONTENT_READ, PERMISSIONS.WORKSPACE_CONTENT_MANAGE, 'active_workspace_library'],
   'collectibleTraits.js': ['workspace', PERMISSIONS.WORKSPACE_CONTENT_READ, PERMISSIONS.WORKSPACE_CONTENT_MANAGE, 'active_workspace_library'],
   'collectibles.js': ['workspace', PERMISSIONS.WORKSPACE_CONTENT_READ, PERMISSIONS.WORKSPACE_CONTENT_MANAGE, 'active_workspace_library'],
@@ -85,7 +86,7 @@ const ROUTE_MODULE_POLICIES = Object.freeze({
 });
 
 const GLOBALLY_AUTHENTICATED_MODULES = new Set([
-  'admin.js', 'captureItems.js', 'collectibleTraits.js', 'collectibles.js', 'dashboard.js', 'events.js',
+  'admin.js', 'captureBatches.js', 'captureItems.js', 'collectibleTraits.js', 'collectibles.js', 'dashboard.js', 'events.js',
   'libraries.js', 'media.js', 'objectRelationships.js', 'spaces.js', 'wishlist.js'
 ]);
 
