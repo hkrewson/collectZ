@@ -80,6 +80,10 @@ _Avoid_: Imported title, child job
 Bounded release-level facts fetched from the exact provider product page after a collection entry is discovered and before it can be included for import. It supplements collection ownership evidence without becoming canonical metadata until reviewed apply.
 _Avoid_: Automatic metadata import, raw product page, canonical edition
 
+**Ready With Issues**:
+A completed Collection Capture Batch traversal whose received rows are available for review but whose exact-product enrichment still contains one or more failed items. It is a recoverable review state, not a successful import or a paused traversal.
+_Avoid_: Ready, completed, failed batch
+
 **Provider Edition Group**:
 A provider's observation that distinct External Identities represent editions of one work, retained as provenance without asserting a CollectZ-owned Work or Edition relationship.
 _Avoid_: Duplicate set, canonical merge, identity match

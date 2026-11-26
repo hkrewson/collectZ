@@ -13,6 +13,7 @@ import {
   supportsBarcodeCapture
 } from './app/AppPrimitives';
 import { batchEditionEvidence, canIncludeBatchEdition } from '../lib/batchEditionEvidence';
+import { captureBatchSummary } from '../lib/captureBatchSummary';
 
 const BATCH_REVIEW_TABS = ['Overview', 'Editions', 'Technical', 'Source', 'Provenance'];
 
@@ -134,6 +135,7 @@ function BatchReviewDrawer({ detail, loading, working, onClose, onDecision, onAp
   const item = visibleItems.length ? visibleItems[Math.min(cursor, visibleItems.length - 1)] : null;
   const evidence = batchEditionEvidence(item || {});
   const batch = detail?.batch;
+  const summary = captureBatchSummary(batch);
   return (
     <DetailDrawerShell onClose={onClose} panelClassName="max-w-2xl" testId="capture-batch-review-drawer">
       <div className="flex h-full flex-col">
@@ -143,7 +145,7 @@ function BatchReviewDrawer({ detail, loading, working, onClose, onDecision, onAp
               <h2 className="text-lg font-semibold text-ink">Blu-ray edition review</h2>
               <p className="mt-1 text-sm text-ghost">
                 {batch
-                  ? `${batch.received_item_count} received · ${allItems.filter((entry) => entry.decision === 'include').length} included · ${batch.applied_item_count} applied · ${batch.status}`
+                  ? `${summary.countLabel} · ${allItems.filter((entry) => entry.decision === 'include').length} included · ${batch.applied_item_count} applied · ${summary.statusLabel}`
                   : 'Loading batch…'}
               </p>
             </div>
@@ -170,6 +172,12 @@ function BatchReviewDrawer({ detail, loading, working, onClose, onDecision, onAp
           {loading ? <div className="text-sm text-ghost">Loading batch review…</div> : null}
           {!loading && tab === 'Overview' ? (
             <div className="grid grid-cols-2 gap-4 text-sm">
+              {summary.hasIssues ? (
+                <div className="col-span-2 rounded-md border border-warn/40 bg-warn/5 p-3 text-warn">
+                  <div className="font-medium">{summary.statusLabel}</div>
+                  <div className="mt-1 text-xs">{summary.countLabel}. Open the browser companion and choose Retry failed editions.</div>
+                </div>
+              ) : null}
               <div>
                 <div className="text-xs text-ghost">Traversal</div>
                 <div className="mt-1 text-ink">
@@ -179,6 +187,14 @@ function BatchReviewDrawer({ detail, loading, working, onClose, onDecision, onAp
               <div>
                 <div className="text-xs text-ghost">Review conflicts</div>
                 <div className="mt-1 text-ink">{conflictItems.length}</div>
+              </div>
+              <div>
+                <div className="text-xs text-ghost">Enriched editions</div>
+                <div className="mt-1 text-ink">{batch?.enriched_item_count || 0}</div>
+              </div>
+              <div>
+                <div className="text-xs text-ghost">Need retry</div>
+                <div className="mt-1 text-ink">{batch?.enrichment_failed_item_count || 0}</div>
               </div>
               {batch?.pause_reason ? (
                 <div className="col-span-2 rounded-md border border-warn/40 p-3 text-warn">
@@ -278,7 +294,7 @@ function BatchReviewDrawer({ detail, loading, working, onClose, onDecision, onAp
                     <div className="mt-4 rounded-md border border-warn/40 bg-warn/5 p-3 text-sm text-warn">
                       Detail enrichment did not complete
                       {evidence.enrichmentError ? `: ${evidence.enrichmentError.replaceAll('_', ' ')}` : ''}. This edition cannot be
-                      included yet; run the collector again to retry it.
+                      included yet; use Retry failed editions in the browser companion.
                     </div>
                   ) : null}
                   {item.apply_error ? <div className="mt-3 text-sm text-err">{item.apply_error}</div> : null}
@@ -1696,23 +1712,26 @@ export default function CaptureInboxView({ apiCall, onToast, Icons, Spinner }) {
             <span className="text-xs text-ghost">{captureBatches.length}</span>
           </div>
           <div className="divide-y divide-edge/70 border-t border-edge/70">
-            {captureBatches.map((batch) => (
-              <button
-                key={batch.id}
-                type="button"
-                className="grid w-full gap-2 py-3 text-left hover:bg-panel/50 sm:grid-cols-[1fr_auto] sm:items-center"
-                onClick={() => openCaptureBatch(batch.id)}
-              >
-                <span>
-                  <span className="block text-sm font-medium text-ink">Blu-ray collection</span>
-                  <span className="mt-1 block text-xs text-ghost">
-                    {batch.received_item_count} editions · page {batch.current_page}
-                    {batch.total_pages ? ` of ${batch.total_pages}` : ''} · {batch.status.replaceAll('_', ' ')}
+            {captureBatches.map((batch) => {
+              const summary = captureBatchSummary(batch);
+              return (
+                <button
+                  key={batch.id}
+                  type="button"
+                  className="grid w-full gap-2 py-3 text-left hover:bg-panel/50 sm:grid-cols-[1fr_auto] sm:items-center"
+                  onClick={() => openCaptureBatch(batch.id)}
+                >
+                  <span>
+                    <span className="block text-sm font-medium text-ink">Blu-ray collection</span>
+                    <span className="mt-1 block text-xs text-ghost">
+                      {summary.countLabel} · page {batch.current_page}
+                      {batch.total_pages ? ` of ${batch.total_pages}` : ''} · {summary.statusLabel}
+                    </span>
                   </span>
-                </span>
-                <span className="text-xs text-accent">Review batch →</span>
-              </button>
-            ))}
+                  <span className="text-xs text-accent">Review batch →</span>
+                </button>
+              );
+            })}
           </div>
         </section>
       ) : null}

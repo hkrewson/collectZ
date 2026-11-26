@@ -4,7 +4,50 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, the `3.29.0` through `3.29.12` reliability and provider-observation milestones, and `3.30.0` BookOrbit edition provenance are complete and hosted-certified. `3.31.0` begins the broader Work/Edition/Owned Copy program, `3.31.1` establishes authenticated collection traversal and batch receipts, and `3.31.2` makes those receipts reviewable and actionable with exact-product edition enrichment.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, the `3.29.0` through `3.29.12` reliability and provider-observation milestones, and `3.30.0` BookOrbit edition provenance are complete and hosted-certified. `3.31.0` begins the broader Work/Edition/Owned Copy program, `3.31.1` establishes authenticated collection traversal and batch receipts, `3.31.2` makes those receipts reviewable and actionable with exact-product edition enrichment, and `3.31.3` makes partial enrichment honest and recoverable.
+
+---
+
+## 3.31.3 — Resilient Blu-ray Detail Enrichment and Partial Completion
+
+**Goal:** Detect soft provider challenges, retry detail enrichment with bounded adaptive backoff, report partial completion honestly, and let the browser companion retry only failed editions in the existing batch.
+**Status:** Complete locally; hosted certification awaits an authorized push.
+
+### Selected scope
+
+- Distinguish authentication, challenge, throttling, HTTP, network, identity, and incomplete-evidence failures without retaining raw provider HTML.
+- Retry transient detail failures with bounded adaptive backoff and slower inter-item pacing.
+- Derive enriched and failed counts from received batch evidence and present `ready with issues` when any edition remains incomplete.
+- Preserve null collection counts as unknown instead of coercing them to zero.
+- Let the authenticated browser companion reload the existing batch, retry only failed detail rows, and upsert recovered evidence without duplicating review items or overwriting reviewer decisions.
+- Version CollectZ `3.31.3` with browser companion `0.3.1` and keep failed editions ineligible for import.
+
+### Acceptance criteria
+
+- A soft challenge returned with HTTP `200` is identified and retried rather than stored as a generic parse failure.
+- Retry delays increase between attempts, remain bounded, and stop after a documented maximum.
+- A completed traversal with failed detail rows is visibly `ready with issues` and reports enriched, failed, received, and unknown/known expected counts accurately.
+- Retry failed editions touches only failed rows, preserves batch identity and ordering, and leaves already enriched and reviewer-controlled rows unchanged.
+- Provider credentials, cookies, authorization headers, and raw private HTML remain browser-local.
+- Version, release note/feed, OpenAPI, browser companion, canonical runtime, and relevant release gates are aligned before closeout.
+
+### Milestone boundary
+
+This slice improves the existing manually initiated collection workflow. It does not add scheduled crawling, provider-session custody, background refresh, non-owned status mapping, another provider, or automatic import.
+
+### 3.31.3 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.31.3 — Resilient Blu-ray Detail Enrichment and Partial Completion` is complete locally.
+- **Project docs/checklists used:** `AGENTS.md`; `GLOSSARY.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/54-Work-Edition-Owned-Copy-Contract.md`; `docs/releases/v3.31.3.md`; browser companion `README.md`; browser companion `docs/capture-contract.md`; browser companion `docs/collectz-compatibility.md`.
+- **Verified facts:** browser companion `0.3.1` detects authentication and soft challenge responses, retries transient detail failures at most three times with increasing bounded delay, paces item requests conservatively, preserves only bounded failure reasons, and can reload the same batch to retry failed editions without resubmitting already enriched rows. CollectZ derives enriched and failed counts from item evidence, exposes `ready_with_issues`, preserves unknown expected counts as null, and keeps incomplete rows ineligible for Include.
+- **Inference:** a traversal receipt can be safely reviewable before every provider detail succeeds when the partial state is explicit, failed rows remain ineligible, and recovery is limited to those rows.
+- **Runtime verification used:** rebuilt and recreated the canonical `collectz-private` stack in place on port `3201`; verified application/frontend/backend/build `3.31.3`, migration `150`, the current Help > Releases entry, failed-only recovery against the same batch, and exactly one Work, Edition, Owned Copy, and source observation after explicit apply. The retained Platform edition boundary passed. The previous user collection was then intentionally cleared: batch `b11c4e60-e07e-4a44-aa16-0df8fccb568a` and its `103` child review rows were removed by cascade, with zero matching batches, zero orphaned rows, and zero active Blu-ray batches remaining in that inbox scope.
+- **CI/checks run:** backend unit (`391` source assertions plus `57` maintained Node tests), OpenAPI, frontend unit (`10` tests), changed-file ESLint/Prettier, frontend production build, browser companion typecheck, Chrome/Firefox builds, and `22` tests; targeted partial-batch browser coverage (`3/3` including setup); maintained Core browser regression (`57` passed, `6` expected skips); Platform browser boundary (`8` passed, `2` expected skips); Core RBAC; retained Platform edition boundary; live failed-only retry batch smoke; zero-finding backend/frontend production dependency audits; desktop/mobile rendered partial-review evidence and evidence-policy validation; diff hygiene; version/release-feed sync; and the standard local release gate, whose feature, version, unit, OpenAPI, quality, build, audit, and diff checks passed.
+- **Blocked/unverified:** the release-preflight helper remains NO-GO only because its observability artifact is stale. Refreshing that artifact would create and tear down separate logging and monitoring stacks and volumes, which current project policy forbids without explicit authorization. Its built-in Compose probe also assumes host resolution of the Compose-only `frontend` name; direct browser and in-stack health checks passed instead. The Core runtime smoke cannot validly run against the retained Platform-configured stack, and its isolated harness would create a second Compose project and volume, so it remains a hosted-CI gate. `gitleaks` and Trivy are not installed locally; hosted CI must rerun `compose-smoke`, migration checks, RBAC, browser regression, Core runtime smoke, secret scan, dependency scan, image security/SBOM, release preflight, publication, and tag gates after push.
+- **Files changed:** challenge-aware browser-companion enrichment, retry policy, failed-row batch reload/resubmission, popup recovery controls, manifests, tests, and contract docs; derived batch progress/readback, OpenAPI, retry smoke, Capture Inbox status/count/recovery UI, unit/browser coverage; version `3.31.3` manifests/lockfiles, release note/feed, glossary, model contract, roadmap/backlog, UI evidence, quality evidence, and local preflight artifacts.
+- **Risks or follow-ups:** Blu-ray.com markup and challenge behavior remain external dependencies. Persistent challenges still require the user to resolve the provider page in the browser before retrying. Scheduled refresh, non-owned state mapping, price/rating history, upgrade discovery, notifications, Plex propagation, other providers, and broader historical backfill remain backlog work.
+- **What remains in the milestone:** no local feature implementation remains. The user must reload browser companion `0.3.1` before the next collection capture; hosted certification and publication require an authorized push.
+- **Recommended commit message:** `release: ship v3.31.3 resilient Blu-ray enrichment and partial completion`.
 
 ---
 

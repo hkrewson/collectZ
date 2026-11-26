@@ -710,7 +710,7 @@ These are product-level capability gaps discovered from the current shape of the
 **Type:** Product/import architecture milestone candidate
 **Tags:** `imports`, `capture`, `browser-extension`, `blu-ray`, `movies`, `editions`, `review`, `pricing`, `ratings`, `notifications`, `plex`, `provenance`
 **Priority:** `P2` under the active `Work, Edition, Owned Copy, and External Observation Model` program.
-**Status:** The reviewed single-title foundation moved to roadmap milestone `3.31.0`; manual authenticated collection traversal and batch receipts moved to `3.31.1`; and exact-product detail enrichment plus actionable edition review moved to `3.31.2`. Remaining non-owned status mapping, upgrade discovery, notifications, price history, Plex watched-state work, and broader provider adoption stay here unscheduled.
+**Status:** The reviewed single-title foundation moved to roadmap milestone `3.31.0`; manual authenticated collection traversal and batch receipts moved to `3.31.1`; exact-product detail enrichment plus actionable edition review moved to `3.31.2`; and challenge-aware retry, failed-only recovery, and honest partial completion moved to `3.31.3`. Remaining non-owned status mapping, upgrade discovery, notifications, price history, Plex watched-state work, and broader provider adoption stay here unscheduled.
 
 **Goal:** Make Blu-ray.com intake a native CollectZ review-and-upsert workflow, using the browser extension only where an authenticated browser session is required, while preserving edition identity, useful source metadata, user control over conflicts, and reliable downstream Plex watched-state synchronization.
 
@@ -842,7 +842,7 @@ These are product-level capability gaps discovered from the current shape of the
 **Candidate implementation slices**
 - Shipped in `3.31.0`: reviewed single-title Work/Edition/Owned Copy creation, exact-product upsert, immutable normalized Edition Source Observation, compatibility projection, and pre-apply outcome review.
 - Selected for `3.31.1`: batch/session and normalized collection-item contracts, authenticated paginated traversal, duplicate-safe delivery, conflict-first batch review, staged Include/Skip decisions, and independent owned-item apply.
-1. Selected for `3.31.2`: exact-product detail enrichment, identity validation, visible edition/identifier/technical/provenance review, numeric collection pagination, and explicit reviewer Include before apply.
+1. Completed through `3.31.3`: exact-product detail enrichment, identity validation, visible edition/identifier/technical/provenance review, numeric collection pagination, explicit reviewer Include before apply, challenge-aware adaptive retry, failed-only recovery, and honest partial-completion reporting.
 2. Expand single-title mapping to remaining reliable edition fields and ratings without flattening them onto the Work.
 3. Extend exact-edition matching to Wishlist/Ordered/status mapping and review flags for Loaned/trade/sell; exclude Rented.
 4. Add normalized price/rating/source history and current per-source Overview readback.

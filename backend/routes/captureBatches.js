@@ -8,6 +8,7 @@ const { enforceScopeAccess } = require('../middleware/scopeAccess');
 const { resolveScopeContext } = require('../db/scopeContext');
 const { withAuthorizedScopeTransaction } = require('../db/scopeBroker');
 const { logActivity } = require('../services/audit');
+const { optionalNonNegativeInt, deriveCaptureBatchReviewStatus } = require('../services/captureBatchProgress');
 const captureItemsRouter = require('./captureItems');
 
 const router = express.Router();
@@ -32,11 +33,6 @@ function object(value) {
 function positiveInt(value) {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
-function nonNegativeInt(value) {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
 function isUuid(value) {
@@ -98,6 +94,8 @@ function itemIdentifiers(item, productId) {
 }
 
 function shapeBatch(row) {
+  const enrichedItemCount = optionalNonNegativeInt(row.enriched_item_count) || 0;
+  const enrichmentFailedItemCount = optionalNonNegativeInt(row.enrichment_failed_item_count) || 0;
   return {
     id: row.id,
     client_batch_id: row.client_batch_id,
@@ -105,12 +103,15 @@ function shapeBatch(row) {
     source_collection_key: row.source_collection_key,
     source_url: row.source_url,
     status: row.status,
+    review_status: deriveCaptureBatchReviewStatus(row.status, enrichmentFailedItemCount),
     current_page: row.current_page,
     total_pages: row.total_pages,
     expected_item_count: row.expected_item_count,
     received_item_count: row.received_item_count,
     applied_item_count: row.applied_item_count,
     failed_item_count: row.failed_item_count,
+    enriched_item_count: enrichedItemCount,
+    enrichment_failed_item_count: enrichmentFailedItemCount,
     pause_reason: row.pause_reason,
     pause_detail: row.pause_detail,
     library_id: row.library_id,
@@ -334,10 +335,20 @@ router.get(
     const result = await scopedQuery(
       req,
       scope,
-      `SELECT * FROM capture_batches
-      WHERE space_id = $1 AND library_id = $2
-        AND ($3::boolean OR status NOT IN ('completed', 'discarded'))
-      ORDER BY updated_at DESC LIMIT $4`,
+      `SELECT b.*, COALESCE(e.enriched_item_count, 0)::int AS enriched_item_count,
+              COALESCE(e.enrichment_failed_item_count, 0)::int AS enrichment_failed_item_count
+         FROM capture_batches b
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*) FILTER (WHERE ci.source_context->>'enrichment_status' = 'enriched') AS enriched_item_count,
+                  COUNT(*) FILTER (WHERE ci.source_context->>'enrichment_status' = 'failed') AS enrichment_failed_item_count
+             FROM capture_items ci
+            WHERE ci.capture_batch_id = b.id
+              AND ci.space_id = b.space_id
+              AND ci.library_id = b.library_id
+         ) e ON true
+        WHERE b.space_id = $1 AND b.library_id = $2
+          AND ($3::boolean OR b.status NOT IN ('completed', 'discarded'))
+        ORDER BY b.updated_at DESC LIMIT $4`,
       [scope.spaceId, scope.libraryId, includeCompleted, limit]
     );
     return res.json({ batches: result.rows.map(shapeBatch) });
@@ -360,12 +371,22 @@ router.get(
       [batch.id, scope.spaceId, scope.libraryId]
     );
     const shaped = items.rows.map(shapeItem);
+    const enrichedItemCount = shaped.filter((item) => item.source_context.enrichment_status === 'enriched').length;
+    const enrichmentFailedItemCount = shaped.filter((item) => item.source_context.enrichment_status === 'failed').length;
     const counts = shaped.reduce((result, item) => {
       result[item.decision] = (result[item.decision] || 0) + 1;
       result[item.classification] = (result[item.classification] || 0) + 1;
       return result;
     }, {});
-    return res.json({ batch: shapeBatch(batch), items: shaped, review_counts: counts });
+    return res.json({
+      batch: shapeBatch({
+        ...batch,
+        enriched_item_count: enrichedItemCount,
+        enrichment_failed_item_count: enrichmentFailedItemCount
+      }),
+      items: shaped,
+      review_counts: counts
+    });
   })
 );
 
@@ -434,7 +455,7 @@ router.post(
     }
     const currentPage = positiveInt(req.body?.page) || batch.current_page;
     const totalPages = positiveInt(req.body?.total_pages);
-    const expectedCount = nonNegativeInt(req.body?.expected_item_count);
+    const expectedCount = optionalNonNegativeInt(req.body?.expected_item_count);
     const updated = await scopedQuery(
       req,
       scope,
@@ -469,9 +490,9 @@ router.patch(
      RETURNING *`,
       [
         status,
-        nonNegativeInt(req.body?.current_page),
+        optionalNonNegativeInt(req.body?.current_page),
         positiveInt(req.body?.total_pages),
-        nonNegativeInt(req.body?.expected_item_count),
+        optionalNonNegativeInt(req.body?.expected_item_count),
         status === 'paused' ? clean(req.body?.pause_reason, 80) : null,
         status === 'paused' ? clean(req.body?.pause_detail, 500) : null,
         req.params.id,

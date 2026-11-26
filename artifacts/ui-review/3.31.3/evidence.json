@@ -1,0 +1,50 @@
+{
+  "contract": "3.31.3 resilient Blu-ray enrichment: completed traversal and incomplete detail enrichment remain distinct; reviewers see exact success and retry counts plus a direct failed-only recovery path at desktop 1440x900 and mobile 390x844.",
+  "targetViewports": ["1440x900", "390x844"],
+  "accessibility": {
+    "status": "pass",
+    "evidence": "Playwright exercised named review tabs, the labeled full-set checkbox, visible status text, disabled and enabled Include states, keyboard-native navigation buttons, and the Apply action."
+  },
+  "responsive": {
+    "status": "pass",
+    "evidence": "The inspected desktop and 390x844 renders preserve the enrichment summary, edition evidence, identifiers, tabs, and review actions without horizontal overflow or clipped controls."
+  },
+  "contentStates": {
+    "loading": {
+      "status": "pass",
+      "evidence": "The existing drawer shell retains its explicit Loading batch review state while detail is fetched."
+    },
+    "empty": {
+      "status": "pass",
+      "evidence": "The existing empty review state explains when no conflicts match and keeps the full collected set available."
+    },
+    "error": {
+      "status": "pass",
+      "evidence": "The regression fixture shows a bounded challenge-after-retry reason, keeps the affected item visible, disables Include, and points to Retry failed editions."
+    },
+    "partial": {
+      "status": "pass",
+      "evidence": "The drawer reports Ready with issues and 1 of 2 enriched / 1 need retry while preserving the verified edition for review."
+    },
+    "success": {
+      "status": "pass",
+      "evidence": "The verified edition exposes media format, edition, country, release year, Blu-ray ID, UPC/EAN, ASIN, source evidence, and an enabled Include action."
+    },
+    "permission": {
+      "status": "not-applicable",
+      "reason": "The view remains behind the shared authenticated library boundary; permission handling is not changed by this slice."
+    }
+  },
+  "renderedEvidence": [
+    {
+      "viewport": "1440x900",
+      "artifact": "desktop-1440x900.png",
+      "observation": "The desktop drawer presents the exact enrichment and retry counts beside edition review context, with the verified item and Apply action available."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "mobile-390x844.png",
+      "observation": "The mobile view retains Ready with issues, all review tabs, the two-column evidence layout, and reachable Include and Apply actions."
+    }
+  ]
+}

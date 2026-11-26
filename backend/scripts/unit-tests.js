@@ -118,6 +118,7 @@ const {
   parseLegacyUsedPrice
 } = require('../services/browserCaptureMapping');
 const { buildEditionFacts, fingerprint: fingerprintEditionFacts } = require('../services/workEditionOwnedCopy');
+const { optionalNonNegativeInt, deriveCaptureBatchReviewStatus } = require('../services/captureBatchProgress');
 const { compareReleaseVersions, parseReleaseMarkdown } = require('../services/releaseNotes');
 const { buildCoreInstanceContract } = require('../services/coreInstance');
 const { shapeOperatorJob } = require('../services/durableJobs');
@@ -561,6 +562,15 @@ async function run(name, fn) {
 }
 
 const results = [];
+
+results.push(run('capture batch progress preserves unknown counts and derives partial completion', () => {
+  assert.strictEqual(optionalNonNegativeInt(null), null);
+  assert.strictEqual(optionalNonNegativeInt(undefined), null);
+  assert.strictEqual(optionalNonNegativeInt(''), null);
+  assert.strictEqual(optionalNonNegativeInt(0), 0);
+  assert.strictEqual(deriveCaptureBatchReviewStatus('ready', 0), 'ready');
+  assert.strictEqual(deriveCaptureBatchReviewStatus('ready', 35), 'ready_with_issues');
+}));
 
 results.push(run('runtime database role is non-owner, verifier-provisioned, and enforced by Compose', () => {
   const crypto = require('crypto');

@@ -64,9 +64,13 @@ test.describe('import browser regressions', () => {
       source_provider: 'blu-ray.com',
       source_url: 'https://www.blu-ray.com/community/collection.php',
       status: 'ready',
+      review_status: 'ready_with_issues',
       current_page: 2,
       total_pages: 2,
+      expected_item_count: null,
       received_item_count: 2,
+      enriched_item_count: 1,
+      enrichment_failed_item_count: 1,
       applied_item_count: 0,
       failed_item_count: 0
     };
@@ -94,7 +98,7 @@ test.describe('import browser regressions', () => {
               reason: 'Only an explicit Owned status can be applied.',
               source_context: {
                 enrichment_status: 'failed',
-                enrichment_error: 'detail_http_429',
+                enrichment_error: 'detail_challenge_detected_after_retry',
                 identifiers: { bluray_product_id: '700' },
                 page_metadata: { release_title: 'Unconfirmed collection row Blu-ray' }
               }
@@ -110,7 +114,7 @@ test.describe('import browser regressions', () => {
               source_context: {
                 url: 'https://www.blu-ray.com/movies/Explicitly-Owned-Edition/701/',
                 captured_at: '2026-11-26T00:00:00.000Z',
-                extension_version: '0.3.0',
+                extension_version: '0.3.1',
                 enrichment_status: 'enriched',
                 ownership_basis: 'collection_page',
                 identifiers: {
@@ -152,9 +156,11 @@ test.describe('import browser regressions', () => {
 
     await page.goto('/dashboard?tab=library-capture');
     await expect(page.getByRole('heading', { name: 'Collection batches' })).toBeVisible();
+    await expect(page.getByText(/1 of 2 enriched · 1 need retry/i)).toBeVisible();
     await page.getByRole('button', { name: /Blu-ray collection/ }).click();
 
     await expect(page.getByRole('heading', { name: 'Blu-ray edition review' })).toBeVisible();
+    await expect(page.getByTestId('capture-batch-review-drawer').getByText(/Ready with issues/)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Unconfirmed collection row', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Include', exact: true })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Next edition' })).toBeEnabled();

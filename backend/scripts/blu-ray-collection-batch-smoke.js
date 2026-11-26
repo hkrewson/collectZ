@@ -141,6 +141,9 @@ async function main() {
 
     const detail = await request(`/api/capture-batches/${batchId}`, context.token);
     assert.strictEqual(detail.items.length, 2, 'duplicate page delivery must not duplicate review rows');
+    assert.strictEqual(detail.batch.review_status, 'ready_with_issues');
+    assert.strictEqual(detail.batch.enriched_item_count, 1);
+    assert.strictEqual(detail.batch.enrichment_failed_item_count, 1);
     const ownedItem = detail.items.find((item) => item.source_status === 'Owned');
     assert.strictEqual(ownedItem.decision, 'pending');
     assert.strictEqual(ownedItem.source_context.enrichment_status, 'enriched');
@@ -148,6 +151,27 @@ async function main() {
     assert.strictEqual(ownedItem.source_context.page_metadata.edition, 'SteelBook');
     assert.strictEqual(ownedItem.source_context.page_metadata.media_format, '4K Ultra HD + Blu-ray');
     assert.strictEqual(detail.items.find((item) => item.source_status === null).decision, 'skip');
+
+    const retryItem = {
+      ...pageBody.items[1],
+      enrichment_status: 'enriched',
+      enrichment_error: null,
+      page_metadata: {
+        release_title: `Batch Unknown ${context.suffix} Blu-ray`,
+        media_format: 'Blu-ray',
+        release_details: { year: '2025' }
+      }
+    };
+    await request(`/api/capture-batches/${batchId}/items`, context.token, {
+      method: 'POST',
+      statuses: [201],
+      body: { page: 1, total_pages: 1, expected_item_count: 2, items: [retryItem] }
+    });
+    const retriedDetail = await request(`/api/capture-batches/${batchId}`, context.token);
+    assert.strictEqual(retriedDetail.batch.review_status, 'ready');
+    assert.strictEqual(retriedDetail.batch.enriched_item_count, 2);
+    assert.strictEqual(retriedDetail.batch.enrichment_failed_item_count, 0);
+    assert.strictEqual(retriedDetail.items.find((item) => item.source_status === null).decision, 'skip');
     const ordinary = await request('/api/capture-items?status=all', context.token);
     assert.strictEqual(ordinary.items.length, 0, 'batch children must stay out of the ordinary Capture Inbox list');
 
@@ -187,6 +211,7 @@ async function main() {
           duplicate_page_safe: true,
           hidden_child_rows: true,
           enriched_review_required: true,
+          failed_only_retry: true,
           explicit_owned_only: true,
           independent_apply: true,
           ownership: ownership.rows[0]

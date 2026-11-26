@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.31.3",
+      "version": "3.31.3",
+      "date": "2026-11-26",
+      "status": null,
+      "summary": "Makes authenticated Blu-ray collection intake honest and recoverable when exact-product detail pages are throttled, challenged, or incomplete. Browser companion `0.3.1` applies bounded adaptive retry and can retry only failed editions in the existing batch, while CollectZ distinguishes a fully ready batch from one that is ready with issues.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Detects soft authentication and provider challenge pages returned with HTTP `200` instead of collapsing them into a generic parse failure.",
+            "Retries transient detail failures up to three times with increasing delay and slower inter-item pacing.",
+            "Preserves specific bounded detail failure reasons without storing raw private HTML, cookies, credentials, or authorization headers.",
+            "Derives enriched and failed detail totals from batch evidence and displays `Ready with issues` with a concise recovery path.",
+            "Lets the browser companion reload the current batch and retry only failed rows, preserving batch identity, ordering, already enriched rows, and reviewer-controlled decisions.",
+            "Preserves an unavailable collection count as unknown rather than coercing it to zero."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.31.2",
       "version": "3.31.2",
       "date": "2026-11-26",
@@ -176,26 +196,6 @@
             "Returns only the latest safe review projection; internal actor and ownership identifiers remain private.",
             "Rejects attempts to review unsupported, matching, absent, or no-longer-current differences.",
             "Extended OpenAPI, migration inventory, provider contract, unit/source checks, and the BookOrbit runtime smoke."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.29.7",
-      "version": "3.29.7",
-      "date": "2026-11-23",
-      "status": null,
-      "summary": "Makes immutable BookOrbit and Kavita evidence easier to review by showing how allowlisted observed bibliographic facts compare with the current canonical record, without applying metadata or changing provider authority.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a derived comparison to each workspace-authorized provider observation readback.",
-            "Compares an explicit allowlist of current and observed bibliographic fields while ignoring blank provider values.",
-            "Normalizes equivalent text, number, identifier, and date representations before reporting differences.",
-            "Returns only differing fields with safe current/observed values and bounded authority, write-mode, lock, and same-provider context.",
-            "Shows match/difference counts and field details in Library Provider history without offering apply or rematch actions.",
-            "Extended unit, OpenAPI, BookOrbit runtime, and browser coverage for comparison behavior and internal-id exclusion."
           ]
         }
       ]

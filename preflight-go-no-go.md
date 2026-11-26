@@ -1,13 +1,13 @@
 # Local Release Go/No-Go Preflight
 
-- Version: `3.31.2`
-- Generated: `2026-11-26T07:28:55.640Z`
+- Version: `3.31.3`
+- Generated: `2026-11-26T16:32:11.014Z`
 - Base URL: `http://localhost:3000`
 
 ## Gate Results
 
-- Version metadata sync: PASS — all manifests aligned on 3.31.2
-- Release note presence: PASS — docs/releases/v3.31.2.md
+- Version metadata sync: PASS — all manifests aligned on 3.31.3
+- Release note presence: PASS — docs/releases/v3.31.3.md
 - Backend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Frontend dependency audit: PASS — low=0 moderate=0 high=0 critical=0
 - Migration authority and rehearsal evidence: PASS — migration chain certified as fresh-install and restored-runtime authority through 150
@@ -37,7 +37,7 @@
 
 ## Release Note
 
-- `docs/releases/v3.31.2.md`: present
+- `docs/releases/v3.31.3.md`: present
 - Security triage markers: present
 
 ## Blocking Criteria
