@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.31.6",
+      "version": "3.31.6",
+      "date": "2026-11-28",
+      "status": null,
+      "summary": "Promotes reviewed title and product identifiers into a normalized registry attached to the Work or Edition they actually identify, while preserving immutable capture evidence.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Adds a typed, exact-library Object Identifier registry with source-observation provenance.",
+            "Stores IMDb title IDs on Works and Blu-ray product, content/group, UPC/EAN, and ASIN values on Editions.",
+            "Makes repeat Apply identifier-idempotent and rejects strong cross-target collisions for review.",
+            "Backfills unambiguous identifiers from existing reviewed Blu-ray editions and observations.",
+            "Keeps category IDs as classification evidence instead of misrepresenting them as object identity."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.31.5",
       "version": "3.31.5",
       "date": "2026-11-27",
@@ -174,26 +193,6 @@
             "Added responsive current, observed, proposed, previous, and applied cover previews with understandable missing-image and load-failure states.",
             "Reuses explicit approve/reject/defer review, exact-plan confirmation, atomic apply, reviewed preserve-only field authority, and immutable before/after history.",
             "Keeps provider refresh, provider selection, identity rematching, automatic cover replacement, and provider image-byte import out of scope."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.29.10",
-      "version": "3.29.10",
-      "date": "2026-11-24",
-      "status": null,
-      "summary": "Adds an explicit, atomic way to apply still-current approved BookOrbit or Kavita observation fields to CollectZ while preserving immutable before/after evidence and preventing automatic future overwrite.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added exact-preview fingerprints and stale-plan rejection for approved provider metadata.",
-            "Applies all still-eligible approved fields atomically and records reviewed, preserve-only field authority.",
-            "Added immutable exact-library-scoped apply events with bounded before/after field evidence.",
-            "Added Provider history confirmation, loading, blocker, success, and applied-history states.",
-            "Surfaces selected metadata-provider ids, observed series memberships, and cover provenance alongside reviewable canonical differences.",
-            "Keeps provider writeback, automatic refresh, cover application, identity rematching, and provider selection out of scope."
           ]
         }
       ]

@@ -12,6 +12,7 @@ CollectZ must distinguish a creative title from a market release and from the ph
 - An **Edition Source Observation** is immutable normalized release evidence retained from the reviewed capture. It is evidence for the Edition, not current Work metadata and not a raw browser payload.
 - `media` remains the compatibility projection used by existing title APIs and UI.
 - `media_variants` remains a compatibility projection for existing Blu-ray and Plex consumers. It is not authoritative ownership state.
+- `collection_object_identifiers` is the reviewed identity registry for Work- and Edition-scoped schemes. Raw identifiers remain in Edition Source Observations as evidence; category IDs remain classification evidence.
 
 ## First workflow invariants
 
@@ -23,6 +24,7 @@ CollectZ must distinguish a creative title from a market release and from the ph
 6. Work, Edition, Owned Copy, capture, and compatibility media rows must share the same workspace and library.
 7. The runtime can read or write the new records only inside an authorized exact-library database transaction.
 8. Deleting a converted Capture Inbox receipt retains its Edition Source Observation and clears only the receipt pointer. Direct observation mutation/deletion remains forbidden; an authorized Work/Edition deletion may remove dependent evidence through the normal cascade.
+9. Apply promotes supported reviewed identifiers atomically: IMDb title ID to the Work; Blu-ray product, content, global grouping, UPC/EAN, and ASIN values to the Edition. Strong cross-target collisions reject the item; corroborating values may be shared.
 
 ## Collection batch invariants
 

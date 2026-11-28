@@ -247,7 +247,7 @@ async function main() {
       JSON.stringify(
         {
           ok: true,
-          migration: 150,
+          migration: 153,
           batch_idempotent: true,
           duplicate_page_safe: true,
           hidden_child_rows: true,

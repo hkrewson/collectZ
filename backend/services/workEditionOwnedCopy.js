@@ -23,6 +23,49 @@ function safeFormats(value) {
     .filter(Boolean))].sort();
 }
 
+const REVIEWED_IDENTIFIER_POLICIES = Object.freeze([
+  { source: 'imdb_id', scheme: 'imdb.title', target: 'work', strength: 'exclusive' },
+  { source: 'bluray_product_id', scheme: 'bluray.product', target: 'edition', strength: 'exclusive' },
+  { source: 'bluray_content_id', scheme: 'bluray.content', target: 'edition', strength: 'corroborating' },
+  { source: 'bluray_global_product_id', scheme: 'bluray.global_product', target: 'edition', strength: 'grouping' },
+  { source: 'bluray_global_parent_id', scheme: 'bluray.global_parent', target: 'edition', strength: 'grouping' },
+  { source: 'upc', scheme: 'gs1.upc', target: 'edition', strength: 'corroborating' },
+  { source: 'ean', scheme: 'gs1.ean', target: 'edition', strength: 'corroborating' },
+  { source: 'asin', scheme: 'amazon.asin', target: 'edition', strength: 'corroborating' }
+]);
+
+function normalizeIdentifierValue(scheme, value) {
+  const raw = cleanString(value, 500);
+  if (!raw) return null;
+  if (scheme === 'gs1.upc' || scheme === 'gs1.ean') {
+    const digits = raw.replace(/[^0-9]/g, '');
+    return digits || null;
+  }
+  return raw.toLowerCase();
+}
+
+function buildReviewedObjectIdentifiers({ mapping, sourceItemId }) {
+  const identifiers = mapping?.identifiers || {};
+  const capturedIdentifiers = mapping?.variant?.raw_json?.identifiers || {};
+  const values = {
+    ...identifiers,
+    bluray_product_id: sourceItemId || identifiers.bluray_product_id,
+    upc: mapping?.import_hints?.upc || capturedIdentifiers.upc,
+    ean: capturedIdentifiers.ean
+  };
+  return REVIEWED_IDENTIFIER_POLICIES.flatMap((policy) => {
+    const raw = cleanString(values[policy.source], 500);
+    const normalized = normalizeIdentifierValue(policy.scheme, raw);
+    return raw && normalized ? [{
+      scheme: policy.scheme,
+      target: policy.target,
+      strength: policy.strength,
+      raw,
+      normalized
+    }] : [];
+  });
+}
+
 function buildEditionFacts(mapping) {
   const variant = mapping?.variant || {};
   const identifiers = mapping?.identifiers || {};
@@ -41,7 +84,9 @@ function buildEditionFacts(mapping) {
       bluray_content_id: cleanString(identifiers.bluray_content_id),
       bluray_global_parent_id: cleanString(identifiers.bluray_global_parent_id),
       bluray_global_product_id: cleanString(identifiers.bluray_global_product_id),
-      imdb_id: cleanString(identifiers.imdb_id)
+      imdb_id: cleanString(identifiers.imdb_id),
+      upc: cleanString(hints.upc || variant.raw_json?.identifiers?.upc),
+      ean: cleanString(variant.raw_json?.identifiers?.ean)
     },
     valuation: mapping?.valuation ? {
       amount: Number(mapping.valuation.used_amount),
@@ -49,6 +94,82 @@ function buildEditionFacts(mapping) {
       condition: 'used'
     } : null
   };
+}
+
+async function upsertReviewedObjectIdentifiers({
+  db,
+  spaceId,
+  libraryId,
+  workId,
+  editionId,
+  sourceProvider,
+  sourceObservationId,
+  actorUserId,
+  reviewedAt,
+  identifiers
+}) {
+  const applied = [];
+  for (const identifier of identifiers) {
+    const workTarget = identifier.target === 'work' ? workId : null;
+    const editionTarget = identifier.target === 'edition' ? editionId : null;
+    const inserted = await db.query(
+      `INSERT INTO collection_object_identifiers (
+         space_id, library_id, target_kind, work_id, edition_id,
+         identifier_scheme, identifier_value_raw, identifier_value_normalized,
+         resolution_strength, source_provider, source_observation_id,
+         first_seen_at, last_seen_at, created_by, updated_by
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,$13,$13)
+       ON CONFLICT DO NOTHING
+       RETURNING id`,
+      [
+        spaceId, libraryId, identifier.target, workTarget, editionTarget,
+        identifier.scheme, identifier.raw, identifier.normalized,
+        identifier.strength, sourceProvider, sourceObservationId,
+        reviewedAt, actorUserId
+      ]
+    );
+    let row = inserted.rows[0];
+    let created = inserted.rowCount === 1;
+    if (!row) {
+      const existing = await db.query(
+        `SELECT id FROM collection_object_identifiers
+          WHERE space_id = $1 AND library_id = $2
+            AND target_kind = $3
+            AND (($3 = 'work' AND work_id = $4) OR ($3 = 'edition' AND edition_id = $5))
+            AND identifier_scheme = $6 AND identifier_value_normalized = $7
+          LIMIT 1`,
+        [spaceId, libraryId, identifier.target, workTarget, editionTarget, identifier.scheme, identifier.normalized]
+      );
+      row = existing.rows[0];
+      if (!row) {
+        const error = new Error(
+          `The reviewed ${identifier.scheme} identifier is already attached to a different ${identifier.target} and needs review.`
+        );
+        error.status = 409;
+        throw error;
+      }
+      await db.query(
+        `UPDATE collection_object_identifiers
+            SET identifier_value_raw = $2,
+                resolution_strength = $3,
+                source_provider = $4,
+                source_observation_id = $5,
+                last_seen_at = GREATEST(last_seen_at, $6::timestamptz),
+                updated_by = $7
+          WHERE id = $1`,
+        [row.id, identifier.raw, identifier.strength, sourceProvider, sourceObservationId, reviewedAt, actorUserId]
+      );
+      created = false;
+    }
+    applied.push({
+      id: row.id,
+      scheme: identifier.scheme,
+      target: identifier.target,
+      strength: identifier.strength,
+      created
+    });
+  }
+  return applied;
 }
 
 async function upsertReviewedBluRayOwnership({
@@ -192,17 +313,33 @@ async function upsertReviewedBluRayOwnership({
     observationId = existingObservation.rows[0]?.id;
   }
 
+  const objectIdentifiers = await upsertReviewedObjectIdentifiers({
+    db,
+    spaceId,
+    libraryId,
+    workId,
+    editionId,
+    sourceProvider,
+    sourceObservationId: observationId,
+    actorUserId: actorId,
+    reviewedAt,
+    identifiers: buildReviewedObjectIdentifiers({ mapping, sourceItemId })
+  });
+
   return {
     applied: true,
     work: { id: workId, created: existingWork.rowCount === 0 },
     edition: { id: editionId, created: existingEdition.rowCount === 0, provider: sourceProvider, provider_item_id: sourceItemId },
     owned_copy: { id: copyId, created: existingCopy.rowCount === 0, status: 'owned' },
-    observation: { id: observationId, created: observationResult.rowCount === 1 }
+    observation: { id: observationId, created: observationResult.rowCount === 1 },
+    identifiers: objectIdentifiers
   };
 }
 
 module.exports = {
   buildEditionFacts,
+  buildReviewedObjectIdentifiers,
   fingerprint,
+  normalizeIdentifierValue,
   upsertReviewedBluRayOwnership
 };

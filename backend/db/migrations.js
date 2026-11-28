@@ -5018,7 +5018,13 @@ CREATE INDEX IF NOT EXISTS idx_tv_device_expiry ON tv_device_authorizations(expi
   { version: 149, description: 'Preserve edition observations across capture cleanup',
     up: require('fs').readFileSync(require('path').join(__dirname, 'workEditionObservationLifecycle.sql'), 'utf8') },
   { version: 150, description: 'Add authenticated Blu-ray collection capture batches',
-    up: require('fs').readFileSync(require('path').join(__dirname, 'bluRayCollectionCaptureBatches.sql'), 'utf8') }
+    up: require('fs').readFileSync(require('path').join(__dirname, 'bluRayCollectionCaptureBatches.sql'), 'utf8') },
+  { version: 151, description: 'Add reviewed Work and Edition identifier registry',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'collectionObjectIdentifiers.sql'), 'utf8') },
+  { version: 152, description: 'Backfill reviewed Work and Edition identifiers',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'collectionObjectIdentifiersBackfill.sql'), 'utf8') },
+  { version: 153, description: 'Backfill reviewed Blu-ray UPC and EAN identifiers',
+    up: require('fs').readFileSync(require('path').join(__dirname, 'collectionObjectIdentifiersCompatibilityBackfill.sql'), 'utf8') }
 ];
 
 async function runMigrationsForClient(client, options = {}) {

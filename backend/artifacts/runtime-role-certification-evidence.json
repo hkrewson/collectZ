@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-11-26T06:12:09.387Z",
+  "generated_at": "2026-11-28T07:13:55.786Z",
   "certification": "runtime-role",
-  "latest_migration": 150,
-  "legacy_baseline": 149,
+  "latest_migration": 153,
+  "legacy_baseline": 152,
   "runtime_role": "ephemeral (redacted)",
   "provisioning_inventory": {
     "contractVersion": 1,
@@ -45,11 +45,11 @@
       "public_public_create": false
     },
     "tables": {
-      "table_count": 84,
-      "runtime_select": 84,
-      "runtime_insert": 83,
-      "runtime_update": 83,
-      "runtime_delete": 83,
+      "table_count": 85,
+      "runtime_select": 85,
+      "runtime_insert": 84,
+      "runtime_update": 84,
+      "runtime_delete": 84,
       "broker_any_dml": 0,
       "schemaMigrations": {
         "select": true,
@@ -95,15 +95,15 @@
     "brokerMappingCount": 1
   },
   "runtime_authority": {
-    "generatedAt": "2026-11-26T06:12:10.159Z",
+    "generatedAt": "2026-11-28T07:13:56.447Z",
     "status": "passed",
     "certificationMode": "migration_built_runtime_authority",
     "authority": {
       "source": "append_only_migration_chain",
       "databaseOrigin": "empty_database",
-      "expectedMigrationVersion": 150,
-      "appliedMigrationVersion": 150,
-      "appliedMigrationCount": 150,
+      "expectedMigrationVersion": 153,
+      "appliedMigrationVersion": 153,
+      "appliedMigrationCount": 153,
       "everyMigrationApplied": true
     },
     "runtime": {
@@ -131,14 +131,14 @@
       {
         "id": "migration_chain_reaches_expected_version",
         "pass": true,
-        "expected": 150,
-        "actual": 150
+        "expected": 153,
+        "actual": 153
       },
       {
         "id": "migration_chain_contains_every_version",
         "pass": true,
-        "expected": 150,
-        "actual": 150
+        "expected": 153,
+        "actual": 153
       },
       {
         "id": "required_bootstrap_rows_present",
@@ -162,7 +162,7 @@
       "label": "legacy baseline migrated with seeded row",
       "pass": true,
       "detail": {
-        "baseline": 149
+        "baseline": 152
       }
     },
     {
@@ -181,7 +181,7 @@
       "label": "runtime role verifies schema current",
       "pass": true,
       "detail": {
-        "version": 150
+        "version": 153
       }
     },
     {
@@ -200,7 +200,7 @@
       "pass": true,
       "detail": {
         "certificationMode": "migration_built_runtime_authority",
-        "migrationVersion": 150
+        "migrationVersion": 153
       }
     },
     {
@@ -339,7 +339,7 @@
           "role has REPLICATION",
           "role can create schemas in the database",
           "role can create objects in the application schema",
-          "role owns or inherits ownership of 146 application relation(s)"
+          "role owns or inherits ownership of 147 application relation(s)"
         ]
       }
     },
@@ -354,7 +354,7 @@
         "violations": [
           "role can create schemas in the database",
           "role can create objects in the application schema",
-          "role owns or inherits ownership of 146 application relation(s)",
+          "role owns or inherits ownership of 147 application relation(s)",
           "role is a member of a privileged role"
         ]
       }

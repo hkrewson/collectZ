@@ -4,7 +4,49 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, the `3.29.0` through `3.29.12` reliability and provider-observation milestones, and `3.30.0` BookOrbit edition provenance are complete and hosted-certified. `3.31.0` begins the broader Work/Edition/Owned Copy program, `3.31.1` establishes authenticated collection traversal and batch receipts, `3.31.2` makes those receipts reviewable and actionable with exact-product edition enrichment, `3.31.3` makes partial enrichment honest and recoverable, `3.31.4` closes deterministic format parsing and extension-worker traversal gaps found by live collection intake, and `3.31.5` keeps traversal and incremental review lifecycle boundaries honest.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, the `3.29.0` through `3.29.12` reliability and provider-observation milestones, and `3.30.0` BookOrbit edition provenance are complete and hosted-certified. `3.31.0` begins the broader Work/Edition/Owned Copy program, `3.31.1` establishes authenticated collection traversal and batch receipts, `3.31.2` makes those receipts reviewable and actionable with exact-product edition enrichment, `3.31.3` makes partial enrichment honest and recoverable, `3.31.4` closes deterministic format parsing and extension-worker traversal gaps found by live collection intake, `3.31.5` keeps traversal and incremental review lifecycle boundaries honest, and `3.31.6` promotes reviewed identifiers onto their correct Work or Edition.
+
+---
+
+## 3.31.6 — Reviewed Work and Edition Identifier Registry
+
+**Goal:** Make reviewed product and title identifiers first-class, correctly scoped identity records instead of leaving them only in observation JSON and compatibility fields.
+**Status:** Complete locally; hosted certification awaits an authorized push.
+
+### Selected scope
+
+- Add an exact-library Object Identifier registry with Work/Edition targets, typed schemes, normalized values, resolution strength, and observation provenance.
+- Promote identifiers atomically during reviewed Blu-ray Apply.
+- Backfill existing reviewed Blu-ray editions without guessing ambiguous Work identity.
+- Keep category IDs as taxonomy evidence and keep raw capture/observation evidence unchanged.
+- Version CollectZ `3.31.6`; browser companion `0.3.2` remains compatible and unchanged.
+
+### Acceptance criteria
+
+- IMDb title IDs attach to Works; Blu-ray product, content/group, UPC/EAN, and ASIN values attach to Editions.
+- Repeat Apply is identifier-idempotent and refreshes last-seen provenance.
+- A conflicting exclusive IMDb or Blu-ray product identifier rejects the reviewed item atomically.
+- UPC/EAN, ASIN, content, and grouping collisions remain representable as contextual evidence.
+- Existing reviewed editions receive unambiguous identifiers through a separate data migration.
+- RLS, lifecycle cascade, workspace ownership, migration parity, runtime apply, and release gates agree.
+
+### Milestone boundary
+
+This slice normalizes identifiers already collected and reviewed by the Blu-ray intake workflow. It does not add global identifier search, automatic matching from weak identifiers, provider-category normalization, or a new provider.
+
+### 3.31.6 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.31.6 — Reviewed Work and Edition Identifier Registry` is complete locally.
+- **Project docs/checklists used:** `AGENTS.md`; `GLOSSARY.md`; `docs/adr/0001-canonical-object-and-provider-identity.md`; `docs/adr/0002-reviewed-object-identifiers.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/54-Work-Edition-Owned-Copy-Contract.md`; `docs/releases/v3.31.6.md`.
+- **Verified facts:** reviewed Apply now promotes IMDb title identity to the Work and Blu-ray product/content/group, UPC/EAN, and ASIN identity to the Edition in the same transaction as ownership and observation creation. Replay is idempotent, strong cross-target identity collisions roll back the item, category IDs are excluded, and target deletion removes dependent identifiers. The retained canonical database contains `136` promoted identifiers, including `20` UPCs; Blu-ray product `63965` has product `63965`, content `7074`, global product/parent `38090`, and UPC `043396439580` at Edition scope.
+- **Inference:** older reviewed rows without UPC/EAN in normalized observation facts can be recovered safely only when the exact matching Blu-ray product variant retained the value; migration `153` uses that bounded relationship and does not fall back to a canonical-media UPC that could describe another edition.
+- **Runtime verification used:** rebuilt and recreated the canonical `collectz-private` backend/frontend in place on port `3201`; applied migrations `151` through `153`; verified healthy application/frontend/backend/build `3.31.6`; confirmed Help > Releases serves `3.31.6` first; ran live retained-data backfill readback, reviewed Work/Edition/Owned Copy apply/replay/collision/lifecycle smoke, batch intake smoke, workspace ownership, Core RBAC, and fresh migration-built control-plane runtime authority. An older non-canonical `collectz` Compose project was discovered during the first rebuild attempt and was excluded from final evidence.
+- **CI/checks run:** backend unit (`391` source assertions plus `57` maintained Node tests); frontend unit (`10`); OpenAPI; changed-file ESLint/Prettier; frontend production build; zero-finding backend/frontend production dependency audits; fresh-install migration authority through `153`; retained `152 -> 153` migration/restore rehearsal; identity-upgrade certification; runtime-role certification (`32/32`); external-identity certification (`21`); control-plane runtime authority (`5/5`); workspace ownership (`88` tables, `367` routes, `12` execution paths); Work/Edition/Owned Copy and Blu-ray batch smokes; Core RBAC; Help > Releases readback; canonical health; secret-pattern inspection of refreshed evidence; and diff hygiene. The maintained Core browser regression completed with `56` passing and `6` edition-expected skips after its one unrelated drawer-opening timeout passed on immediate focused rerun.
+- **Blocked/unverified:** the local preflight's Compose helper assumes host resolution of the Compose-only `frontend` hostname; direct host and container health checks passed. Observability evidence remains stale, and refreshing it would create or recreate separate monitoring/logging infrastructure outside the authorized canonical-stack scope. Local gitleaks, CodeQL, Trivy, image scanning, SBOM generation, and a fresh hosted Core runtime database were unavailable. Hosted CI must rerun `compose-smoke`, `migration-check`, `rbac-regression`, `browser-regression`, Core `runtime-smoke`, `dependency-scan`, `secret-scan`, `image-security-and-sbom`, release preflight, publication, and tag gates.
+- **Files changed:** Work/Edition Object Identifier schema and two conservative data backfills; reviewed apply normalization, promotion, conflict handling, and readback; focused runtime smoke coverage; ownership contract; glossary and ADR; Work/Edition contract; CollectZ `3.31.6` manifests, release note/feed, roadmap/backlog; and refreshed migration, identity, runtime-role, external-identity, control-plane, dependency, and preflight evidence.
+- **Risks or follow-ups:** UPC/EAN, ASIN, content, and grouping identifiers are intentionally contextual rather than globally exclusive; future matching must combine them with edition context. The older non-canonical `collectz` Compose project remains an operational cleanup decision and must not be mistaken for the canonical development stack. Global identifier search and broader provider adoption remain separate roadmap work.
+- **What remains in the milestone:** no local implementation remains. Hosted certification and publication require an authorized push; stale observability evidence requires separately authorized infrastructure rehearsal.
+- **Recommended commit message:** `release: ship v3.31.6 reviewed Work and Edition identifier registry`.
 
 ---
 

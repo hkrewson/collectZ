@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-11-26T06:15:24.726Z",
+  "generatedAt": "2026-11-28T07:13:44.353Z",
   "status": "passed",
   "manifestSchemaVersion": 1,
   "baselineVersion": 127,
-  "latestVersion": 150,
+  "latestVersion": 153,
   "certifiedMigrationVersions": [
     128,
     129,
@@ -27,7 +27,10 @@
     147,
     148,
     149,
-    150
+    150,
+    151,
+    152,
+    153
   ],
   "selectorMatches": [
     {
@@ -105,6 +108,18 @@
     {
       "version": 150,
       "description": "Add authenticated Blu-ray collection capture batches"
+    },
+    {
+      "version": 151,
+      "description": "Add reviewed Work and Edition identifier registry"
+    },
+    {
+      "version": 152,
+      "description": "Backfill reviewed Work and Edition identifiers"
+    },
+    {
+      "version": 153,
+      "description": "Backfill reviewed Blu-ray UPC and EAN identifiers"
     }
   ],
   "fixturePolicy": {
@@ -181,13 +196,13 @@
       {
         "id": 1,
         "user_id": 1,
-        "expires_at": "2026-12-03T06:15:25.478Z",
+        "expires_at": "2026-12-05T07:13:45.046Z",
         "storedCredentialPresent": true
       },
       {
         "id": 2,
         "user_id": 1,
-        "expires_at": "2026-12-03T06:15:25.479Z",
+        "expires_at": "2026-12-05T07:13:45.047Z",
         "storedCredentialPresent": true
       }
     ],
@@ -243,7 +258,7 @@
             "libraries:read"
           ],
           "revoked_at": null,
-          "expires_at": "2026-12-03T06:15:25.481Z",
+          "expires_at": "2026-12-05T07:13:45.050Z",
           "storedCredentialPresent": true
         }
       ],
@@ -259,7 +274,7 @@
             "/api/libraries"
           ],
           "revoked_at": null,
-          "expires_at": "2026-12-03T06:15:25.482Z",
+          "expires_at": "2026-12-05T07:13:45.050Z",
           "storedCredentialPresent": true
         }
       ]

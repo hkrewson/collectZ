@@ -32,6 +32,10 @@ _Avoid_: Provider name, endpoint URL
 The durable relation between one Provider Connection's typed external identifier and a Canonical Object or a later work, edition, or owned-copy target.
 _Avoid_: Metadata field, provider ID field
 
+**Object Identifier**:
+A reviewed, scheme-scoped identifier attached to the Work or Edition it identifies, with explicit resolution strength and Source Observation provenance. It does not require a configured Provider Connection and is distinct from raw capture evidence.
+_Avoid_: External Identity, metadata field, category ID, unreviewed source value
+
 **Identity Lifecycle Event**:
 An append-only record that an External Identity was attached, observed, deactivated, reactivated, or reassigned.
 _Avoid_: Source observation, mutable audit field

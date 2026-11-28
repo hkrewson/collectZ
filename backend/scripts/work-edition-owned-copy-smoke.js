@@ -113,10 +113,13 @@ async function main() {
         assert.strictEqual(first.ownership?.edition?.created, true);
         assert.strictEqual(first.ownership?.owned_copy?.created, true);
         assert.strictEqual(first.ownership?.observation?.created, true);
+        assert.strictEqual(first.ownership?.identifiers?.length, 6);
+        assert.ok(first.ownership.identifiers.every((identifier) => identifier.created === true));
         assert.strictEqual(replay.ownership?.work?.created, false);
         assert.strictEqual(replay.ownership?.edition?.created, false);
         assert.strictEqual(replay.ownership?.owned_copy?.created, false);
         assert.strictEqual(replay.ownership?.observation?.created, false);
+        assert.ok(replay.ownership.identifiers.every((identifier) => identifier.created === false));
 
         const counts = await client.query(
           `SELECT
@@ -124,10 +127,64 @@ async function main() {
              (SELECT COUNT(*)::int FROM collection_editions WHERE work_id = $2) AS editions,
              (SELECT COUNT(*)::int FROM owned_copies WHERE edition_id = $3) AS copies,
              (SELECT COUNT(*)::int FROM edition_source_observations WHERE edition_id = $3) AS observations,
+             (SELECT COUNT(*)::int FROM collection_object_identifiers
+               WHERE (work_id = $2 OR edition_id = $3)) AS identifiers,
              (SELECT COUNT(*)::int FROM media_variants WHERE media_id = $1 AND source = 'blu-ray.com') AS variants`,
           [media.rows[0].id, first.ownership.work.id, first.ownership.edition.id]
         );
-        assert.deepStrictEqual(counts.rows[0], { works: 1, editions: 1, copies: 1, observations: 1, variants: 1 });
+        assert.deepStrictEqual(counts.rows[0], {
+          works: 1, editions: 1, copies: 1, observations: 1, identifiers: 6, variants: 1
+        });
+        const identifierRows = await client.query(
+          `SELECT target_kind, identifier_scheme, resolution_strength
+             FROM collection_object_identifiers
+            WHERE work_id = $1 OR edition_id = $2
+            ORDER BY identifier_scheme`,
+          [first.ownership.work.id, first.ownership.edition.id]
+        );
+        assert.deepStrictEqual(identifierRows.rows, [
+          { target_kind: 'edition', identifier_scheme: 'amazon.asin', resolution_strength: 'corroborating' },
+          { target_kind: 'edition', identifier_scheme: 'bluray.content', resolution_strength: 'corroborating' },
+          { target_kind: 'edition', identifier_scheme: 'bluray.global_product', resolution_strength: 'grouping' },
+          { target_kind: 'edition', identifier_scheme: 'bluray.product', resolution_strength: 'exclusive' },
+          { target_kind: 'edition', identifier_scheme: 'gs1.upc', resolution_strength: 'corroborating' },
+          { target_kind: 'work', identifier_scheme: 'imdb.title', resolution_strength: 'exclusive' }
+        ]);
+
+        const conflictCapture = await client.query(
+          `INSERT INTO capture_items (
+             title, capture_type, object_type, source_context, library_id, space_id, created_by
+           ) VALUES ($1,'manual_note','movie',$2::jsonb,$3,$4,$5)
+           RETURNING id`,
+          ['Identifier collision smoke', JSON.stringify({ adapter: 'bluray', source: 'browser_extension' }),
+            scope.library_id, scope.space_id, scope.actor_id]
+        );
+        const conflictMedia = await client.query(
+          `INSERT INTO media (title, media_type, library_id, space_id, added_by)
+           VALUES ($1,'movie',$2,$3,$4) RETURNING id`,
+          ['Identifier collision smoke', scope.library_id, scope.space_id, scope.actor_id]
+        );
+        const conflictMapping = fixtureMapping();
+        conflictMapping.identifiers.bluray_product_id = '295839';
+        conflictMapping.variant.source_item_key = '295839';
+        conflictMapping.variant.raw_json.identifiers.bluray_product_id = '295839';
+        await client.query('SAVEPOINT identifier_collision');
+        await assert.rejects(
+          applyBrowserCaptureMapping({
+            db: client,
+            mediaId: conflictMedia.rows[0].id,
+            mapping: conflictMapping,
+            captureItemId: conflictCapture.rows[0].id,
+            actorUserId: Number(scope.actor_id)
+          }),
+          (error) => error.status === 409 && /imdb\.title/.test(error.message)
+        );
+        await client.query('ROLLBACK TO SAVEPOINT identifier_collision');
+        const rejectedWork = await client.query(
+          `SELECT COUNT(*)::int AS works FROM collection_works WHERE media_id = $1`,
+          [conflictMedia.rows[0].id]
+        );
+        assert.strictEqual(rejectedWork.rows[0].works, 0);
 
         const changed = await applyBrowserCaptureMapping({ ...args, mapping: fixtureMapping(15.99) });
         assert.strictEqual(changed.ownership?.observation?.created, true);
@@ -151,19 +208,23 @@ async function main() {
              (SELECT COUNT(*)::int FROM collection_works WHERE media_id = $1) AS works,
              (SELECT COUNT(*)::int FROM collection_editions WHERE id = $2) AS editions,
              (SELECT COUNT(*)::int FROM owned_copies WHERE edition_id = $2) AS copies,
-             (SELECT COUNT(*)::int FROM edition_source_observations WHERE edition_id = $2) AS observations`,
-          [media.rows[0].id, first.ownership.edition.id]
+             (SELECT COUNT(*)::int FROM edition_source_observations WHERE edition_id = $2) AS observations,
+             (SELECT COUNT(*)::int FROM collection_object_identifiers
+               WHERE work_id = $3 OR edition_id = $2) AS identifiers`,
+          [media.rows[0].id, first.ownership.edition.id, first.ownership.work.id]
         );
-        assert.deepStrictEqual(lifecycleCounts.rows[0], { works: 0, editions: 0, copies: 0, observations: 0 });
+        assert.deepStrictEqual(lifecycleCounts.rows[0], { works: 0, editions: 0, copies: 0, observations: 0, identifiers: 0 });
         report = {
           ok: true,
-          migration: 149,
+          migration: 153,
           compatibility_variant_count: 1,
           work_count: 1,
           edition_count: 1,
           owned_copy_count: 1,
           unchanged_replay_observation_count: 1,
           changed_evidence_observation_count: 2,
+          reviewed_identifier_count: 6,
+          exclusive_identifier_collision_rolled_back: true,
           observations_retained_after_capture_cleanup: 2,
           authorized_work_lifecycle_cleanup: true,
           sibling_library_rls_denied: true,

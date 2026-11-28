@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-11-26T06:11:43.374Z",
-  "baselineVersion": 149,
-  "latestVersion": 150,
+  "generatedAt": "2026-11-28T07:13:36.371Z",
+  "baselineVersion": 152,
+  "latestVersion": 153,
   "status": "passed",
   "databases": {
-    "legacyDb": "collectz_rehearsal_legacy_mwx5n2pt",
-    "snapshotDb": "collectz_rehearsal_snapshot_mwx5n2pt",
-    "rollbackDb": "collectz_rehearsal_rollback_mwx5n2pt",
-    "restoredDb": "collectz_rehearsal_restored_mwx5n2pt"
+    "legacyDb": "collectz_rehearsal_legacy_mx02qd0m",
+    "snapshotDb": "collectz_rehearsal_snapshot_mx02qd0m",
+    "rollbackDb": "collectz_rehearsal_rollback_mx02qd0m",
+    "restoredDb": "collectz_rehearsal_restored_mx02qd0m"
   },
   "preUpgradeCounts": {
     "users": 1,
@@ -54,7 +54,7 @@
     "feature_flags": 8
   },
   "restoreAuthority": {
-    "generatedAt": "2026-11-26T06:11:44.660Z",
+    "generatedAt": "2026-11-28T07:13:37.575Z",
     "status": "passed",
     "certificationMode": "restored_migration_built_runtime_authority",
     "authority": {
@@ -62,9 +62,9 @@
       "databaseOrigin": "restored_migration_built_snapshot",
       "sourceDatabaseOrigin": "empty_database",
       "restoreMethod": "postgresql_template_snapshot",
-      "expectedMigrationVersion": 150,
-      "appliedMigrationVersion": 150,
-      "appliedMigrationCount": 150,
+      "expectedMigrationVersion": 153,
+      "appliedMigrationVersion": 153,
+      "appliedMigrationCount": 153,
       "everyMigrationApplied": true
     },
     "runtime": {
@@ -102,14 +102,14 @@
       {
         "id": "migration_chain_reaches_expected_version",
         "pass": true,
-        "expected": 150,
-        "actual": 150
+        "expected": 153,
+        "actual": 153
       },
       {
         "id": "migration_chain_contains_every_version",
         "pass": true,
-        "expected": 150,
-        "actual": 150
+        "expected": 153,
+        "actual": 153
       },
       {
         "id": "required_bootstrap_rows_present",
@@ -129,14 +129,14 @@
     ]
   },
   "checks": {
-    "preUpgradeVersion": 149,
+    "preUpgradeVersion": 152,
     "preUpgradeInvitationState": {
       "tokenColumnPresent": false,
       "tokenHashRequired": true,
       "missingHashCount": 0,
       "plaintextValueCount": 0
     },
-    "postUpgradeVersion": 150,
+    "postUpgradeVersion": 153,
     "postUpgradeInvitationState": {
       "tokenColumnPresent": false,
       "tokenHashRequired": true,
@@ -148,7 +148,7 @@
     "eventExclusiveSourceOwnershipBackfilled": true,
     "objectRelationshipOwnershipBackfilled": true,
     "syncJobOwnershipRetained": true,
-    "rollbackVersion": 149,
+    "rollbackVersion": 152,
     "rollbackInvitationState": {
       "tokenColumnPresent": false,
       "tokenHashRequired": true,

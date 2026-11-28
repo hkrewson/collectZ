@@ -236,6 +236,64 @@
       ]
     },
     {
+      "name": "collection_object_identifiers",
+      "category": "library_owned",
+      "ownershipKey": "library_id",
+      "rationale": "Reviewed typed identifiers inherit the exact library ownership of their Work or Edition target.",
+      "sameWorkspaceForeignKeys": [
+        {
+          "column": "space_id",
+          "referencesTable": "spaces",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "library_id",
+          "referencesTable": "libraries",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "work_id",
+          "referencesTable": "collection_works",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "collection_works",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "library_id",
+          "referencesTable": "collection_works",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "edition_id",
+          "referencesTable": "collection_editions",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "space_id",
+          "referencesTable": "collection_editions",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "library_id",
+          "referencesTable": "collection_editions",
+          "expectation": "same_workspace"
+        },
+        {
+          "column": "source_observation_id",
+          "referencesTable": "edition_source_observations",
+          "expectation": "same_workspace"
+        }
+      ]
+    },
+    {
       "name": "collection_merge_history",
       "category": "library_owned",
       "ownershipKey": "collections.library_id",
