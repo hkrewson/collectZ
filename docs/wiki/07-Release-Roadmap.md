@@ -4,7 +4,48 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, the `3.29.0` through `3.29.12` reliability and provider-observation milestones, and `3.30.0` BookOrbit edition provenance are complete and hosted-certified. `3.31.0` begins the broader Work/Edition/Owned Copy program, `3.31.1` establishes authenticated collection traversal and batch receipts, `3.31.2` makes those receipts reviewable and actionable with exact-product edition enrichment, and `3.31.3` makes partial enrichment honest and recoverable.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, the `3.29.0` through `3.29.12` reliability and provider-observation milestones, and `3.30.0` BookOrbit edition provenance are complete and hosted-certified. `3.31.0` begins the broader Work/Edition/Owned Copy program, `3.31.1` establishes authenticated collection traversal and batch receipts, `3.31.2` makes those receipts reviewable and actionable with exact-product edition enrichment, `3.31.3` makes partial enrichment honest and recoverable, and `3.31.4` closes deterministic format parsing and extension-worker traversal gaps found by live collection intake.
+
+---
+
+## 3.31.4 — Deterministic Blu-ray Format Fallback and Resumable Traversal
+
+**Goal:** Enrich valid product pages whose edition labels omit the media format, avoid retrying deterministic parser misses, and resume collection traversal reliably across browser extension worker suspension.
+**Status:** Complete locally; hosted certification awaits an authorized push.
+
+### Selected scope
+
+- Infer media format from the edition label when available, otherwise from the exact product release title, then from the collection-row format as a bounded final fallback.
+- Distinguish deterministic missing-format/parser failures from transient HTTP, network, authentication, and challenge failures.
+- Replace detached multi-page background traversal with persisted one-page steps scheduled through browser alarms.
+- Recover a persisted `collecting` traversal after extension worker startup or extension update without duplicating submitted pages.
+- Version CollectZ `3.31.4` with browser companion `0.3.2`.
+
+### Acceptance criteria
+
+- A valid product page with `h1` ending in `Blu-ray` and an edition-only subheading such as `Triple Feature`, `Remastered`, `DigiPack`, or `Æon Flux` enriches successfully.
+- A missing parsed format uses the already bounded collection-row format before the item is rejected.
+- Deterministic parser failures do not consume transient retry delays.
+- Each completed collection page persists progress before scheduling the next page, and an active persisted traversal is rescheduled when the extension worker starts.
+- Duplicate-safe batch submission remains unchanged and a resumed traversal cannot create duplicate review rows.
+
+### Milestone boundary
+
+This slice repairs the existing manually initiated Blu-ray collection workflow. It does not add scheduled provider crawling, provider-session custody, automatic import, or non-owned status mapping.
+
+### 3.31.4 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.31.4 — Deterministic Blu-ray Format Fallback and Resumable Traversal` is complete locally.
+- **Project docs/checklists used:** `AGENTS.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/54-Work-Edition-Owned-Copy-Contract.md`; `docs/releases/v3.31.4.md`; browser companion `README.md`; browser companion `docs/capture-contract.md`; browser companion `docs/collectz-compatibility.md`.
+- **Verified facts:** browser companion `0.3.2` falls back from edition label to exact-product release title and then the bounded collection-row format, does not retry deterministic parser misses, and advances a persisted traversal one page per browser alarm. Startup and extension update reschedule active work; a temporarily unavailable updated content script keeps the traversal collecting until the open provider tab is reloaded; duplicate-safe page delivery remains intact.
+- **Inference:** the fourteen repeated live failures were deterministic format-parser misses because the exact product pages exposed Blu-ray in the release title while the edition subheadings contained labels such as `Triple Feature`, `Remastered`, `DigiPack`, or `Æon Flux`; the old traversal stopped after page one because its detached Manifest V3 worker task had no persisted wake-up.
+- **Runtime verification used:** rebuilt and recreated the canonical `collectz-private` stack in place on port `3201`; verified healthy backend/frontend containers and `/api/health` application/frontend/backend/build `3.31.4`; verified Help > Releases serves `3.31.4`; ran the retained Platform edition boundary and live duplicate-safe Blu-ray batch smoke through migration `150`. The existing user batch and its review evidence were left intact for companion recovery.
+- **CI/checks run:** browser companion unit (`28`), typecheck, Chrome build, Firefox build, and diff checks; backend unit (`391` source assertions and `57` maintained Node tests); frontend unit (`10`); OpenAPI; changed-file ESLint/Prettier; frontend production build; Core RBAC; Blu-ray batch smoke; maintained browser regression (`57` passed, `6` edition-expected skips); Platform browser boundary (`8` passed, `2` expected skips); retained Platform runtime boundary; zero-finding backend/frontend production dependency audits; version/release-feed sync; Help > Releases readback; canonical health; and diff hygiene. The standard local release gate passed every feature, unit, contract, build, audit, and diff step, then reported NO-GO at its nested preflight because the observability artifact is stale.
+- **Blocked/unverified:** a fresh migration-chain authority run is blocked inside the retained backend because its intentionally non-owner runtime account cannot create the scratch database; the existing artifacts remain aligned through unchanged migration `150`, while hosted `migration-check` must rerun after push. The preflight Compose helper assumes host resolution of Compose-only hostname `frontend`; direct host and in-stack health checks passed. Refreshing observability evidence would create separate logging/monitoring stacks and volumes, which repository policy forbids without explicit authorization. Core runtime certification requires a fresh Core stack and remains hosted-only. Local gitleaks, CodeQL, Trivy, image scanning, and SBOM generation were unavailable, so hosted CI must rerun `compose-smoke`, `migration-check`, `rbac-regression`, `browser-regression`, Core `runtime-smoke`, `dependency-scan`, `secret-scan`, `image-security-and-sbom`, release preflight, publication, and tag gates.
+- **Files changed:** CollectZ `3.31.4` manifests/lockfiles, release note/feed, roadmap/backlog, Work/Edition/Owned Copy contract, and local preflight report; browser companion `0.3.2` format parsing/fallback, retry classification, alarm-backed traversal/recovery, permissions, tests, manifests, compatibility docs, and Chrome/Firefox builds.
+- **Risks or follow-ups:** the user must reload browser companion `0.3.2` and reload the open Blu-ray.com collection tab so the updated content script can resume the existing batch. Blu-ray.com markup and challenge behavior remain external dependencies; persistent challenges still require user action.
+- **What remains in the milestone:** no local implementation remains. Hosted certification and publication require an authorized push; the current collection batch should then resume and its remaining failed editions can be retried in place.
+- **Recommended commit message:** `release: ship v3.31.4 deterministic Blu-ray enrichment and resumable traversal`.
 
 ---
 

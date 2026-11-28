@@ -1,6 +1,26 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.31.4",
+      "version": "3.31.4",
+      "date": "2026-11-27",
+      "status": null,
+      "summary": "Repairs two live collection-intake failures found after the resilient enrichment release. Browser companion `0.3.2` now recognizes valid Blu-ray product pages whose edition label omits the format, and advances multi-page collection traversal through persisted browser alarms so extension-worker suspension cannot strand a batch after page one.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Falls back from an edition-only subheading to the exact-product release title when determining media format.",
+            "Uses the already bounded collection-row format as a final fallback when product-page format parsing remains unresolved.",
+            "Treats deterministic parser misses as non-transient instead of repeating the same parse three times.",
+            "Retains bounded retry only for provider challenges, network failures, throttling, forbidden responses, and server failures.",
+            "Saves each page before scheduling the next traversal alarm and reschedules persisted collection work after browser startup or extension update.",
+            "Preserves duplicate-safe batch page delivery if a worker stops after server delivery but before local progress is saved."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.31.3",
       "version": "3.31.3",
       "date": "2026-11-26",
@@ -176,26 +196,6 @@
             "Adds an operator-facing preview in Library Provider history with eligible and blocked counts.",
             "Keeps the contract strictly read-only with `mutationEnabled: false`; no metadata, authority, provider identity, or review state is changed.",
             "Keeps each import deduplication advisory lock on one database session so concurrent provider/scheduler work cannot strand a lock in the connection pool."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.29.8",
-      "version": "3.29.8",
-      "date": "2026-11-23",
-      "status": null,
-      "summary": "Adds durable, non-mutating review decisions for individual BookOrbit and Kavita metadata differences, so provider evidence can be approved, rejected, or deferred before any future apply policy exists.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added an append-only, exact-library-scoped review ledger tied to the canonical media record and immutable provider observation.",
-            "Binds each decision to server-computed observation and current-value fingerprints so changed canonical data makes an earlier decision visibly outdated.",
-            "Adds approve, reject, and seven-day defer actions to Library Provider history.",
-            "Returns only the latest safe review projection; internal actor and ownership identifiers remain private.",
-            "Rejects attempts to review unsupported, matching, absent, or no-longer-current differences.",
-            "Extended OpenAPI, migration inventory, provider contract, unit/source checks, and the BookOrbit runtime smoke."
           ]
         }
       ]

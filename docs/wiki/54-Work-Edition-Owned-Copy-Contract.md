@@ -36,9 +36,11 @@ CollectZ must distinguish a creative title from a market release and from the ph
 8. Batch review defaults to review-required items while retaining a full-set view and exposes edition identity, format, label, identifiers, release facts, technical details, source links, and provenance before apply.
 9. Apply processes included rows independently through the reviewed single-title path. A successful row remains committed when another row fails, and the failed row remains retryable with its review evidence.
 10. Traversal completion and detail-enrichment completion are distinct. A batch with any failed detail evidence is `ready_with_issues` even when every collection page was received.
-11. Provider challenge, throttling, transport, identity, and incomplete-evidence failures retain distinct bounded reasons. Raw provider HTML and session material are never stored.
-12. A failed-only retry reuses the same batch and provider item keys, updates only resubmitted failed evidence, and preserves converted or reviewer-controlled decisions.
-10. Batch child captures stay grouped under the batch receipt and do not appear as duplicate rows in the ordinary Capture Inbox list.
+11. Edition labels are not assumed to contain media format. Exact-product format parsing falls back from the edition label to the release title and then to the bounded collection-row format; deterministic parser misses do not consume transient retries.
+12. Collection traversal is a persisted sequence of duplicate-safe page deliveries. The browser companion schedules each next page through a browser alarm so extension-worker suspension or update can resume the active batch without duplicating review rows.
+13. Provider challenge, throttling, transport, identity, and incomplete-evidence failures retain distinct bounded reasons. Raw provider HTML and session material are never stored.
+14. A failed-only retry reuses the same batch and provider item keys, updates only resubmitted failed evidence, and preserves converted or reviewer-controlled decisions.
+15. Batch child captures stay grouped under the batch receipt and do not appear as duplicate rows in the ordinary Capture Inbox list.
 
 ## Review and compatibility behavior
 
