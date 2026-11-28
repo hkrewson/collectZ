@@ -63,7 +63,7 @@ test.describe('import browser regressions', () => {
       id: batchId,
       source_provider: 'blu-ray.com',
       source_url: 'https://www.blu-ray.com/community/collection.php',
-      status: 'ready',
+      status: 'collecting',
       review_status: 'ready_with_issues',
       current_page: 2,
       total_pages: 2,
@@ -173,6 +173,11 @@ test.describe('import browser regressions', () => {
     await expect(page.getByRole('button', { name: 'Include', exact: true })).toBeEnabled();
     await expect(page.getByRole('button', { name: 'Apply included editions' })).toBeDisabled();
     await page.getByRole('button', { name: 'Include', exact: true }).click();
+    await expect(page.getByText('Wait for collection traversal to finish before applying.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Apply included editions' })).toBeDisabled();
+    batch.status = 'ready';
+    batch.current_page = 2;
+    await page.getByRole('button', { name: 'Refresh', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Apply included editions' })).toBeEnabled();
     const evidenceDir = process.env.COLLECTZ_UI_EVIDENCE_DIR;
     if (evidenceDir) {

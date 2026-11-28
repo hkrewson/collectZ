@@ -41,6 +41,7 @@ CollectZ must distinguish a creative title from a market release and from the ph
 13. Provider challenge, throttling, transport, identity, and incomplete-evidence failures retain distinct bounded reasons. Raw provider HTML and session material are never stored.
 14. A failed-only retry reuses the same batch and provider item keys, updates only resubmitted failed evidence, and preserves converted or reviewer-controlled decisions.
 15. Batch child captures stay grouped under the batch receipt and do not appear as duplicate rows in the ordinary Capture Inbox list.
+16. Apply is permitted only after traversal reaches `ready`. Applying a reviewed subset commits those rows independently but keeps the batch `ready` and visible while pending decisions or failed enrichment remain; terminal completion means the review work is actually exhausted.
 
 ## Review and compatibility behavior
 

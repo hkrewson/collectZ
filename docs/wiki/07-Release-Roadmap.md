@@ -4,7 +4,48 @@ This roadmap converts product direction into implementation milestones with acce
 
 Deferred or unscheduled work lives in [08-Backlog.md](08-Backlog.md); this file stays focused on numbered milestones and the work that has already been selected for release planning.
 
-The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, the `3.29.0` through `3.29.12` reliability and provider-observation milestones, and `3.30.0` BookOrbit edition provenance are complete and hosted-certified. `3.31.0` begins the broader Work/Edition/Owned Copy program, `3.31.1` establishes authenticated collection traversal and batch receipts, `3.31.2` makes those receipts reviewable and actionable with exact-product edition enrichment, `3.31.3` makes partial enrichment honest and recoverable, and `3.31.4` closes deterministic format parsing and extension-worker traversal gaps found by live collection intake.
+The `3.27.x` architecture line, the `3.28.x` provider-job, BookOrbit metadata, and staged row-level security milestones, the `3.29.0` through `3.29.12` reliability and provider-observation milestones, and `3.30.0` BookOrbit edition provenance are complete and hosted-certified. `3.31.0` begins the broader Work/Edition/Owned Copy program, `3.31.1` establishes authenticated collection traversal and batch receipts, `3.31.2` makes those receipts reviewable and actionable with exact-product edition enrichment, `3.31.3` makes partial enrichment honest and recoverable, `3.31.4` closes deterministic format parsing and extension-worker traversal gaps found by live collection intake, and `3.31.5` keeps traversal and incremental review lifecycle boundaries honest.
+
+---
+
+## 3.31.5 — Safe Partial Batch Apply
+
+**Goal:** Prevent a collection batch from being applied before traversal is ready and preserve every unapplied review item after a partial apply.
+**Status:** Complete locally; hosted certification awaits an authorized push.
+
+### Selected scope
+
+- Reject batch apply unless traversal status is `ready`.
+- Keep a partially applied batch `ready` and visible while reviewable, failed-enrichment, or failed-apply rows remain.
+- Mark a batch complete only when its review work is actually exhausted.
+- Disable the review drawer Apply action during collecting, paused, applying, or terminal states and explain why.
+- Version CollectZ `3.31.5`; browser companion `0.3.2` remains compatible and unchanged.
+
+### Acceptance criteria
+
+- Applying a `collecting` or `paused` batch returns a conflict and performs no canonical or batch-status mutation.
+- Applying three included rows does not hide the remaining unconverted review rows.
+- A partial apply refreshes the same batch as `ready`, retains prior successful conversions, and keeps remaining decisions actionable.
+- A batch becomes `completed` only after no pending review or failed enrichment remains; failed apply results remain visible as `completed_with_errors`.
+- Active batch listing, drawer controls, backend smoke coverage, canonical runtime, version/release artifacts, and relevant release gates agree.
+
+### Milestone boundary
+
+This slice changes batch review lifecycle only. It does not alter extension traversal, enrichment evidence, provider parsing, automatic selection, or canonical Work/Edition/Owned Copy mapping.
+
+### 3.31.5 implementation and version closeout checkpoint
+
+- **Roadmap slice:** `3.31.5 — Safe Partial Batch Apply` is complete locally.
+- **Project docs/checklists used:** `AGENTS.md`; `GLOSSARY.md`; `docs/adr/0001-canonical-object-and-provider-identity.md`; `docs/wiki/07-Release-Roadmap.md`; `docs/wiki/08-Backlog.md`; `docs/wiki/10-CI-CD-and-Registry-Deploy.md`; `docs/wiki/17-Release-Go-No-Go-Checklist.md`; `docs/wiki/54-Work-Edition-Owned-Copy-Contract.md`; `docs/releases/v3.31.5.md`.
+- **Verified facts:** the live API previously accepted Apply on a `collecting` batch and unconditionally set the whole batch `completed`, while the active list intentionally excludes completed receipts. CollectZ now rejects early Apply without mutation, disables the drawer action until traversal is ready, keeps a partial apply `ready` while review or enrichment work remains, and preserves successful conversions across subsequent applies.
+- **Inference:** none remains for the reported loss-of-review symptom; the production-shaped regression reproduced the exact state transition before the fix and passed after it.
+- **Runtime verification used:** rebuilt and recreated the canonical `collectz-private` stack in place on port `3201`; verified healthy application/frontend/backend/build `3.31.5`, Help > Releases `3.31.5`, migration `150`, live early-apply rejection, partial apply retention, final completion, duplicate-safe delivery, Work/Edition/Owned Copy apply, Core RBAC, and the retained Platform runtime boundary. Restored the complete live batch to `ready` with `103` receipts, `1` prior applied row, and `102` remaining rows; the incomplete one-page duplicate stayed historical.
+- **CI/checks run:** focused batch smoke; targeted Capture Inbox browser regression (`3/3` including setup); backend unit (`391` source assertions plus `57` maintained Node tests); frontend unit (`10`); OpenAPI; changed-file ESLint/Prettier; frontend production build; Core RBAC; maintained Core browser regression (`57` passed, `6` expected skips) after two unrelated one-off search/drawer timeouts each passed on immediate focused rerun; Platform browser boundary (`8` passed, `2` expected skips); retained Platform runtime boundary; zero-finding backend/frontend production dependency audits; version/release-feed sync; Help > Releases readback; canonical health; and diff hygiene. The standard local release gate passed its feature, version, unit, contract, build, audit, and diff checks, then reported NO-GO at nested preflight because observability evidence is stale.
+- **Blocked/unverified:** no migration changed; existing migration/init, identity, runtime-role, external-identity, and control-plane artifacts remain aligned through migration `150`, while hosted `migration-check` must rerun after push. The preflight Compose helper assumes host resolution of Compose-only hostname `frontend`; direct host and in-stack health checks passed. Refreshing observability evidence would create separate logging/monitoring stacks and volumes, which repository policy forbids without explicit authorization. Core runtime certification requires a fresh Core stack and remains hosted-only. Local gitleaks, CodeQL, Trivy, image scanning, and SBOM generation were unavailable, so hosted CI must rerun `compose-smoke`, `migration-check`, `rbac-regression`, `browser-regression`, Core `runtime-smoke`, `dependency-scan`, `secret-scan`, `image-security-and-sbom`, release preflight, publication, and tag gates.
+- **Files changed:** batch Apply lifecycle guard and state derivation, production-shaped batch smoke, Capture Inbox readiness control and browser regression, CollectZ `3.31.5` manifests/lockfiles, release note/feed, roadmap/backlog, Work/Edition/Owned Copy contract, and local preflight report.
+- **Risks or follow-ups:** the restored full batch contains rows whose provider editions may already have been imported through the later duplicate batch; the existing exact-edition identity path is expected to reuse them rather than create duplicates, but the staged classification predates those later imports. The incomplete duplicate remains historical to avoid presenting page one as a complete traversal.
+- **What remains in the milestone:** no local implementation remains. Hosted certification and publication require an authorized push.
+- **Recommended commit message:** `release: ship v3.31.5 safe partial Blu-ray batch apply`.
 
 ---
 

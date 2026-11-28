@@ -85,7 +85,7 @@ async function main() {
     const pageBody = {
       page: 1,
       total_pages: 1,
-      expected_item_count: 2,
+      expected_item_count: 3,
       items: [
         {
           item_key: `owned-${context.suffix}`,
@@ -118,6 +118,28 @@ async function main() {
           }
         },
         {
+          item_key: `owned-pending-${context.suffix}`,
+          product_id: `owned-pending-${context.suffix}`,
+          title: `Batch Owned Pending ${context.suffix}`,
+          release_title: `Batch Owned Pending ${context.suffix} Blu-ray`,
+          url: `https://www.blu-ray.com/movies/Batch-Owned-Pending/${Date.now() + 1}/`,
+          status: 'Owned',
+          ownership_basis: 'collection_page',
+          format: 'Blu-ray',
+          year: 2025,
+          page: 1,
+          position: 2,
+          enrichment_status: 'enriched',
+          extension_version: '0.3.2',
+          identifiers: { upc: '012345678912', imdb_id: 'tt1234568' },
+          page_metadata: {
+            release_title: `Batch Owned Pending ${context.suffix} Blu-ray`,
+            media_format: 'Blu-ray',
+            country: 'United States',
+            release_details: { year: '2025' }
+          }
+        },
+        {
           item_key: `unknown-${context.suffix}`,
           product_id: `unknown-${context.suffix}`,
           title: `Batch Unknown ${context.suffix}`,
@@ -126,7 +148,7 @@ async function main() {
           format: 'Blu-ray',
           year: 2025,
           page: 1,
-          position: 2,
+          position: 3,
           enrichment_status: 'failed',
           enrichment_error: 'detail_http_429'
         }
@@ -134,18 +156,28 @@ async function main() {
     };
     await request(`/api/capture-batches/${batchId}/items`, context.token, { method: 'POST', statuses: [201], body: pageBody });
     await request(`/api/capture-batches/${batchId}/items`, context.token, { method: 'POST', statuses: [201], body: pageBody });
+    const collectingDetail = await request(`/api/capture-batches/${batchId}`, context.token);
+    const ownedItem = collectingDetail.items.find((item) => item.item_key === `owned-${context.suffix}`);
+    const remainingOwnedItem = collectingDetail.items.find((item) => item.item_key === `owned-pending-${context.suffix}`);
+    await request(`/api/capture-batches/${batchId}/items/${ownedItem.id}`, context.token, {
+      method: 'PATCH',
+      body: { decision: 'include' }
+    });
+    await request(`/api/capture-batches/${batchId}/apply`, context.token, { method: 'POST', statuses: [409] });
+    const stillCollecting = await request(`/api/capture-batches/${batchId}`, context.token);
+    assert.strictEqual(stillCollecting.batch.status, 'collecting', 'rejected early apply must not change batch status');
+    assert.strictEqual(stillCollecting.items.filter((item) => item.status === 'converted').length, 0, 'rejected early apply must not import rows');
     await request(`/api/capture-batches/${batchId}/progress`, context.token, {
       method: 'PATCH',
-      body: { status: 'ready', current_page: 1, total_pages: 1, expected_item_count: 2 }
+      body: { status: 'ready', current_page: 1, total_pages: 1, expected_item_count: 3 }
     });
 
     const detail = await request(`/api/capture-batches/${batchId}`, context.token);
-    assert.strictEqual(detail.items.length, 2, 'duplicate page delivery must not duplicate review rows');
+    assert.strictEqual(detail.items.length, 3, 'duplicate page delivery must not duplicate review rows');
     assert.strictEqual(detail.batch.review_status, 'ready_with_issues');
-    assert.strictEqual(detail.batch.enriched_item_count, 1);
+    assert.strictEqual(detail.batch.enriched_item_count, 2);
     assert.strictEqual(detail.batch.enrichment_failed_item_count, 1);
-    const ownedItem = detail.items.find((item) => item.source_status === 'Owned');
-    assert.strictEqual(ownedItem.decision, 'pending');
+    assert.strictEqual(detail.items.find((item) => item.id === ownedItem.id).decision, 'include');
     assert.strictEqual(ownedItem.source_context.enrichment_status, 'enriched');
     assert.strictEqual(ownedItem.source_context.identifiers.upc, '012345678905');
     assert.strictEqual(ownedItem.source_context.page_metadata.edition, 'SteelBook');
@@ -153,7 +185,7 @@ async function main() {
     assert.strictEqual(detail.items.find((item) => item.source_status === null).decision, 'skip');
 
     const retryItem = {
-      ...pageBody.items[1],
+      ...pageBody.items[2],
       enrichment_status: 'enriched',
       enrichment_error: null,
       page_metadata: {
@@ -169,24 +201,33 @@ async function main() {
     });
     const retriedDetail = await request(`/api/capture-batches/${batchId}`, context.token);
     assert.strictEqual(retriedDetail.batch.review_status, 'ready');
-    assert.strictEqual(retriedDetail.batch.enriched_item_count, 2);
+    assert.strictEqual(retriedDetail.batch.enriched_item_count, 3);
     assert.strictEqual(retriedDetail.batch.enrichment_failed_item_count, 0);
     assert.strictEqual(retriedDetail.items.find((item) => item.source_status === null).decision, 'skip');
     const ordinary = await request('/api/capture-items?status=all', context.token);
     assert.strictEqual(ordinary.items.length, 0, 'batch children must stay out of the ordinary Capture Inbox list');
 
-    await request(`/api/capture-batches/${batchId}/apply`, context.token, { method: 'POST', statuses: [409] });
-    await request(`/api/capture-batches/${batchId}/items/${ownedItem.id}`, context.token, {
-      method: 'PATCH',
-      body: { decision: 'include' }
-    });
     const applied = await request(`/api/capture-batches/${batchId}/apply`, context.token, { method: 'POST' });
     assert.strictEqual(applied.ok, true);
     assert.strictEqual(applied.results.length, 1);
     assert.strictEqual(applied.results[0].ok, true);
+    const partialDetail = await request(`/api/capture-batches/${batchId}`, context.token);
+    assert.strictEqual(partialDetail.batch.status, 'ready', 'partial apply must keep the batch active');
+    assert.strictEqual(partialDetail.batch.applied_item_count, 1);
+    assert.strictEqual(partialDetail.items.find((item) => item.id === ownedItem.id).status, 'converted');
+    assert.strictEqual(partialDetail.items.find((item) => item.id === remainingOwnedItem.id).decision, 'pending');
+    const activeBatches = await request('/api/capture-batches?status=active', context.token);
+    assert(activeBatches.batches.some((batch) => batch.id === batchId), 'partial batch must remain in the active inbox');
+
+    await request(`/api/capture-batches/${batchId}/items/${remainingOwnedItem.id}`, context.token, {
+      method: 'PATCH',
+      body: { decision: 'include' }
+    });
+    const finalApply = await request(`/api/capture-batches/${batchId}/apply`, context.token, { method: 'POST' });
+    assert.strictEqual(finalApply.ok, true);
     const finalDetail = await request(`/api/capture-batches/${batchId}`, context.token);
     assert.strictEqual(finalDetail.batch.status, 'completed');
-    assert.strictEqual(finalDetail.batch.applied_item_count, 1);
+    assert.strictEqual(finalDetail.batch.applied_item_count, 2);
     assert.strictEqual(finalDetail.items.find((item) => item.source_status === 'Owned').status, 'converted');
 
     const ownership = await withAuthorizedScopeTransaction(
@@ -201,7 +242,7 @@ async function main() {
               (SELECT COUNT(*)::int FROM edition_source_observations) AS observations`
         )
     );
-    assert.deepStrictEqual(ownership.rows[0], { works: 1, editions: 1, copies: 1, observations: 1 });
+    assert.deepStrictEqual(ownership.rows[0], { works: 2, editions: 2, copies: 2, observations: 2 });
     console.log(
       JSON.stringify(
         {

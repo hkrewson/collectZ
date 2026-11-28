@@ -136,6 +136,8 @@ function BatchReviewDrawer({ detail, loading, working, onClose, onDecision, onAp
   const evidence = batchEditionEvidence(item || {});
   const batch = detail?.batch;
   const summary = captureBatchSummary(batch);
+  const traversalReady = ['ready', 'completed_with_errors'].includes(batch?.status);
+  const hasIncludedItems = allItems.some((entry) => entry.decision === 'include' && entry.status !== 'converted');
   return (
     <DetailDrawerShell onClose={onClose} panelClassName="max-w-2xl" testId="capture-batch-review-drawer">
       <div className="flex h-full flex-col">
@@ -400,13 +402,15 @@ function BatchReviewDrawer({ detail, loading, working, onClose, onDecision, onAp
             Refresh
           </button>
           <div className="text-right">
-            {!allItems.some((entry) => entry.decision === 'include' && entry.status !== 'converted') ? (
+            {!traversalReady ? (
+              <p className="mb-1 text-[11px] text-ghost">Wait for collection traversal to finish before applying.</p>
+            ) : !hasIncludedItems ? (
               <p className="mb-1 text-[11px] text-ghost">Review an edition and choose Include first.</p>
             ) : null}
             <button
               type="button"
               className="btn-primary btn-sm"
-              disabled={working || !allItems.some((entry) => entry.decision === 'include' && entry.status !== 'converted')}
+              disabled={working || !traversalReady || !hasIncludedItems}
               onClick={onApply}
             >
               {working ? 'Applying…' : 'Apply included editions'}

@@ -571,6 +571,8 @@ router.post(
     if (!isUuid(req.params.id)) return res.status(404).json({ error: 'Capture batch not found.' });
     const batch = await findBatch(req, req.params.id, scope);
     if (!batch) return res.status(404).json({ error: 'Capture batch not found.' });
+    if (!['ready', 'completed_with_errors'].includes(batch.status))
+      return res.status(409).json({ error: 'Wait for collection traversal to finish before applying included editions.' });
     const pending = await scopedQuery(
       req,
       scope,
@@ -624,24 +626,40 @@ router.post(
         results.push({ item_id: row.id, ok: false, error: clean(error.message, 500), product_id: mappingProductId });
       }
     }
-    const appliedCount = await scopedQuery(
+    const outcomeCounts = await scopedQuery(
       req,
       scope,
-      `SELECT COUNT(*)::int AS count FROM capture_items WHERE capture_batch_id = $1 AND status = 'converted'`,
+      `SELECT COUNT(*) FILTER (WHERE status = 'converted')::int AS applied_count,
+              COUNT(*) FILTER (
+                WHERE status <> 'converted'
+                  AND review_decision->'batch_review'->>'decision' IS DISTINCT FROM 'skip'
+              )::int AS remaining_review_count,
+              COUNT(*) FILTER (WHERE source_context->>'enrichment_status' = 'failed')::int AS enrichment_failed_count
+         FROM capture_items
+        WHERE capture_batch_id = $1`,
       [batch.id]
     );
     const failedCount = results.filter((entry) => !entry.ok).length;
+    const counts = outcomeCounts.rows[0];
+    const finalStatus = failedCount
+      ? 'completed_with_errors'
+      : counts.remaining_review_count > 0 || counts.enrichment_failed_count > 0
+        ? 'ready'
+        : 'completed';
     const updated = await scopedQuery(
       req,
       scope,
-      `UPDATE capture_batches SET status = $2, applied_item_count = $3, failed_item_count = $4,
-       completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`,
-      [batch.id, failedCount ? 'completed_with_errors' : 'completed', appliedCount.rows[0].count, failedCount]
+      `UPDATE capture_batches SET status = $2::varchar, applied_item_count = $3, failed_item_count = $4,
+       completed_at = CASE WHEN $2::text IN ('completed', 'completed_with_errors') THEN CURRENT_TIMESTAMP ELSE NULL END,
+       updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`,
+      [batch.id, finalStatus, counts.applied_count, failedCount]
     );
     await logActivity(req, 'capture_batch.apply', 'capture_batch', null, {
       batchId: batch.id,
-      applied: appliedCount.rows[0].count,
+      applied: counts.applied_count,
       failed: failedCount,
+      remainingReview: counts.remaining_review_count,
+      enrichmentFailed: counts.enrichment_failed_count,
       spaceId: scope.spaceId,
       libraryId: scope.libraryId
     });

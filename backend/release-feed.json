@@ -1,6 +1,25 @@
 {
   "releases": [
     {
+      "title": "collectZ v3.31.5",
+      "version": "3.31.5",
+      "date": "2026-11-27",
+      "status": null,
+      "summary": "Prevents review actions from closing an incomplete Blu-ray collection traversal and keeps unapplied editions visible after an incremental apply.",
+      "details": [
+        {
+          "heading": "Highlights",
+          "bullets": [
+            "Rejects Apply while collection traversal is collecting or paused.",
+            "Disables Apply in the review drawer until the batch is ready and explains the wait.",
+            "Recomputes lifecycle state after each apply from converted rows, remaining review decisions, enrichment failures, and apply failures.",
+            "Keeps a partially applied batch ready and visible with successful conversions preserved.",
+            "Marks the batch completed only after no pending review or failed enrichment remains."
+          ]
+        }
+      ]
+    },
+    {
       "title": "collectZ v3.31.4",
       "version": "3.31.4",
       "date": "2026-11-27",
@@ -175,27 +194,6 @@
             "Added Provider history confirmation, loading, blocker, success, and applied-history states.",
             "Surfaces selected metadata-provider ids, observed series memberships, and cover provenance alongside reviewable canonical differences.",
             "Keeps provider writeback, automatic refresh, cover application, identity rematching, and provider selection out of scope."
-          ]
-        }
-      ]
-    },
-    {
-      "title": "collectZ v3.29.9",
-      "version": "3.29.9",
-      "date": "2026-11-24",
-      "status": null,
-      "summary": "Adds a read-only preview of approved BookOrbit and Kavita metadata differences, showing which fields are currently eligible for a future update and why other fields remain blocked.",
-      "details": [
-        {
-          "heading": "Highlights",
-          "bullets": [
-            "Added a targeted workspace-authorized preview for one immutable provider observation attached to the current media record.",
-            "Recomputes the current comparison, latest review fingerprints, and field locks at request time.",
-            "Marks only current approved and unlocked differences eligible.",
-            "Reports explicit blockers for unreviewed, outdated, rejected, deferred, otherwise unapproved, and locked fields.",
-            "Adds an operator-facing preview in Library Provider history with eligible and blocked counts.",
-            "Keeps the contract strictly read-only with `mutationEnabled: false`; no metadata, authority, provider identity, or review state is changed.",
-            "Keeps each import deduplication advisory lock on one database session so concurrent provider/scheduler work cannot strand a lock in the connection pool."
           ]
         }
       ]
